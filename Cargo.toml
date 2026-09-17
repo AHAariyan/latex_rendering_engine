@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/mathcore", "crates/mathraster", "crates/mathcli", "crates/mathffi"]
+members = ["crates/mathcore", "crates/mathraster", "crates/mathcli", "crates/mathffi", "crates/mathjni"]
 
 [workspace.package]
 version = "0.1.0"

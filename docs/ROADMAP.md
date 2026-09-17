@@ -30,7 +30,8 @@ CLI, golden-image tests, CI.
 
 - [x] C ABI (`mathffi` crate): `render(tex, opts) -> DisplayList` with a flat,
       FFI-friendly encoding; glyph outlines on demand for backends without the font.
-- [ ] Android: UniFFI Kotlin bindings + `Canvas`/Compose renderer + AAR on Maven.
+- [x] Android: JNI bridge (`crates/mathjni`) + `MathEngine`/`MathView`/`MathText` in
+      `platforms/android/mathview`, demo app. AAR publishing to Maven still open.
 - [ ] iOS: UniFFI Swift bindings + Core Text renderer + SwiftPM package.
 - [ ] Flutter: `dart:ffi` + `CustomPainter` renderer + pub.dev package.
 - [ ] React Native: Nitro/JSI module reusing the native renderers.

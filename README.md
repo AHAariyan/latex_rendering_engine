@@ -41,8 +41,11 @@ Working today:
   array, glyph outlines as a command stream. This is what the Kotlin, Swift,
   Dart and JS bindings will wrap.
 
+- Android: `platforms/android/mathview` with a Compose `MathText`, a classic
+  `MathView`, and `MathEngine` for custom drawing. See `platforms/android/README.md`.
+
 Not yet: line breaking, `mhchem`, accessibility output, real text shaping in
-`\text{}`, and the mobile bindings themselves. See `docs/ROADMAP.md`.
+`\text{}`, and the iOS, Flutter, React Native and web bindings. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -75,6 +78,9 @@ for item in &list.items {
 | `crates/mathraster` | tiny-skia raster backend and SVG writer. Reference implementation for platform backends. |
 | `crates/mathcli` | Command line renderer. |
 | `crates/mathffi` | C ABI (`cdylib` + `staticlib`) and `include/mathcore.h`. |
+| `crates/mathjni` | JNI bridge for Android (`libmathcore_android.so`). |
+| `platforms/android` | `mathview` Android library (Kotlin: `MathEngine`, `MathView`, Compose `MathText`) and demo app. |
+| `scripts/build-android.sh` | Cross-compiles the JNI library for arm64, armv7 and x86_64. |
 | `assets/fonts` | Latin Modern Math (GUST Font License). |
 | `tests/golden` | Golden images for the regression corpus. |
 | `docs/` | Architecture and roadmap. |

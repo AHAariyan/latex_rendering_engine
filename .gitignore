@@ -2,3 +2,10 @@
 **/*.rs.bk
 /tests/golden/actual/
 .DS_Store
+# Android
+platforms/android/.gradle/
+platforms/android/build/
+platforms/android/*/build/
+platforms/android/local.properties
+platforms/android/.kotlin/
+platforms/android/mathview/src/main/jniLibs/
