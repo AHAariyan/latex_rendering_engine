@@ -100,6 +100,42 @@ const CORPUS: &[(&str, &str, bool)] = &[
         r"\left( \begin{smallmatrix} a & b \\ c & d \end{smallmatrix} \right)",
         false,
     ),
+    (
+        "boxed_cancel",
+        r"\boxed{E = mc^2} \quad \cancel{x} + \bcancel{y} + \xcancel{z}",
+        true,
+    ),
+    ("braces", r"\underbrace{a + b + \cdots + z}_{26} \quad \overbrace{1 + 2}^{3}", true),
+    (
+        "xarrows",
+        r"A \xrightarrow{f \circ g} B \xleftarrow[\text{under}]{} C \xLeftrightarrow{\sim} D",
+        true,
+    ),
+    ("middle", r"\left\{ \frac{x}{2} \middle| x \in \mathbb{Z} \right\}", true),
+    ("substack", r"\sum_{\substack{i < n \\ j < m}} a_{ij}", true),
+    (
+        "mod_choose",
+        r"a \equiv b \pmod{n}, \quad a \bmod b, \quad {n \choose k}, \quad {a \over b + c}",
+        true,
+    ),
+    ("genfrac", r"\genfrac(]{0pt}{0}{a}{b} \quad \genfrac{}{}{1pt}{}{x}{y}", true),
+    (
+        "array_rules",
+        r"\begin{array}{|c|r|} \hline 1 & 22 \\[4pt] \hline 333 & 4 \\ \hline \end{array}",
+        true,
+    ),
+    ("colors", r"\textcolor{red}{x} + \color{blue} y = \textcolor{#0a0}{z}", true),
+    (
+        "macros",
+        r"\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}} \pd{f}{x} + \pd{f}{y}",
+        true,
+    ),
+    (
+        "mathop_class",
+        r"\mathop{\mathrm{argmin}}\limits_{x} f(x), \quad a \mathrel{R} b, \quad a \mathbin{\ast} b",
+        true,
+    ),
+    ("unicode", "α + β ≤ γ, ∑_{i} x_i, x → ∞", true),
 ];
 
 fn golden_dir() -> PathBuf {

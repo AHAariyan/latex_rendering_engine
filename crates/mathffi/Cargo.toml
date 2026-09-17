@@ -1,0 +1,15 @@
+[package]
+name = "mathffi"
+description = "C ABI for mathcore: the surface every platform binding (Kotlin, Swift, Dart, JS) is built on"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "mathcore_ffi"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+mathcore = { path = "../mathcore" }
+ttf-parser = { workspace = true }

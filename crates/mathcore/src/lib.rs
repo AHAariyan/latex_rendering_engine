@@ -10,6 +10,7 @@ pub mod error;
 pub mod font;
 pub mod layout;
 pub mod lexer;
+pub mod macros;
 pub mod parser;
 pub mod symbols;
 
@@ -18,11 +19,12 @@ pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
 pub use font::MathFont;
 pub use layout::{Layouter, RenderOptions};
-pub use parser::parse;
+pub use macros::Macros;
+pub use parser::{parse, parse_with};
 
 /// Parses and lays out a formula in one call.
 pub fn render(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<DisplayList> {
-    let nodes = parse(tex)?;
+    let nodes = parse_with(tex, &opts.macros)?;
     Ok(Layouter::new(font, opts).layout(&nodes, opts.display_mode))
 }
 
@@ -162,6 +164,55 @@ mod tests {
         assert!(glyphs(&m).len() >= 6);
         let c = render(&f, r"f(x) = \begin{cases} 1 & x > 0 \\ 0 & \text{otherwise} \end{cases}", &opts).unwrap();
         assert!(c.height() > 2.0 * opts.font_size);
+    }
+
+    #[test]
+    fn colors_reach_the_display_list() {
+        let f = font();
+        let dl = render(&f, r"\textcolor{red}{x} + y", &RenderOptions::default()).unwrap();
+        let colors: Vec<Color> = dl
+            .items
+            .iter()
+            .map(|i| match i {
+                Item::Glyph { color, .. } | Item::Rule { color, .. } | Item::Line { color, .. } => *color,
+            })
+            .collect();
+        assert_eq!(colors[0], Color(255, 0, 0, 255));
+        assert_eq!(colors[1], Color::BLACK);
+    }
+
+    #[test]
+    fn host_macros_are_applied() {
+        let f = font();
+        let mut opts = RenderOptions::default();
+        opts.macros.define(r"\half", r"\frac{1}{2}");
+        let dl = render(&f, r"\half", &opts).unwrap();
+        assert!(dl.items.iter().any(|i| matches!(i, Item::Rule { .. })), "fraction rule expected");
+    }
+
+    #[test]
+    fn new_constructs_render() {
+        let f = font();
+        let opts = RenderOptions::default();
+        for tex in [
+            r"\boxed{x^2}",
+            r"\cancel{a} \bcancel{b} \xcancel{c}",
+            r"\underbrace{a+b}_{n} \overbrace{c}^{m}",
+            r"A \xrightarrow{f} B \xleftarrow[g]{h} C",
+            r"\left\{ x \middle| x > 0 \right\}",
+            r"\substack{a \\ b}",
+            r"a \pmod{n} \bmod b",
+            r"{n \choose k} {a \over b}",
+            r"\genfrac(]{0pt}{1}{a}{b}",
+            r"\begin{array}{|c|r} \hline 1 & 22 \\ \hline 3 & 4 \\ \hline \end{array}",
+            r"\mathop{max}\limits_x",
+            r"\vphantom{\int} \smash{y} \hphantom{x}",
+            r"\varGamma \S \P",
+            "α+β≤∑_i x_i",
+        ] {
+            let dl = render(&f, tex, &opts).unwrap_or_else(|e| panic!("{tex}: {e}"));
+            assert!(dl.width > 0.0, "{tex}");
+        }
     }
 
     #[test]

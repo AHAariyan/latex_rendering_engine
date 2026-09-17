@@ -15,6 +15,13 @@ TeX source ──lexer──▶ tokens ──parser──▶ Node tree ──Lay
                                               MathFont (OpenType MATH)
 ```
 
+### Macros (`macros.rs`)
+
+Textual expansion before lexing: `\newcommand`, `\renewcommand`,
+`\providecommand` and `\def` found in the source are removed and applied,
+together with host-supplied definitions. Expansion is bounded so a recursive
+macro is an error, not a hang.
+
 ### Lexer (`lexer.rs`)
 
 Pull-based. Whitespace and `%` comments are skipped in math mode. Control
@@ -60,6 +67,12 @@ convention (LuaTeX `\mathnolimitsmode=1`): their advance already covers the top
 hook, so the subscript is pulled left instead. Latin Modern Math and every
 other OpenType math font we have checked are designed for this.
 
+**Math kerning.** When both the base and the script are single glyphs, the
+MathKernInfo corners are sampled at the correction heights the OpenType spec
+describes (base top-right at the script's bottom edge plus script bottom-left
+at the base's top edge, and the mirror for subscripts) and the sum offsets the
+script horizontally.
+
 **Extensible glyphs.** Pick the smallest pre-drawn size variant that reaches
 the target, else build an assembly: repeat extender parts until the maximum
 length with minimum connector overlap reaches the target, then solve for the
@@ -68,13 +81,22 @@ overlap that hits the target exactly, clamped to the connector lengths.
 ### Display list (`display.rs`)
 
 ```
-DisplayList { width, ascent, descent, items: [Glyph { id, x, y, size, color } | Rule { x, y, width, height, color }] }
+DisplayList { width, ascent, descent,
+              items: [Glyph { id, x, y, size, color } | Rule { x, y, width, height, color } | Line { x1, y1, x2, y2, thickness, color }] }
 ```
 
 `id` is a glyph index in the engine's font, `size` is the em size in pixels.
 This is intentionally the lowest common denominator every canvas API supports
 directly: Android `Canvas.drawGlyphs`, Core Text `CTFontDrawGlyphs`, Flutter
 `Canvas.drawRawAtlas`/paths, Skia `drawGlyphs`, HTML canvas paths.
+
+### C ABI (`crates/mathffi`)
+
+`mathcore_ffi` exposes the same display list as a flat `MathItem` array plus
+glyph outlines as a float command stream, so a binding never needs to parse
+the font itself. Errors are returned as null plus a thread-local message.
+Kotlin (JNA/UniFFI), Swift, Dart (`dart:ffi`) and JS (wasm) bindings all wrap
+this one surface.
 
 ## Backend contract
 

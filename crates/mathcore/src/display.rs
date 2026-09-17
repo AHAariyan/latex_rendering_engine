@@ -32,6 +32,15 @@ pub enum Item {
         height: f32,
         color: Color,
     },
+    /// A stroked straight line (used by `\cancel`).
+    Line {
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        thickness: f32,
+        color: Color,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]

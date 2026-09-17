@@ -8,7 +8,8 @@
 
 use crate::ast::*;
 use crate::display::{Color, DisplayList, Item};
-use crate::font::MathFont;
+use crate::font::{KernCorner, MathFont};
+use crate::macros::Macros;
 use crate::symbols::styled_char;
 use ttf_parser::GlyphId;
 
@@ -19,6 +20,8 @@ pub struct RenderOptions {
     /// `true` for `$$...$$` (display style), `false` for inline (text style).
     pub display_mode: bool,
     pub color: Color,
+    /// Host-supplied macro definitions.
+    pub macros: Macros,
 }
 
 impl Default for RenderOptions {
@@ -27,6 +30,7 @@ impl Default for RenderOptions {
             font_size: 32.0,
             display_mode: true,
             color: Color::BLACK,
+            macros: Macros::new(),
         }
     }
 }
@@ -93,19 +97,29 @@ struct BBox {
     italic: f32,
     /// `None` for kerns and explicit spaces, which do not take part in atom spacing.
     atom: Option<AtomType>,
-    /// Glyph id when the box is exactly one glyph (for accent attachment and script placement).
+    /// Glyph id and scale when the box is exactly one glyph (for accent attachment, kerning and script placement).
     glyph: Option<(GlyphId, f32)>,
     /// Horizontal ink extent, used to keep accents inside the box.
     ink_left: f32,
     ink_right: f32,
+    /// Color override for this subtree.
+    color: Option<Color>,
     content: Content,
 }
 
 #[derive(Debug, Clone)]
 enum Content {
     Empty,
-    Glyph { id: GlyphId, size: f32 },
+    Glyph {
+        id: GlyphId,
+        size: f32,
+    },
     Rule,
+    /// Straight line from (0, -d) .. (w, h) or the other diagonal; `thickness` in px.
+    Line {
+        thickness: f32,
+        up: bool,
+    },
     List(Vec<Placed>),
 }
 
@@ -128,6 +142,7 @@ impl BBox {
             glyph: None,
             ink_left: 0.0,
             ink_right: 0.0,
+            color: None,
             content: Content::Empty,
         }
     }
@@ -213,7 +228,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let root = self.layout_list(nodes, sty);
         let mut items = Vec::new();
         let ascent = root.h.max(0.0);
-        self.flatten(&root, -root.ink_left.min(0.0), 0.0, ascent, &mut items);
+        self.flatten(&root, -root.ink_left.min(0.0), 0.0, ascent, self.color, &mut items);
         DisplayList {
             width: root.ink_right.max(root.w) - root.ink_left.min(0.0),
             ascent,
@@ -258,6 +273,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             glyph: Some((gid, s)),
             ink_left: m.x_min * s,
             ink_right: m.x_max * s,
+            color: None,
             content: Content::Glyph {
                 id: gid,
                 size: self.em(sty),
@@ -368,7 +384,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         self.hlist(atoms, sty)
     }
 
-    /// Lays out `nodes` into `out`, splicing style changes inline.
+    /// Lays out `nodes` into `out`, splicing style and color changes inline.
     fn layout_atoms(&self, nodes: &[Node], sty: Sty, out: &mut Vec<(BBox, Sty)>) {
         let mut sty = sty;
         for n in nodes {
@@ -376,6 +392,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 Node::Style { style, body } => {
                     sty = sty.with(*style);
                     self.layout_atoms(body, sty, out);
+                }
+                Node::Color { color, body } => {
+                    let start = out.len();
+                    self.layout_atoms(body, sty, out);
+                    for (b, _) in &mut out[start..] {
+                        if b.color.is_none() {
+                            b.color = Some(*color);
+                        }
+                    }
                 }
                 _ => out.push((self.layout_node(n, sty), sty)),
             }
@@ -473,6 +498,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             }
             Node::Sqrt { radicand, index } => self.radical(radicand, index.as_deref(), sty),
             Node::LeftRight { left, body, right } => self.left_right(*left, body, *right, sty),
+            Node::Middle(ch) => self.char_box(*ch, Variant::Normal, sty),
             Node::SizedDelim { ch, size, atom } => {
                 let target = [1.2, 1.8, 2.4, 3.0][(*size as usize).clamp(1, 4) - 1] * self.em(sty);
                 match self.resolve_glyph(*ch, Variant::Normal) {
@@ -484,12 +510,34 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Overline(inner) => self.overline(inner, sty),
             Node::Underline(inner) => self.underline(inner, sty),
             Node::Style { style, body } => self.layout_list(body, sty.with(*style)),
+            Node::Color { color, body } => {
+                let mut b = self.layout_list(body, sty);
+                b.color = Some(*color);
+                b
+            }
             Node::Text { text, variant } => self.text_box(text, *variant, sty),
             Node::Space { mu } => BBox::kern(mu * self.mu(sty)),
-            Node::Array { rows, cols, cell_style } => self.array(rows, cols, *cell_style, sty),
-            Node::Phantom(inner) => {
-                let mut b = self.layout_node(inner, sty);
-                b.content = Content::Empty;
+            Node::Array(a) => self.array(a, sty),
+            Node::Phantom { body, kind } => {
+                let mut b = self.layout_node(body, sty);
+                match kind {
+                    PhantomKind::Full => b.content = Content::Empty,
+                    PhantomKind::Horizontal => {
+                        b.content = Content::Empty;
+                        b.h = 0.0;
+                        b.d = 0.0;
+                    }
+                    PhantomKind::Vertical => {
+                        b.content = Content::Empty;
+                        b.w = 0.0;
+                        b.ink_left = 0.0;
+                        b.ink_right = 0.0;
+                    }
+                    PhantomKind::Smash => {
+                        b.h = 0.0;
+                        b.d = 0.0;
+                    }
+                }
                 b
             }
             Node::OverUnder { base, over, under } => {
@@ -499,6 +547,17 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 let mut out = self.limits(b, over.as_deref(), under.as_deref(), sty);
                 out.atom = atom;
                 out
+            }
+            Node::Boxed(inner) => self.boxed(inner, sty),
+            Node::Cancel { body, kind } => self.cancel(body, *kind, sty),
+            Node::HBrace { base, over } => self.hbrace(base, *over, sty),
+            Node::XArrow { ch, over, under } => self.xarrow(*ch, over.as_deref(), under.as_deref(), sty),
+            Node::Class { atom, body, .. } => {
+                let mut b = self.layout_node(body, sty);
+                if *atom == AtomType::Op && b.glyph.is_some() {
+                    b = self.center_on_axis(b, sty);
+                }
+                b.with_atom(*atom)
             }
         }
     }
@@ -538,13 +597,33 @@ impl<'f, 'a> Layouter<'f, 'a> {
         out
     }
 
+    /// Math kerning between a base glyph and a script glyph (MathKernInfo).
+    /// `shift` is the script baseline relative to the base baseline (positive up).
+    fn script_kern(&self, base: &BBox, script: &BBox, shift: f32, top: bool) -> f32 {
+        let (Some((bg, bs)), Some((sg, ss))) = (base.glyph, script.glyph) else {
+            return 0.0;
+        };
+        if top {
+            let script_bottom = shift - script.d;
+            let base_top_rel_script = base.h - shift;
+            self.font.math_kern(bg, KernCorner::TopRight, script_bottom / bs) * bs
+                + self.font.math_kern(sg, KernCorner::BottomLeft, base_top_rel_script / ss) * ss
+        } else {
+            let script_top = shift + script.h;
+            let base_bottom_rel_script = -base.d - shift;
+            self.font.math_kern(bg, KernCorner::BottomRight, script_top / bs) * bs
+                + self.font.math_kern(sg, KernCorner::TopLeft, base_bottom_rel_script / ss) * ss
+        }
+    }
+
     fn layout_scripts(&self, base: &Node, sup: Option<&Node>, sub: Option<&Node>, sty: Sty) -> BBox {
         let limits = match base {
-            Node::BigOp { limits, .. } | Node::FnName { limits, .. } => match limits {
+            Node::BigOp { limits, .. } | Node::FnName { limits, .. } | Node::Class { limits, .. } => match limits {
                 Limits::Limits => true,
                 Limits::NoLimits => false,
                 Limits::Default => sty.is_display(),
             },
+            Node::HBrace { .. } => true,
             _ => false,
         };
         let base_box = self.layout_node(base, sty);
@@ -579,14 +658,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
         } else {
             (base_w + base_box.italic, base_w)
         };
-        children.push(base_box.at(0.0, 0.0));
         let mut width = base_w;
         match (sup_box, sub_box) {
             (None, Some(sb)) => {
                 // Rule 18b.
                 v = v.max(c.subscript_shift_down * s).max(sb.h - c.subscript_top_max * s);
-                width = width.max(sub_x + sb.w);
-                children.push(sb.at(sub_x, -v));
+                let k = self.script_kern(&base_box, &sb, -v, false);
+                children.push(base_box.at(0.0, 0.0));
+                width = width.max(sub_x + k + sb.w);
+                children.push(sb.at(sub_x + k, -v));
             }
             (Some(sp), None) => {
                 // Rule 18c.
@@ -596,8 +676,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
                     c.superscript_shift_up
                 } * s;
                 u = u.max(shift).max(sp.d + c.superscript_bottom_min * s);
-                width = width.max(sup_x + sp.w);
-                children.push(sp.at(sup_x, u));
+                let k = self.script_kern(&base_box, &sp, u, true);
+                children.push(base_box.at(0.0, 0.0));
+                width = width.max(sup_x + k + sp.w);
+                children.push(sp.at(sup_x + k, u));
             }
             (Some(sp), Some(sb)) => {
                 // Rule 18d and 18e.
@@ -618,11 +700,14 @@ impl<'f, 'a> Layouter<'f, 'a> {
                         v -= psi;
                     }
                 }
-                width = width.max(sup_x + sp.w).max(sub_x + sb.w);
-                children.push(sp.at(sup_x, u));
-                children.push(sb.at(sub_x, -v));
+                let ku = self.script_kern(&base_box, &sp, u, true);
+                let kv = self.script_kern(&base_box, &sb, -v, false);
+                children.push(base_box.at(0.0, 0.0));
+                width = width.max(sup_x + ku + sp.w).max(sub_x + kv + sb.w);
+                children.push(sp.at(sup_x + ku, u));
+                children.push(sb.at(sub_x + kv, -v));
             }
-            (None, None) => {}
+            (None, None) => children.push(base_box.at(0.0, 0.0)),
         }
         let mut out = BBox::list(children);
         out.w = width + c.space_after_script * s;
@@ -636,6 +721,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let s = self.scale(sty);
         let up = sup.map(|n| self.layout_node(n, sty.sup()));
         let dn = sub.map(|n| self.layout_node(n, sty.sub()));
+        self.stack_limits(op, up, dn, s, c)
+    }
+
+    fn stack_limits(&self, op: BBox, up: Option<BBox>, dn: Option<BBox>, s: f32, c: &crate::font::Constants) -> BBox {
         let delta = op.italic;
         let w = [Some(op.w), up.as_ref().map(|b| b.w), dn.as_ref().map(|b| b.w)]
             .iter()
@@ -663,14 +752,19 @@ impl<'f, 'a> Layouter<'f, 'a> {
     }
 
     /// Rule 15: generalized fractions.
-    fn fraction(&self, num: &Node, den: &Node, rule: bool, sty: Sty) -> BBox {
+    fn fraction(&self, num: &Node, den: &Node, rule: FracRule, sty: Sty) -> BBox {
         let c = self.font.constants();
         let s = self.scale(sty);
         let n = self.layout_node(num, sty.num());
         let d = self.layout_node(den, sty.den());
         let axis = c.axis_height * s;
         let display = sty.is_display();
-        let (mut u, mut v) = if rule {
+        let thickness = match rule {
+            FracRule::Default => Some(c.fraction_rule_thickness * s),
+            FracRule::None => None,
+            FracRule::Custom(em) => Some(em * self.em(sty)),
+        };
+        let (mut u, mut v) = if thickness.is_some() {
             if display {
                 (
                     c.fraction_numerator_display_style_shift_up * s,
@@ -686,8 +780,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         };
         let w = n.w.max(d.w);
         let mut children = Vec::new();
-        if rule {
-            let t = c.fraction_rule_thickness * s;
+        if let Some(t) = thickness {
             let (num_gap, den_gap) = if display {
                 (c.fraction_num_display_style_gap_min * s, c.fraction_denom_display_style_gap_min * s)
             } else {
@@ -761,8 +854,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             let sign_bottom = sign_shift - children[0].b.d;
             let sign_total = children[0].b.h + children[0].b.d;
             let raise = sign_bottom + sign_total * c.radical_degree_bottom_raise_percent / 100.0;
-            let dx = kern_before + ib.w + kern_after;
-            let dx = dx.max(0.0);
+            let dx = (kern_before + ib.w + kern_after).max(0.0);
             for p in &mut children {
                 p.x += dx;
             }
@@ -776,16 +868,27 @@ impl<'f, 'a> Layouter<'f, 'a> {
         out
     }
 
-    /// Rule 19: `\left` ... `\right`.
+    /// Rule 19: `\left` ... `\right`, with `\middle` delimiters sized to the same height.
     fn left_right(&self, left: Delim, body: &[Node], right: Delim, sty: Sty) -> BBox {
         let c = self.font.constants();
         let s = self.scale(sty);
-        let mut atoms = Vec::new();
-        self.layout_atoms(body, sty, &mut atoms);
+        // Lay out the segments between \middle delimiters first to learn the height.
+        let mut segments: Vec<Vec<(BBox, Sty)>> = vec![Vec::new()];
+        let mut middles: Vec<char> = Vec::new();
+        for n in body {
+            if let Node::Middle(ch) = n {
+                middles.push(*ch);
+                segments.push(Vec::new());
+            } else {
+                self.layout_atoms(std::slice::from_ref(n), sty, segments.last_mut().unwrap());
+            }
+        }
         let (mut h, mut d) = (0.0f32, 0.0f32);
-        for (b, _) in &atoms {
-            h = h.max(b.h);
-            d = d.max(b.d);
+        for seg in &segments {
+            for (b, _) in seg {
+                h = h.max(b.h);
+                d = d.max(b.d);
+            }
         }
         let axis = c.axis_height * s;
         let delta = (h - axis).max(d + axis);
@@ -797,7 +900,12 @@ impl<'f, 'a> Layouter<'f, 'a> {
             }
         };
         let mut all = vec![(mk(left, AtomType::Open), sty)];
-        all.extend(atoms);
+        for (i, seg) in segments.into_iter().enumerate() {
+            if i > 0 {
+                all.push((mk(Some(middles[i - 1]), AtomType::Ord), sty));
+            }
+            all.extend(seg);
+        }
         all.push((mk(right, AtomType::Close), sty));
         let mut out = self.hlist(all, sty);
         out.atom = Some(AtomType::Inner);
@@ -876,22 +984,96 @@ impl<'f, 'a> Layouter<'f, 'a> {
         out
     }
 
-    fn array(&self, rows: &[Vec<Vec<Node>>], cols: &[ColAlign], cell_style: MathStyle, sty: Sty) -> BBox {
+    /// `\boxed`: content framed by a rule with \fboxsep padding.
+    fn boxed(&self, inner: &Node, sty: Sty) -> BBox {
+        let em = self.em(sty);
+        let b = self.layout_node(inner, sty);
+        let pad = 0.3 * em;
+        let t = 0.04 * em;
+        let (w, h, d) = (b.w + 2.0 * (pad + t), b.h + pad + t, b.d + pad + t);
+        let children = vec![
+            b.at(pad + t, 0.0),
+            BBox::rule(w, t, 0.0).at(0.0, h - t),
+            BBox::rule(w, t, 0.0).at(0.0, -d),
+            BBox::rule(t, h, d).at(0.0, 0.0),
+            BBox::rule(t, h, d).at(w - t, 0.0),
+        ];
+        let mut out = BBox::list(children);
+        out.w = w;
+        out
+    }
+
+    fn cancel(&self, inner: &Node, kind: CancelKind, sty: Sty) -> BBox {
+        let b = self.layout_node(inner, sty);
+        let t = 0.04 * self.em(sty);
+        let (w, h, d) = (b.w, b.h, b.d);
+        let atom = b.atom;
+        let line = |up: bool| BBox {
+            w,
+            h,
+            d,
+            atom: None,
+            content: Content::Line { thickness: t, up },
+            ..BBox::empty()
+        };
+        let mut children = vec![b.at(0.0, 0.0)];
+        match kind {
+            CancelKind::Up => children.push(line(true).at(0.0, 0.0)),
+            CancelKind::Down => children.push(line(false).at(0.0, 0.0)),
+            CancelKind::Cross => {
+                children.push(line(true).at(0.0, 0.0));
+                children.push(line(false).at(0.0, 0.0));
+            }
+        }
+        let mut out = BBox::list(children);
+        out.atom = atom;
+        out
+    }
+
+    /// `\underbrace` / `\overbrace`: a horizontal extensible brace hugging the base.
+    fn hbrace(&self, base: &Node, over: bool, sty: Sty) -> BBox {
+        let b = self.layout_node(base, sty);
+        let ch = if over { '⏞' } else { '⏟' };
+        let Some(g) = self.resolve_glyph(ch, Variant::Normal) else {
+            return b;
+        };
+        let brace = self.extensible(g, b.w, sty, false);
+        let gap = 0.1 * self.em(sty);
+        let (bw, bh, bd) = (b.w, b.h, b.d);
+        let bx = (bw - brace.w) / 2.0;
+        let y = if over { bh + gap + brace.d } else { -(bd + gap + brace.h) };
+        let mut out = BBox::list(vec![b.at(0.0, 0.0), brace.at(bx, y)]);
+        out.w = out.w.max(bw);
+        out.atom = Some(AtomType::Ord);
+        out
+    }
+
+    /// `\xrightarrow{over}[under]`: arrow stretched to the wider label plus padding.
+    fn xarrow(&self, ch: char, over: Option<&Node>, under: Option<&Node>, sty: Sty) -> BBox {
+        let c = self.font.constants();
+        let s = self.scale(sty);
+        let up = over.map(|n| self.layout_node(n, sty.sup()));
+        let dn = under.map(|n| self.layout_node(n, sty.sub()));
+        let label_w = up.as_ref().map_or(0.0, |b| b.w).max(dn.as_ref().map_or(0.0, |b| b.w));
+        let Some(g) = self.resolve_glyph(ch, Variant::Normal) else {
+            return BBox::empty();
+        };
+        let arrow = self.extensible(g, label_w + 1.0 * self.em(sty), sty, false);
+        let arrow = self.center_on_axis(arrow, sty);
+        let mut out = self.stack_limits(arrow, up, dn, s, c);
+        out.atom = Some(AtomType::Rel);
+        out
+    }
+
+    fn array(&self, a: &Array, sty: Sty) -> BBox {
         let cell_sty = Sty {
-            style: cell_style.min(sty.style.max(MathStyle::Text)),
+            style: a.cell_style,
             cramped: sty.cramped,
         };
-        let cell_sty = if cell_style == MathStyle::Script || cell_style == MathStyle::Display {
-            Sty {
-                style: cell_style,
-                cramped: sty.cramped,
-            }
-        } else {
-            cell_sty
-        };
-        let em = self.em(sty);
-        let ncols = cols.len().max(rows.iter().map(|r| r.len()).max().unwrap_or(0));
-        let cells: Vec<Vec<BBox>> = rows
+        let em = self.em(cell_sty);
+        let ncols = a.cols.len().max(a.rows.iter().map(|r| r.len()).max().unwrap_or(0));
+        let cells: Vec<Vec<BBox>> = a
+            .rows
             .iter()
             .map(|r| r.iter().map(|c| self.layout_list(c, cell_sty)).collect())
             .collect();
@@ -901,39 +1083,53 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 col_w[i] = col_w[i].max(b.w);
             }
         }
-        let is_aligned = cols.first() == Some(&ColAlign::Right) && cols.get(1) == Some(&ColAlign::Left);
+        let is_aligned = a.cols.first() == Some(&ColAlign::Right) && a.cols.get(1) == Some(&ColAlign::Left);
         let gap = |i: usize| -> f32 {
             if is_aligned {
                 if i % 2 == 1 {
                     0.0
                 } else {
-                    1.0 * em
+                    em
                 }
             } else {
-                1.0 * em
+                em
             }
         };
-        let baselineskip = 1.2 * em + if cell_style == MathStyle::Display { 0.3 * em } else { 0.0 };
+        let baselineskip = if a.tight {
+            0.0
+        } else {
+            1.2 * em + if a.cell_style == MathStyle::Display { 0.3 * em } else { 0.0 }
+        };
         let lineskip = 0.1 * em;
+        let rule_t = 0.04 * em;
+        // Outer padding when a vertical rule sits on the edge.
+        let left_pad = if a.vlines.contains(&0) { 0.5 * em } else { 0.0 };
+        let right_pad = if a.vlines.contains(&ncols) { 0.5 * em } else { 0.0 };
         let mut children = Vec::new();
         let mut y = 0.0f32;
         let mut prev_d: Option<f32> = None;
         // Every row carries a \strut so rows of short content still get TeX's line pitch.
-        let strut_h = 0.7 * self.em(cell_sty);
-        let strut_d = 0.3 * self.em(cell_sty);
-        for r in cells {
+        let strut_h = 0.7 * em;
+        let strut_d = 0.3 * em;
+        let mut row_tops = Vec::new();
+        let mut row_bottoms = Vec::new();
+        for (ri, r) in cells.into_iter().enumerate() {
             let rh = r.iter().map(|b| b.h).fold(strut_h, f32::max);
             let rd = r.iter().map(|b| b.d).fold(strut_d, f32::max);
             if let Some(pd) = prev_d {
-                y -= (pd + rh + lineskip).max(baselineskip);
+                let extra = a.row_gaps.get(ri - 1).copied().unwrap_or(0.0) * em;
+                let hline_extra = if a.hlines.contains(&ri) { rule_t + lineskip } else { 0.0 };
+                y -= (pd + rh + lineskip).max(baselineskip) + extra + hline_extra;
             }
+            row_tops.push(y + rh);
+            row_bottoms.push(y - rd);
             let mut strut = BBox::kern(0.0);
             strut.h = strut_h;
             strut.d = strut_d;
-            children.push(strut.at(0.0, y));
-            let mut x = 0.0;
+            children.push(strut.at(left_pad, y));
+            let mut x = left_pad;
             for (i, b) in r.into_iter().enumerate() {
-                let align = cols.get(i).copied().unwrap_or(ColAlign::Center);
+                let align = a.cols.get(i).copied().unwrap_or(ColAlign::Center);
                 let dx = match align {
                     ColAlign::Left => 0.0,
                     ColAlign::Center => (col_w[i] - b.w) / 2.0,
@@ -947,8 +1143,37 @@ impl<'f, 'a> Layouter<'f, 'a> {
             }
             prev_d = Some(rd);
         }
+        let total_w: f32 = left_pad + col_w.iter().sum::<f32>() + (1..ncols).map(gap).sum::<f32>() + right_pad;
+        let top = row_tops.first().copied().unwrap_or(0.0) + lineskip;
+        let bottom = row_bottoms.last().copied().unwrap_or(0.0) - lineskip;
+        for &hi in &a.hlines {
+            let yline = if hi == 0 {
+                top
+            } else if hi >= row_tops.len() {
+                bottom - rule_t
+            } else {
+                (row_bottoms[hi - 1] + row_tops[hi]) / 2.0 - rule_t / 2.0
+            };
+            children.push(BBox::rule(total_w, rule_t, 0.0).at(0.0, yline));
+        }
+        for &vi in &a.vlines {
+            let xline = if vi == 0 {
+                0.0
+            } else if vi >= ncols {
+                total_w - rule_t
+            } else {
+                let before: f32 = left_pad + col_w[..vi].iter().sum::<f32>() + (1..vi).map(gap).sum::<f32>();
+                before + gap(vi) / 2.0 - rule_t / 2.0
+            };
+            let rule_top = if a.hlines.contains(&0) { top + rule_t } else { top };
+            let rule_bottom = if a.hlines.contains(&row_tops.len()) {
+                bottom - rule_t
+            } else {
+                bottom
+            };
+            children.push(BBox::rule(rule_t, rule_top - rule_bottom, 0.0).at(xline, rule_bottom));
+        }
         let mut out = BBox::list(children);
-        let total_w: f32 = col_w.iter().sum::<f32>() + (1..ncols).map(gap).sum::<f32>();
         out.w = out.w.max(total_w);
         // Center the whole table on the math axis.
         let axis = self.font.constants().axis_height * self.scale(sty);
@@ -963,7 +1188,8 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     // ---- output ------------------------------------------------------------
 
-    fn flatten(&self, b: &BBox, x: f32, y: f32, ascent: f32, out: &mut Vec<Item>) {
+    fn flatten(&self, b: &BBox, x: f32, y: f32, ascent: f32, color: Color, out: &mut Vec<Item>) {
+        let color = b.color.unwrap_or(color);
         match &b.content {
             Content::Empty => {}
             Content::Glyph { id, size } => out.push(Item::Glyph {
@@ -971,18 +1197,33 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 x,
                 y: ascent - y,
                 size: *size,
-                color: self.color,
+                color,
             }),
             Content::Rule => out.push(Item::Rule {
                 x,
                 y: ascent - (y + b.h),
                 width: b.w,
                 height: b.h + b.d,
-                color: self.color,
+                color,
             }),
+            Content::Line { thickness, up } => {
+                let (y_start, y_end) = if *up {
+                    (ascent - (y - b.d), ascent - (y + b.h))
+                } else {
+                    (ascent - (y + b.h), ascent - (y - b.d))
+                };
+                out.push(Item::Line {
+                    x1: x,
+                    y1: y_start,
+                    x2: x + b.w,
+                    y2: y_end,
+                    thickness: *thickness,
+                    color,
+                });
+            }
             Content::List(children) => {
                 for p in children {
-                    self.flatten(&p.b, x + p.x, y + p.y, ascent, out);
+                    self.flatten(&p.b, x + p.x, y + p.y, ascent, color, out);
                 }
             }
         }
@@ -995,6 +1236,7 @@ fn intrinsic_atom(node: &Node) -> Option<AtomType> {
     match node {
         Node::Symbol { atom, .. } => Some(*atom),
         Node::SizedDelim { atom, .. } => Some(*atom),
+        Node::Class { atom, .. } => Some(*atom),
         Node::BigOp { .. } | Node::FnName { .. } => Some(AtomType::Op),
         Node::Row(v) if v.len() == 1 => intrinsic_atom(&v[0]),
         _ => None,

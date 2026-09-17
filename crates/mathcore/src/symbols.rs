@@ -107,6 +107,40 @@ pub static SYMBOLS: &[(&str, char, AtomType)] = &[
     ("$", '$', Ord),
     ("_", '_', Ord),
     ("imath", 'ı', Ord),
+    ("S", '§', Ord),
+    ("P", '¶', Ord),
+    ("pounds", '£', Ord),
+    ("copyright", '©', Ord),
+    ("dag", '†', Ord),
+    ("ddag", '‡', Ord),
+    ("dotsb", '⋯', Inner),
+    ("dotsc", '…', Inner),
+    ("dotsi", '⋯', Inner),
+    ("dotsm", '⋯', Inner),
+    ("dotso", '…', Inner),
+    ("ldotp", '.', Punct),
+    ("cdotp", '·', Punct),
+    ("textdollar", '$', Ord),
+    ("textbackslash", '\\', Ord),
+    ("mathdollar", '$', Ord),
+    ("mathsterling", '£', Ord),
+    ("lq", '‘', Ord),
+    ("rq", '’', Ord),
+    ("textquoteleft", '‘', Ord),
+    ("textquoteright", '’', Ord),
+    ("blacktriangle", '▴', Ord),
+    ("blacktriangledown", '▾', Ord),
+    ("blacklozenge", '⧫', Ord),
+    ("circledS", 'Ⓢ', Ord),
+    ("hslash", 'ℏ', Ord),
+    ("complement", '∁', Ord),
+    ("Finv", 'Ⅎ', Ord),
+    ("Game", '⅁', Ord),
+    ("diagup", '╱', Ord),
+    ("diagdown", '╲', Ord),
+    ("backprime", '‵', Ord),
+    ("gimel", 'ℷ', Ord),
+    ("daleth", 'ℸ', Ord),
     ("jmath", 'ȷ', Ord),
     ("degree", '°', Ord),
     ("mho", '℧', Ord),
@@ -434,12 +468,61 @@ pub static SPACES: &[(&str, f32)] = &[
     ("enspace", 9.0),
 ];
 
+/// Large operator typed directly as a Unicode character, e.g. `∑`.
+pub fn char_big_op(c: char) -> Option<bool> {
+    BIG_OPS.iter().find(|(_, ch, _)| *ch == c).map(|(_, _, limits)| *limits)
+}
+
+/// Named colors accepted by `\color` and `\textcolor` (xcolor's base set plus
+/// the common web names), and `#rrggbb` / `#rgb`.
+pub fn parse_color(name: &str) -> Option<[u8; 3]> {
+    let name = name.trim();
+    if let Some(hex) = name.strip_prefix('#') {
+        let v = u32::from_str_radix(hex, 16).ok()?;
+        return match hex.len() {
+            6 => Some([(v >> 16) as u8, (v >> 8) as u8, v as u8]),
+            3 => Some([((v >> 8) & 0xF) as u8 * 17, ((v >> 4) & 0xF) as u8 * 17, (v & 0xF) as u8 * 17]),
+            _ => None,
+        };
+    }
+    Some(match name.to_ascii_lowercase().as_str() {
+        "black" => [0, 0, 0],
+        "white" => [255, 255, 255],
+        "red" => [255, 0, 0],
+        "green" => [0, 128, 0],
+        "lime" => [0, 255, 0],
+        "blue" => [0, 0, 255],
+        "cyan" => [0, 255, 255],
+        "magenta" => [255, 0, 255],
+        "yellow" => [255, 255, 0],
+        "orange" => [255, 165, 0],
+        "purple" => [128, 0, 128],
+        "violet" => [128, 0, 255],
+        "brown" => [150, 75, 0],
+        "pink" => [255, 192, 203],
+        "teal" => [0, 128, 128],
+        "olive" => [128, 128, 0],
+        "gray" | "grey" => [128, 128, 128],
+        "darkgray" | "darkgrey" => [64, 64, 64],
+        "lightgray" | "lightgrey" => [192, 192, 192],
+        "navy" => [0, 0, 128],
+        "maroon" => [128, 0, 0],
+        _ => return None,
+    })
+}
+
 pub fn lookup_symbol(name: &str) -> Option<(char, AtomType)> {
     SYMBOLS.iter().find(|(n, _, _)| *n == name).map(|(_, c, a)| (*c, *a))
 }
 
 /// Atom class of a character typed directly, following plain TeX's mathcodes.
+/// Unicode symbols that have a control-sequence equivalent take its class.
 pub fn char_atom(c: char) -> AtomType {
+    if !c.is_ascii() {
+        if let Some((_, _, atom)) = SYMBOLS.iter().find(|(_, ch, _)| *ch == c) {
+            return *atom;
+        }
+    }
     match c {
         '+' | '-' | '*' | '±' | '×' | '÷' | '⋅' | '∘' => Bin,
         '=' | '<' | '>' | ':' | '≤' | '≥' | '≠' | '≈' | '∈' | '→' | '←' | '↔' | '⇒' | '⇐' => Rel,

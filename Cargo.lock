@@ -205,6 +205,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mathffi"
+version = "0.1.0"
+dependencies = [
+ "mathcore",
+ "ttf-parser",
+]
+
+[[package]]
 name = "mathraster"
 version = "0.1.0"
 dependencies = [

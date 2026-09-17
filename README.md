@@ -17,21 +17,32 @@ current output of the 30-formula regression corpus.
 Working today:
 
 - Parser for the KaTeX-style command set: symbols, Greek, operators, relations,
-  arrows, delimiters, `\frac` `\dfrac` `\tfrac` `\binom`, `\sqrt[n]`, scripts and
-  primes, `\left` `\right`, `\big` sizes, accents including stretchy `\widehat`,
-  `\overline` `\underline`, `\mathbf` and the other math alphabets, `\text`,
-  `\operatorname`, spacing commands, style commands, `\phantom`, `\not`,
-  `\overset` `\underset`, and the `matrix`, `pmatrix`, `bmatrix`, `Bmatrix`,
-  `vmatrix`, `Vmatrix`, `smallmatrix`, `cases`, `array`, `aligned`, `gathered`
-  environments.
-- Layout: atom spacing with Bin/Ord rewriting, scripts, limits, fractions and
-  stacks, radicals with index, extensible delimiters via size variants and
-  glyph assembly, large operators, accents with attachment points, arrays.
+  arrows, delimiters, `\frac` `\dfrac` `\tfrac` `\cfrac` `\binom` `\genfrac`
+  and the infix `\over` `\choose` `\atop`, `\sqrt[n]`, scripts and primes,
+  `\left` `\middle` `\right`, `\big` sizes, accents including stretchy
+  `\widehat`, `\overline` `\underline`, `\underbrace` `\overbrace`,
+  `\xrightarrow` and the other extensible arrows, `\boxed`, `\cancel`,
+  `\mathbf` and the other math alphabets, `\text`, `\operatorname`,
+  `\mathop` `\mathrel` and the other class overrides, spacing commands and
+  `\hspace` `\kern` with dimensions, style commands, `\phantom` `\vphantom`
+  `\hphantom` `\smash`, `\not`, `\overset` `\underset`, `\substack`,
+  `\pmod` `\bmod`, `\color` `\textcolor`, and the `matrix` family,
+  `cases`, `array` with `|` and `\hline`, `aligned`, `gathered` environments.
+- Macros: `\newcommand`, `\renewcommand`, `\providecommand`, `\def` in the
+  source, plus host-supplied definitions through `RenderOptions::macros`.
+- Unicode input: `α ≤ ∑` typed directly.
+- Layout: atom spacing with Bin/Ord rewriting, scripts with MATH-table
+  kerning, limits, fractions and stacks, radicals with index, extensible
+  delimiters via size variants and glyph assembly, large operators, accents
+  with attachment points, arrays with rules.
 - Backends: headless raster (PNG) and SVG in `mathraster`, used for tests and
   by the `mathcli` tool.
+- C ABI in `mathffi` (`include/mathcore.h`): engine, render to a flat item
+  array, glyph outlines as a command stream. This is what the Kotlin, Swift,
+  Dart and JS bindings will wrap.
 
-Not yet: user macros, line breaking, colors, `\middle`, `\cancel`, `mhchem`,
-accessibility output, and the mobile bindings. See `docs/ROADMAP.md`.
+Not yet: line breaking, `mhchem`, accessibility output, real text shaping in
+`\text{}`, and the mobile bindings themselves. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -39,6 +50,7 @@ accessibility output, and the mobile bindings. See `docs/ROADMAP.md`.
 cargo run --release -p mathcli -- 'x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}' -o quad.png
 cargo run --release -p mathcli -- --svg '\sum_{n=1}^\infty \frac{1}{n^2}' -o basel.svg
 cargo run --release -p mathcli -- --inline --size 20 'e^{i\pi}+1=0' -o euler.png
+cargo run --release -p mathcli -- --macro '\R=\mathbb{R}' 'f: \R \to \R' -o f.png
 ```
 
 ## Use the library
@@ -62,6 +74,7 @@ for item in &list.items {
 | `crates/mathcore` | Parser, font access, layout engine, display list. No I/O, no rendering. |
 | `crates/mathraster` | tiny-skia raster backend and SVG writer. Reference implementation for platform backends. |
 | `crates/mathcli` | Command line renderer. |
+| `crates/mathffi` | C ABI (`cdylib` + `staticlib`) and `include/mathcore.h`. |
 | `assets/fonts` | Latin Modern Math (GUST Font License). |
 | `tests/golden` | Golden images for the regression corpus. |
 | `docs/` | Architecture and roadmap. |

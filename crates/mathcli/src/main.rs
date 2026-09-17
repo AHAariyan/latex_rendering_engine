@@ -42,6 +42,9 @@ struct Args {
     /// Print the display list as text for debugging.
     #[arg(long)]
     dump: bool,
+    /// Macro definition `\name=body`, repeatable. `#1`..`#9` are arguments.
+    #[arg(long = "macro", value_name = "NAME=BODY")]
+    macros: Vec<String>,
 }
 
 fn main() -> Result<()> {
@@ -54,10 +57,16 @@ fn main() -> Result<()> {
         args.tex.clone()
     };
     let font = MathFont::from_bytes(FONT).map_err(|e| anyhow!("{e}"))?;
+    let mut macros = mathcore::Macros::new();
+    for m in &args.macros {
+        let (name, body) = m.split_once('=').ok_or_else(|| anyhow!("--macro expects NAME=BODY, got `{m}`"))?;
+        macros.define(name, body);
+    }
     let opts = RenderOptions {
         font_size: args.size,
         display_mode: !args.inline,
         color: Color::BLACK,
+        macros,
     };
     let dl = mathcore::render(&font, tex.trim(), &opts).map_err(|e| anyhow!("{e}"))?;
     if args.dump {

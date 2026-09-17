@@ -75,6 +75,15 @@ pub struct GlyphMetrics {
     pub italic_correction: f32,
 }
 
+/// Corner of a glyph for math kerning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KernCorner {
+    TopRight,
+    TopLeft,
+    BottomRight,
+    BottomLeft,
+}
+
 /// One piece of an extensible glyph assembly.
 #[derive(Debug, Clone, Copy)]
 pub struct AssemblyPart {
@@ -280,6 +289,36 @@ impl<'a> MathFont<'a> {
         }
     }
 
+    /// Math kerning (MathKernInfo): the kern to apply between a glyph and a
+    /// script at the given correction height (font units, relative to this
+    /// glyph's baseline). Returns 0 when the font defines none.
+    pub fn math_kern(&self, gid: GlyphId, corner: KernCorner, height: f32) -> f32 {
+        let Some(info) = self
+            .math_table()
+            .and_then(|t| t.glyph_info)
+            .and_then(|g| g.kern_infos)
+            .and_then(|k| k.get(gid))
+        else {
+            return 0.0;
+        };
+        let kern = match corner {
+            KernCorner::TopRight => info.top_right,
+            KernCorner::TopLeft => info.top_left,
+            KernCorner::BottomRight => info.bottom_right,
+            KernCorner::BottomLeft => info.bottom_left,
+        };
+        let Some(kern) = kern else { return 0.0 };
+        let count = kern.count();
+        let mut i = 0u16;
+        while i < count {
+            match kern.height(i) {
+                Some(h) if height >= h.value as f32 => i += 1,
+                _ => break,
+            }
+        }
+        kern.kern(i).map(|v| v.value as f32).unwrap_or(0.0)
+    }
+
     /// Feeds the glyph outline (font units, y up) to `builder`.
     pub fn outline(&self, gid: GlyphId, builder: &mut dyn OutlineBuilder) -> bool {
         self.face.outline_glyph(gid, builder).is_some()
@@ -316,6 +355,14 @@ mod tests {
         assert!(f.assembly(sqrt, true).is_some());
         let paren = f.glyph_index('(').unwrap();
         assert!(f.assembly(paren, true).unwrap().iter().any(|p| p.is_extender));
+    }
+
+    #[test]
+    fn math_kerning_is_zero_without_kern_info() {
+        // Latin Modern Math ships no MathKernInfo; the lookup must degrade to 0.
+        let f = MathFont::from_bytes(FONT).unwrap();
+        let fi = f.glyph_index('𝑓').unwrap();
+        assert_eq!(f.math_kern(fi, KernCorner::BottomRight, 0.0), 0.0);
     }
 
     #[test]

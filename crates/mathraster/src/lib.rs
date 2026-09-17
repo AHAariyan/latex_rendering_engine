@@ -91,6 +91,36 @@ pub fn rasterize(font: &MathFont<'_>, dl: &DisplayList, opts: &RasterOptions) ->
                 let t = Transform::from_row(k, 0.0, 0.0, -k, (x + pad) * opts.scale, (y + pad) * opts.scale);
                 pixmap.fill_path(path, &paint, FillRule::Winding, t, None);
             }
+            Item::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                thickness,
+                color,
+            } => {
+                // Filled quad instead of a stroke: tiny-skia's hairline stroker
+                // asserts on some sub-pixel widths.
+                paint.set_color_rgba8(color.0, color.1, color.2, color.3);
+                let (ax, ay) = ((x1 + pad) * opts.scale, (y1 + pad) * opts.scale);
+                let (bx, by) = ((x2 + pad) * opts.scale, (y2 + pad) * opts.scale);
+                let (dx, dy) = (bx - ax, by - ay);
+                let len = (dx * dx + dy * dy).sqrt();
+                if len <= 0.0 {
+                    continue;
+                }
+                let half = (thickness * opts.scale).max(0.5) / 2.0;
+                let (nx, ny) = (-dy / len * half, dx / len * half);
+                let mut pb = PathBuilder::new();
+                pb.move_to(ax + nx, ay + ny);
+                pb.line_to(bx + nx, by + ny);
+                pb.line_to(bx - nx, by - ny);
+                pb.line_to(ax - nx, ay - ny);
+                pb.close();
+                if let Some(path) = pb.finish() {
+                    pixmap.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+                }
+            }
             Item::Rule {
                 x,
                 y,
@@ -98,6 +128,8 @@ pub fn rasterize(font: &MathFont<'_>, dl: &DisplayList, opts: &RasterOptions) ->
                 height,
                 color,
             } => {
+                // fill_path rather than fill_rect: tiny-skia's AA rect filler
+                // asserts on sub-pixel-wide rects that straddle a pixel boundary.
                 paint.set_color_rgba8(color.0, color.1, color.2, color.3);
                 if let Some(r) = Rect::from_xywh(
                     (x + pad) * opts.scale,
@@ -105,7 +137,8 @@ pub fn rasterize(font: &MathFont<'_>, dl: &DisplayList, opts: &RasterOptions) ->
                     width * opts.scale,
                     height * opts.scale,
                 ) {
-                    pixmap.fill_rect(r, &paint, Transform::identity(), None);
+                    let path = PathBuilder::from_rect(r);
+                    pixmap.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
                 }
             }
         }
@@ -178,6 +211,24 @@ pub fn to_svg(font: &MathFont<'_>, dl: &DisplayList, padding: f32) -> String {
                     x + padding,
                     y + padding,
                     -k,
+                    css_color(color)
+                );
+            }
+            Item::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                thickness,
+                color,
+            } => {
+                let _ = write!(
+                    body,
+                    r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{}" stroke-width="{thickness}"/>"#,
+                    x1 + padding,
+                    y1 + padding,
+                    x2 + padding,
+                    y2 + padding,
                     css_color(color)
                 );
             }

@@ -5,27 +5,30 @@
 Parser, OpenType MATH layout, display list, headless raster/SVG backend,
 CLI, golden-image tests, CI.
 
-## Phase 1: correctness against TeX
+## Phase 1: correctness and coverage
 
 - [ ] Side-by-side comparison harness: render the corpus with real LaTeX
       (`latex` + `dvisvgm`) and overlay against our output to find drift.
-- [ ] Math kerning from the MATH table (`MathKernInfo`) for tighter scripts on
-      letters like `f`, `V`, `T`.
-- [ ] `\middle`, `\cancel`, `\boxed`, `\underbrace` `\overbrace`, `\xrightarrow`,
+      Blocked locally: no TeX installation on the dev machine.
+- [x] Math kerning from the MATH table (`MathKernInfo`). Implemented; Latin
+      Modern Math ships no kern data, so it only shows with STIX Two / Libertinus.
+- [x] `\middle`, `\cancel`, `\boxed`, `\underbrace` `\overbrace`, `\xrightarrow`,
       `\substack`, `\pmod`, `\bmod`, `\choose`, `\atop`, `\genfrac`.
-- [ ] Colors: `\color`, `\textcolor`, `\colorbox`, per-item color already in the display list.
-- [ ] User macros: `\newcommand`, `\def`, `\renewcommand` with arguments; a
-      macro table passed in from the host (KaTeX `macros` option equivalent).
-- [ ] Unicode input: allow `α`, `≤`, `∞` typed directly.
+- [x] Colors: `\color`, `\textcolor`. `\colorbox` still open.
+- [x] User macros: `\newcommand`, `\def`, `\renewcommand`, `\providecommand`,
+      and a host macro table (`RenderOptions::macros`).
+- [x] Unicode input: `α`, `≤`, `∑` typed directly.
 - [ ] Better `\text{}`: real shaping via `rustybuzz` for kerning/ligatures and
       non-Latin scripts, or delegate text runs to the platform.
-- [ ] Array extras: `|` column rules, `\hline`, `\hdashline`, row spacing `\\[2pt]`.
+- [x] Array extras: `|` column rules, `\hline`, row spacing `\\[2pt]`.
+- [ ] `\hdashline`, `\colorbox`, `\fcolorbox`, `\rule`, `\raisebox`, `\tag` display.
 - [ ] Wide accents `\overrightarrow` `\overleftarrow` using horizontal assemblies.
+- [ ] Second font (STIX Two Math) in the golden corpus to catch font-specific assumptions.
 - [ ] Font subsetting for the bundled font and a size budget (< 1 MB core+font).
 
 ## Phase 2: platform bindings
 
-- [ ] C ABI (`mathffi` crate): `render(tex, opts) -> DisplayList` with a flat,
+- [x] C ABI (`mathffi` crate): `render(tex, opts) -> DisplayList` with a flat,
       FFI-friendly encoding; glyph outlines on demand for backends without the font.
 - [ ] Android: UniFFI Kotlin bindings + `Canvas`/Compose renderer + AAR on Maven.
 - [ ] iOS: UniFFI Swift bindings + Core Text renderer + SwiftPM package.
