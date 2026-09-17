@@ -98,6 +98,17 @@ pub enum CancelKind {
 /// A delimiter for `\left` / `\right`. `None` is the null delimiter `.`.
 pub type Delim = Option<char>;
 
+/// How rows of an array are spaced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowPitch {
+    /// LaTeX `array`: struts of 0.84/0.36 em and a 1.2 em baseline pitch.
+    Normal,
+    /// amsmath `smallmatrix`: 0.6 em pitch, 0.15 em lineskip, no struts, thin-space column padding.
+    SmallMatrix,
+    /// amsmath `\substack`: rows stacked at 0.3 em lineskip, no struts.
+    Substack,
+}
+
 /// A table of cells with optional rules and extra row spacing.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Array {
@@ -111,8 +122,10 @@ pub struct Array {
     pub vlines: Vec<usize>,
     /// Extra space in em after each row (`\\[2pt]`).
     pub row_gaps: Vec<f32>,
-    /// Rows packed at line-skip distance instead of the normal baseline pitch (`\substack`).
-    pub tight: bool,
+    /// Row pitch rules.
+    pub pitch: RowPitch,
+    /// LaTeX `\arraystretch`: multiplies row struts and pitch (`cases` uses 1.2).
+    pub stretch: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -143,11 +156,14 @@ pub enum Node {
         limits: Limits,
     },
     /// Generalized fraction.
+    /// Generalized fraction. `delims` are sized by TeX rule 15e (a fixed size
+    /// per style), unlike `\left`/`\right` which follow the content.
     Frac {
         num: Box<Node>,
         den: Box<Node>,
         rule: FracRule,
         style: Option<MathStyle>,
+        delims: Option<(Delim, Delim)>,
     },
     Sqrt {
         radicand: Box<Node>,

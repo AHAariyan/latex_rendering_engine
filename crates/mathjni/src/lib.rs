@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use ttf_parser::OutlineBuilder;
 
 #[cfg(feature = "bundled-font")]
-const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<String>> = const { RefCell::new(None) };

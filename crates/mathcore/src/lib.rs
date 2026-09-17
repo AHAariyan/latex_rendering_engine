@@ -216,6 +216,22 @@ mod tests {
     }
 
     #[test]
+    fn stix_math_kerning_moves_scripts() {
+        // STIX Two carries MathKernInfo; the subscript of f must not sit at the
+        // plain advance (the kern direction depends on the font's data).
+        const STIX: &[u8] = include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf");
+        let f = MathFont::from_bytes(STIX).unwrap();
+        let opts = RenderOptions::default();
+        let dl = render(&f, "f_i", &opts).unwrap();
+        let g = glyphs(&dl);
+        let f_adv = f.metrics(f.glyph_index('𝑓').unwrap()).advance / f.units_per_em() * opts.font_size;
+        assert!(
+            (g[1].0 - g[0].0 - f_adv).abs() > 0.1,
+            "subscript placed at the bare advance: kerning not applied"
+        );
+    }
+
+    #[test]
     fn parse_error_is_reported() {
         let f = font();
         let e = render(&f, r"\frac{a", &RenderOptions::default()).unwrap_err();

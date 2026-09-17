@@ -34,7 +34,9 @@ Working today:
 - Layout: atom spacing with Bin/Ord rewriting, scripts with MATH-table
   kerning, limits, fractions and stacks, radicals with index, extensible
   delimiters via size variants and glyph assembly, large operators, accents
-  with attachment points, arrays with rules.
+  with attachment points, arrays with LaTeX's exact struts and interline glue,
+  `ssty` script-style glyph alternates, and a built-in shaper (GPOS `kern`,
+  GSUB `liga`) for `\text{}` runs. No shaping library dependency.
 - Backends: headless raster (PNG) and SVG in `mathraster`, used for tests and
   by the `mathcli` tool.
 - C ABI in `mathffi` (`include/mathcore.h`): engine, render to a flat item
@@ -51,8 +53,7 @@ Working today:
   | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
   | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
-Not yet: line breaking, `mhchem`, accessibility output, real text shaping in
-`\text{}`, React Native. See `docs/ROADMAP.md`.
+Not yet: line breaking, `mhchem`, accessibility output, React Native. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -93,9 +94,35 @@ for item in &list.items {
 | `scripts/build-android-ffi.sh`, `scripts/build-ios.sh` | Cross-compiles the C ABI for Flutter on Android and for iOS. |
 | `platforms/android` | `mathview` Android library (Kotlin: `MathEngine`, `MathView`, Compose `MathText`) and demo app. |
 | `scripts/build-android.sh` | Cross-compiles the JNI library for arm64, armv7 and x86_64. |
-| `assets/fonts` | Latin Modern Math (GUST Font License). |
+| `assets/fonts` | Latin Modern Math (GUST Font License, full + subset), STIX Two Math and Libertinus Math (OFL) for tests. |
+| `tools/texcompare` | Side-by-side comparison against LuaLaTeX. |
+| `tools/subset` | MATH-table repair pass for subset fonts. |
 | `tests/golden` | Golden images for the regression corpus. |
 | `docs/` | Architecture and roadmap. |
+
+## Quality gates
+
+- **Golden images** for 43 formulas in three fonts (Latin Modern Math, STIX Two
+  Math, Libertinus Math): `tests/golden/`.
+- **Fuzzing**: `crates/mathcore/tests/robustness.rs` throws 20,000 random
+  token soups and a set of pathological inputs at the engine on a small-stack
+  thread. The engine never panics; nesting deeper than 64 levels is a parse
+  error, and a release build handles that within 256 KB of stack.
+- **Font subsetting**: the shipped `latinmodern-math-subset.otf` (457 KB, down
+  from 734 KB) is proven identical to the full font by
+  `crates/mathraster/tests/subset.rs`, both in corpus geometry and in every
+  MATH record the engine reads. Regenerate with `scripts/subset-font.sh`,
+  which runs `pyftsubset` and then `tools/subset/repair_math.py` to restore
+  the italic corrections and accent attachment points fontTools drops for
+  glyphs reachable only through GSUB.
+- **Comparison against real TeX**: `tools/texcompare/compare.py` renders the
+  corpus with LuaLaTeX + unicode-math using the same font at TeX's 10 pt and
+  stacks the pairs into a contact sheet with size ratios; `--tex 'formula'`
+  compares ad-hoc input. Needs `lualatex` and `pdftoppm`. As of this commit
+  every corpus formula is within 5% of LuaLaTeX in both dimensions except the
+  display-style `\binom` family, where LuaLaTeX picks a larger delimiter than
+  TeX's own rule (and KaTeX/pdfLaTeX) calls for.
+- **Benchmarks**: `cargo bench -p mathcore`.
 
 ## Development
 

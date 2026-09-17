@@ -23,6 +23,7 @@ pub fn parse_with(src: &str, macros: &Macros) -> Result<Vec<Node>> {
         lx: Lexer::new(&expanded),
         variant: Variant::Normal,
         in_left_right: 0,
+        depth: 0,
     };
     let nodes = p.parse_list()?;
     match p.lx.advance()? {
@@ -38,7 +39,13 @@ struct Parser<'a> {
     lx: Lexer<'a>,
     variant: Variant,
     in_left_right: usize,
+    /// Current nesting of groups, arguments and environments.
+    depth: usize,
 }
+
+/// Deeper nesting than this is rejected. The layout engine recurses once per
+/// level, and host threads (Android, JNI, wasm) may have stacks under 1 MB.
+const MAX_DEPTH: usize = 64;
 
 /// Tokens that end a list. The stopping token is left unconsumed.
 fn is_stop(tok: &Tok<'_>) -> bool {
@@ -81,6 +88,16 @@ pub fn parse_dimen(s: &str) -> Option<f32> {
 impl<'a> Parser<'a> {
     /// Parses atoms until a group/row/environment terminator.
     fn parse_list(&mut self) -> Result<Vec<Node>> {
+        if self.depth > MAX_DEPTH {
+            return Err(Error::parse(self.lx.pos(), format!("nesting deeper than {MAX_DEPTH} levels")));
+        }
+        self.depth += 1;
+        let r = self.parse_list_inner();
+        self.depth -= 1;
+        r
+    }
+
+    fn parse_list_inner(&mut self) -> Result<Vec<Node>> {
         let mut out = Vec::new();
         loop {
             let tok = self.lx.peek()?;
@@ -91,29 +108,18 @@ impl<'a> Parser<'a> {
                 let pos = self.lx.pos();
                 let Tok::Cmd(name) = self.lx.advance()? else { unreachable!() };
                 let den = self.parse_list()?;
-                let frac = Node::Frac {
+                let delims = match name {
+                    "choose" => Some((Some('('), Some(')'))),
+                    "brace" => Some((Some('{'), Some('}'))),
+                    "brack" => Some((Some('['), Some(']'))),
+                    _ => None,
+                };
+                let node = Node::Frac {
                     num: Box::new(Node::Row(out)),
                     den: Box::new(Node::Row(den)),
                     rule: if name == "over" { FracRule::Default } else { FracRule::None },
                     style: None,
-                };
-                let node = match name {
-                    "choose" => Node::LeftRight {
-                        left: Some('('),
-                        body: vec![frac],
-                        right: Some(')'),
-                    },
-                    "brace" => Node::LeftRight {
-                        left: Some('{'),
-                        body: vec![frac],
-                        right: Some('}'),
-                    },
-                    "brack" => Node::LeftRight {
-                        left: Some('['),
-                        body: vec![frac],
-                        right: Some(']'),
-                    },
-                    _ => frac,
+                    delims,
                 };
                 let _ = pos;
                 return Ok(vec![node]);
@@ -194,6 +200,16 @@ impl<'a> Parser<'a> {
     /// A single argument: a braced group or one token.
     fn parse_arg(&mut self) -> Result<Node> {
         let pos = self.lx.pos();
+        if self.depth > MAX_DEPTH {
+            return Err(Error::parse(pos, format!("nesting deeper than {MAX_DEPTH} levels")));
+        }
+        self.depth += 1;
+        let r = self.parse_arg_inner(pos);
+        self.depth -= 1;
+        r
+    }
+
+    fn parse_arg_inner(&mut self, pos: usize) -> Result<Node> {
         match self.lx.peek()? {
             Tok::LBrace => {
                 self.lx.advance()?;
@@ -356,6 +372,7 @@ impl<'a> Parser<'a> {
                     den: Box::new(den),
                     rule: FracRule::Default,
                     style,
+                    delims: None,
                 })
             }
             "binom" | "dbinom" | "tbinom" => {
@@ -366,16 +383,12 @@ impl<'a> Parser<'a> {
                     "tbinom" => Some(MathStyle::Text),
                     _ => None,
                 };
-                let frac = Node::Frac {
+                Ok(Node::Frac {
                     num: Box::new(num),
                     den: Box::new(den),
                     rule: FracRule::None,
                     style,
-                };
-                Ok(Node::LeftRight {
-                    left: Some('('),
-                    body: vec![frac],
-                    right: Some(')'),
+                    delims: Some((Some('('), Some(')'))),
                 })
             }
             "genfrac" => {
@@ -411,22 +424,15 @@ impl<'a> Parser<'a> {
                     "3" => Some(MathStyle::ScriptScript),
                     _ => None,
                 };
-                let frac = Node::Frac {
+                let (l, r) = (delim(&left)?, delim(&right)?);
+                let delims = if l.is_some() || r.is_some() { Some((l, r)) } else { None };
+                Ok(Node::Frac {
                     num: Box::new(num),
                     den: Box::new(den),
                     rule,
                     style,
-                };
-                let (l, r) = (delim(&left)?, delim(&right)?);
-                if l.is_some() || r.is_some() {
-                    Ok(Node::LeftRight {
-                        left: l,
-                        body: vec![frac],
-                        right: r,
-                    })
-                } else {
-                    Ok(frac)
-                }
+                    delims,
+                })
             }
             "sqrt" => {
                 let index = if matches!(self.lx.peek()?, Tok::Char('[')) {
@@ -672,7 +678,7 @@ impl<'a> Parser<'a> {
                     under,
                 })
             }
-            "substack" => self.in_env_rows("substack", pos, true),
+            "substack" => self.in_env_rows("substack", pos, RowPitch::Substack),
             "color" => {
                 let color = self.parse_color_arg(pos)?;
                 let body = self.parse_list()?;
@@ -834,7 +840,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses `\substack{...}` bodies: rows separated by `\\`, no `&`.
-    fn in_env_rows(&mut self, what: &str, pos: usize, tight: bool) -> Result<Node> {
+    fn in_env_rows(&mut self, what: &str, pos: usize, pitch: RowPitch) -> Result<Node> {
         match self.lx.advance()? {
             Tok::LBrace => {}
             _ => return Err(Error::parse(pos, format!("\\{what} needs a group"))),
@@ -860,7 +866,8 @@ impl<'a> Parser<'a> {
             hlines: vec![],
             vlines: vec![],
             row_gaps: vec![],
-            tight,
+            pitch,
+            stretch: 1.0,
         })))
     }
 
@@ -1020,6 +1027,12 @@ impl<'a> Parser<'a> {
         } else {
             cols.into_iter().take(ncols.max(1)).collect()
         };
+        let pitch = if env == "smallmatrix" {
+            RowPitch::SmallMatrix
+        } else {
+            RowPitch::Normal
+        };
+        let stretch = if env.ends_with("cases") { 1.2 } else { 1.0 };
         let array = Node::Array(Box::new(Array {
             rows,
             cols,
@@ -1027,7 +1040,8 @@ impl<'a> Parser<'a> {
             hlines,
             vlines,
             row_gaps,
-            tight: false,
+            pitch,
+            stretch,
         }));
         if left.is_some() || right.is_some() {
             Ok(Node::LeftRight {
@@ -1106,7 +1120,7 @@ mod tests {
         let n = parse(r"{a \over b}").unwrap();
         assert!(matches!(&n[0], Node::Row(v) if matches!(v[0], Node::Frac { rule: FracRule::Default, .. })));
         let n = parse(r"{n \choose k}").unwrap();
-        assert!(matches!(&n[0], Node::Row(v) if matches!(v[0], Node::LeftRight { .. })));
+        assert!(matches!(&n[0], Node::Row(v) if matches!(v[0], Node::Frac { delims: Some(_), .. })));
     }
 
     #[test]

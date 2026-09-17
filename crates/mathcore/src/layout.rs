@@ -289,9 +289,18 @@ impl<'f, 'a> Layouter<'f, 'a> {
             .or_else(|| self.font.glyph_index(ch))
     }
 
+    /// `ssty` level for a style: 1 in script, 2 in scriptscript.
+    fn ssty_level(sty: Sty) -> u8 {
+        match sty.style {
+            MathStyle::Script => 1,
+            MathStyle::ScriptScript => 2,
+            _ => 0,
+        }
+    }
+
     fn char_box(&self, ch: char, variant: Variant, sty: Sty) -> BBox {
         match self.resolve_glyph(ch, variant) {
-            Some(g) => self.glyph_box(g, sty),
+            Some(g) => self.glyph_box(self.font.script_variant(g, Self::ssty_level(sty)), sty),
             // Missing glyph: a visible placeholder rule so the gap is noticed.
             None => BBox::rule(0.5 * self.em(sty), 0.6 * self.em(sty), 0.0),
         }
@@ -489,18 +498,33 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Scripts { base, sup, sub } => self.layout_scripts(base, sup.as_deref(), sub.as_deref(), sty),
             Node::BigOp { ch, .. } => self.big_op(*ch, sty).with_atom(AtomType::Op),
             Node::FnName { name, .. } => self.text_box(name, Variant::Roman, sty).with_atom(AtomType::Op),
-            Node::Frac { num, den, rule, style } => {
+            Node::Frac {
+                num,
+                den,
+                rule,
+                style,
+                delims,
+            } => {
                 let sty = match style {
                     Some(s) => sty.with(*s),
                     None => sty,
                 };
-                self.fraction(num, den, *rule, sty)
+                let f = self.fraction(num, den, *rule, sty);
+                match delims {
+                    None => f,
+                    Some((l, r)) => self.frac_delims(f, *l, *r, sty),
+                }
             }
             Node::Sqrt { radicand, index } => self.radical(radicand, index.as_deref(), sty),
             Node::LeftRight { left, body, right } => self.left_right(*left, body, *right, sty),
             Node::Middle(ch) => self.char_box(*ch, Variant::Normal, sty),
             Node::SizedDelim { ch, size, atom } => {
-                let target = [1.2, 1.8, 2.4, 3.0][(*size as usize).clamp(1, 4) - 1] * self.em(sty);
+                // TeX: \big = \left<delim>\vbox to 8.5pt{}\right. and so on, sized by rule 19.
+                let em = self.em(sty);
+                let h = [0.85, 1.15, 1.45, 1.75][(*size as usize).clamp(1, 4) - 1] * em;
+                let axis = self.font.constants().axis_height * self.scale(sty);
+                let delta = (h - axis).max(axis);
+                let target = (2.0 * delta * 0.901).max(2.0 * delta - 0.5 * em);
                 match self.resolve_glyph(*ch, Variant::Normal) {
                     Some(g) => self.center_on_axis(self.extensible(g, target, sty, true), sty).with_atom(*atom),
                     None => BBox::empty().with_atom(*atom),
@@ -562,18 +586,38 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
     }
 
+    /// `\text{}` and function names. Upright text is shaped with the font's
+    /// kerning and ligatures; other variants map char by char through the
+    /// math alphabets, which have no shaping data.
     fn text_box(&self, text: &str, variant: Variant, sty: Sty) -> BBox {
+        let s = self.scale(sty);
+        let variant = if variant == Variant::Normal { Variant::Roman } else { variant };
         let mut children = Vec::new();
         let mut x = 0.0;
-        for ch in text.chars() {
-            if ch == ' ' {
-                x += 0.33 * self.em(sty);
-                continue;
+        if variant == Variant::Roman {
+            for (i, word) in text.split(' ').enumerate() {
+                if i > 0 {
+                    x += 0.33 * self.em(sty);
+                }
+                for g in self.font.shape(word) {
+                    if g.glyph.0 != 0 {
+                        let b = self.glyph_box(g.glyph, sty);
+                        children.push(b.at(x + g.x_offset * s, g.y_offset * s));
+                    }
+                    x += g.x_advance * s;
+                }
             }
-            let b = self.char_box(ch, if variant == Variant::Normal { Variant::Roman } else { variant }, sty);
-            let w = b.w;
-            children.push(b.at(x, 0.0));
-            x += w;
+        } else {
+            for ch in text.chars() {
+                if ch == ' ' {
+                    x += 0.33 * self.em(sty);
+                    continue;
+                }
+                let b = self.char_box(ch, variant, sty);
+                let w = b.w;
+                children.push(b.at(x, 0.0));
+                x += w;
+            }
         }
         let mut b = BBox::list(children);
         b.w = x;
@@ -808,12 +852,33 @@ impl<'f, 'a> Layouter<'f, 'a> {
         children.push(n.at((w - nw) / 2.0, u));
         children.push(d.at((w - dw) / 2.0, -v));
         let inner = BBox::list(children);
-        // TeX surrounds a fraction with \nulldelimiterspace on each side.
-        let pad = 0.12 * self.em(sty);
+        // TeX surrounds a fraction with \nulldelimiterspace (1.2 pt, an absolute
+        // dimension, so it does not shrink in script styles) on each side.
+        let pad = 0.12 * self.base_size;
         let iw = inner.w;
         let mut out = BBox::list(vec![inner.at(pad, 0.0)]);
         out.w = iw + 2.0 * pad;
         out.atom = Some(AtomType::Inner);
+        out
+    }
+
+    /// Rule 15e: fraction delimiters have a fixed size per style (TeX's
+    /// delim1 = 2.39 em in display style, delim2 = 1.01 em otherwise).
+    fn frac_delims(&self, frac: BBox, left: Delim, right: Delim, sty: Sty) -> BBox {
+        let target = if sty.is_display() { 2.39 } else { 1.01 } * self.em(sty);
+        let mk = |ch: Option<char>, atom: AtomType| -> BBox {
+            match ch.and_then(|ch| self.resolve_glyph(ch, Variant::Normal)) {
+                Some(g) => self.center_on_axis(self.extensible(g, target, sty, true), sty).with_atom(atom),
+                None => BBox::kern(0.12 * self.em(sty)).with_atom(atom),
+            }
+        };
+        let mut inner = frac;
+        inner.atom = Some(AtomType::Ord);
+        let all = vec![(mk(left, AtomType::Open), sty), (inner, sty), (mk(right, AtomType::Close), sty)];
+        let mut out = self.hlist(all, sty);
+        out.atom = Some(AtomType::Inner);
+        out.glyph = None;
+        out.italic = 0.0;
         out
     }
 
@@ -923,7 +988,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             return base_box;
         };
         let acc = if stretchy {
-            self.extensible(acc_gid, base_box.w, sty, false)
+            self.stretch_accent(acc_gid, base_box.w, sty)
         } else {
             self.glyph_box(acc_gid, sty)
         };
@@ -940,24 +1005,25 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 .unwrap_or((acc.ink_left + acc.ink_right) / 2.0),
             None => acc.w / 2.0,
         };
-        let mut acc_x = base_skew - acc_skew;
+        let acc_x = base_skew - acc_skew;
         // Vertical placement.
         let delta = base_box.h.min(c.accent_base_height * s);
         let acc_y = base_box.h - delta;
-        let mut base_x = 0.0;
-        let left_overhang = acc_x + acc.ink_left;
-        if left_overhang < 0.0 {
-            base_x -= left_overhang;
-            acc_x -= left_overhang;
-        }
+        // TeX keeps the nucleus width: an accent may overhang on either side.
         let atom = base_box.atom.unwrap_or(AtomType::Ord);
         let bw = base_box.w;
         let italic = base_box.italic;
-        let mut out = BBox::list(vec![base_box.at(base_x, 0.0), acc.at(acc_x, acc_y)]);
-        out.w = out.w.max(base_x + bw);
+        let mut out = BBox::list(vec![base_box.at(0.0, 0.0), acc.at(acc_x, acc_y)]);
+        out.w = bw;
         out.italic = italic;
         out.atom = Some(atom);
         out
+    }
+
+    /// Stretchy accents: the smallest variant at least as wide as the base
+    /// (LuaTeX's choice for OpenType math), an assembly beyond the largest.
+    fn stretch_accent(&self, gid: GlyphId, width: f32, sty: Sty) -> BBox {
+        self.extensible(gid, width, sty, false)
     }
 
     fn overline(&self, inner: &Node, sty: Sty) -> BBox {
@@ -1058,7 +1124,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let Some(g) = self.resolve_glyph(ch, Variant::Normal) else {
             return BBox::empty();
         };
-        let arrow = self.extensible(g, label_w + 1.0 * self.em(sty), sty, false);
+        let arrow = self.extensible(g, label_w + 0.8 * self.em(sty), sty, false);
         let arrow = self.center_on_axis(arrow, sty);
         let mut out = self.stack_limits(arrow, up, dn, s, c);
         out.atom = Some(AtomType::Rel);
@@ -1071,6 +1137,8 @@ impl<'f, 'a> Layouter<'f, 'a> {
             cramped: sty.cramped,
         };
         let em = self.em(cell_sty);
+        // Surrounding text size, for amsmath's absolute dimensions.
+        let outer = self.em(sty.with(sty.style.max(MathStyle::Text)));
         let ncols = a.cols.len().max(a.rows.iter().map(|r| r.len()).max().unwrap_or(0));
         let cells: Vec<Vec<BBox>> = a
             .rows
@@ -1085,7 +1153,11 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
         let is_aligned = a.cols.first() == Some(&ColAlign::Right) && a.cols.get(1) == Some(&ColAlign::Left);
         let gap = |i: usize| -> f32 {
-            if is_aligned {
+            if a.pitch == RowPitch::SmallMatrix {
+                outer / 6.0
+            } else if a.pitch == RowPitch::Substack {
+                0.0
+            } else if is_aligned {
                 if i % 2 == 1 {
                     0.0
                 } else {
@@ -1095,22 +1167,26 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 em
             }
         };
-        let baselineskip = if a.tight {
-            0.0
-        } else {
-            1.2 * em + if a.cell_style == MathStyle::Display { 0.3 * em } else { 0.0 }
+        // LaTeX arrays: \@arstrut is 0.7/0.3 of \baselineskip (1.2 em), scaled by
+        // \arraystretch; aligned adds \jot. amsmath's smallmatrix and substack use
+        // absolute dimensions of the surrounding text size and no struts.
+        let (baselineskip, lineskip, strut_h, strut_d) = match a.pitch {
+            RowPitch::SmallMatrix => (0.6 * outer, 0.15 * outer, 0.0, 0.0),
+            // \subarray: baselineskip = num2 + sub1 of the script font, lineskip = 3 x rule thickness.
+            RowPitch::Substack => (0.38 * outer, 0.06 * outer, 0.0, 0.0),
+            RowPitch::Normal => {
+                let jot = if a.cell_style == MathStyle::Display { 0.3 * em } else { 0.0 };
+                (1.2 * em * a.stretch + jot, 0.1 * em, 0.84 * em * a.stretch, 0.36 * em * a.stretch)
+            }
         };
-        let lineskip = 0.1 * em;
         let rule_t = 0.04 * em;
         // Outer padding when a vertical rule sits on the edge.
-        let left_pad = if a.vlines.contains(&0) { 0.5 * em } else { 0.0 };
-        let right_pad = if a.vlines.contains(&ncols) { 0.5 * em } else { 0.0 };
+        let side = if a.pitch == RowPitch::SmallMatrix { outer / 6.0 } else { 0.0 };
+        let left_pad = if a.vlines.contains(&0) { 0.5 * em } else { side };
+        let right_pad = if a.vlines.contains(&ncols) { 0.5 * em } else { side };
         let mut children = Vec::new();
         let mut y = 0.0f32;
         let mut prev_d: Option<f32> = None;
-        // Every row carries a \strut so rows of short content still get TeX's line pitch.
-        let strut_h = 0.7 * em;
-        let strut_d = 0.3 * em;
         let mut row_tops = Vec::new();
         let mut row_bottoms = Vec::new();
         for (ri, r) in cells.into_iter().enumerate() {
@@ -1118,8 +1194,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
             let rd = r.iter().map(|b| b.d).fold(strut_d, f32::max);
             if let Some(pd) = prev_d {
                 let extra = a.row_gaps.get(ri - 1).copied().unwrap_or(0.0) * em;
-                let hline_extra = if a.hlines.contains(&ri) { rule_t + lineskip } else { 0.0 };
-                y -= (pd + rh + lineskip).max(baselineskip) + extra + hline_extra;
+                let hline_extra = if a.hlines.contains(&ri) { rule_t } else { 0.0 };
+                // TeX's interline glue: \baselineskip unless the boxes would touch
+                // (\lineskiplimit = 0), then \lineskip between them.
+                let pitch = if baselineskip - pd - rh >= 0.0 {
+                    baselineskip
+                } else {
+                    pd + rh + lineskip
+                };
+                y -= pitch + extra + hline_extra;
             }
             row_tops.push(y + rh);
             row_bottoms.push(y - rd);
@@ -1144,8 +1227,8 @@ impl<'f, 'a> Layouter<'f, 'a> {
             prev_d = Some(rd);
         }
         let total_w: f32 = left_pad + col_w.iter().sum::<f32>() + (1..ncols).map(gap).sum::<f32>() + right_pad;
-        let top = row_tops.first().copied().unwrap_or(0.0) + lineskip;
-        let bottom = row_bottoms.last().copied().unwrap_or(0.0) - lineskip;
+        let top = row_tops.first().copied().unwrap_or(0.0);
+        let bottom = row_bottoms.last().copied().unwrap_or(0.0);
         for &hi in &a.hlines {
             let yline = if hi == 0 {
                 top

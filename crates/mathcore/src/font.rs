@@ -101,6 +101,15 @@ pub struct MathFont<'a> {
     x_height: f32,
 }
 
+/// One shaped glyph of a text run, in font units.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShapedGlyph {
+    pub glyph: GlyphId,
+    pub x_advance: f32,
+    pub x_offset: f32,
+    pub y_offset: f32,
+}
+
 impl<'a> MathFont<'a> {
     pub fn from_bytes(data: &'a [u8]) -> Result<Self> {
         let face = Face::parse(data, 0).map_err(|e| Error::Font(format!("cannot parse font: {e}")))?;
@@ -319,6 +328,152 @@ impl<'a> MathFont<'a> {
         kern.kern(i).map(|v| v.value as f32).unwrap_or(0.0)
     }
 
+    /// Shapes a run of text left to right with the font's `liga` ligatures and
+    /// `kern` pair adjustments. This is a deliberately small shaper: the math
+    /// fonts in scope are Latin and these two features are what `\text{}`
+    /// needs. Characters the font lacks come back as glyph 0.
+    pub fn shape(&self, text: &str) -> Vec<ShapedGlyph> {
+        let mut glyphs: Vec<GlyphId> = text.chars().map(|c| self.face.glyph_index(c).unwrap_or(GlyphId(0))).collect();
+        self.apply_ligatures(&mut glyphs);
+        let mut out = Vec::with_capacity(glyphs.len());
+        for (i, &g) in glyphs.iter().enumerate() {
+            let mut x_advance = self.face.glyph_hor_advance(g).unwrap_or(0) as f32;
+            if let Some(&next) = glyphs.get(i + 1) {
+                x_advance += self.pair_kern(g, next);
+            }
+            out.push(ShapedGlyph {
+                glyph: g,
+                x_advance,
+                x_offset: 0.0,
+                y_offset: 0.0,
+            });
+        }
+        out
+    }
+
+    /// Lookup indices of every feature with the given tag.
+    fn feature_lookups(table: &ttf_parser::opentype_layout::LayoutTable<'_>, tag: &[u8; 4]) -> Vec<u16> {
+        let tag = ttf_parser::Tag::from_bytes(tag);
+        let mut out = Vec::new();
+        for i in 0..table.features.len() {
+            if let Some(f) = table.features.get(i) {
+                if f.tag == tag {
+                    out.extend(f.lookup_indices);
+                }
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// GPOS `kern` adjustment to the advance of `first` when followed by `second`.
+    fn pair_kern(&self, first: GlyphId, second: GlyphId) -> f32 {
+        use ttf_parser::gpos::{PairAdjustment, PositioningSubtable};
+        let Some(gpos) = self.face.tables().gpos else { return 0.0 };
+        for li in Self::feature_lookups(&gpos, b"kern") {
+            let Some(lookup) = gpos.lookups.get(li) else { continue };
+            for sub in lookup.subtables.into_iter::<PositioningSubtable>() {
+                let PositioningSubtable::Pair(pair) = sub else { continue };
+                match pair {
+                    PairAdjustment::Format1 { coverage, sets } => {
+                        let Some(idx) = coverage.get(first) else { continue };
+                        if let Some(v) = sets.get(idx).and_then(|set| set.get(second)) {
+                            return v.0.x_advance as f32;
+                        }
+                    }
+                    PairAdjustment::Format2 { coverage, classes, matrix } => {
+                        if coverage.get(first).is_none() {
+                            continue;
+                        }
+                        if let Some(v) = matrix.get((classes.0.get(first), classes.1.get(second))) {
+                            return v.0.x_advance as f32;
+                        }
+                    }
+                }
+            }
+        }
+        0.0
+    }
+
+    /// OpenType MATH `ssty` alternate for script (level 1) or scriptscript
+    /// (level 2) style, or the glyph itself when the font has none. Fonts use
+    /// these for glyphs whose script-size form needs different proportions.
+    pub fn script_variant(&self, gid: GlyphId, level: u8) -> GlyphId {
+        use ttf_parser::gsub::{SingleSubstitution, SubstitutionSubtable};
+        if level == 0 {
+            return gid;
+        }
+        let Some(gsub) = self.face.tables().gsub else { return gid };
+        for li in Self::feature_lookups(&gsub, b"ssty") {
+            let Some(lookup) = gsub.lookups.get(li) else { continue };
+            for sub in lookup.subtables.into_iter::<SubstitutionSubtable>() {
+                match sub {
+                    SubstitutionSubtable::Single(SingleSubstitution::Format1 { coverage, delta }) if coverage.get(gid).is_some() => {
+                        return GlyphId((gid.0 as i32 + delta as i32) as u16);
+                    }
+                    SubstitutionSubtable::Single(SingleSubstitution::Format2 { coverage, substitutes }) => {
+                        if let Some(idx) = coverage.get(gid) {
+                            if let Some(g) = substitutes.get(idx) {
+                                return g;
+                            }
+                        }
+                    }
+                    SubstitutionSubtable::Alternate(alt) => {
+                        if let Some(idx) = alt.coverage.get(gid) {
+                            if let Some(set) = alt.alternate_sets.get(idx) {
+                                let n = set.alternates.len();
+                                if n > 0 {
+                                    let pick = (level as u16 - 1).min(n - 1);
+                                    if let Some(g) = set.alternates.get(pick) {
+                                        return g;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        gid
+    }
+
+    /// Applies GSUB `liga` substitutions in place.
+    fn apply_ligatures(&self, glyphs: &mut Vec<GlyphId>) {
+        use ttf_parser::gsub::SubstitutionSubtable;
+        let Some(gsub) = self.face.tables().gsub else { return };
+        for li in Self::feature_lookups(&gsub, b"liga") {
+            let Some(lookup) = gsub.lookups.get(li) else { continue };
+            for sub in lookup.subtables.into_iter::<SubstitutionSubtable>() {
+                let SubstitutionSubtable::Ligature(lig) = sub else { continue };
+                let mut i = 0;
+                while i < glyphs.len() {
+                    let Some(idx) = lig.coverage.get(glyphs[i]) else {
+                        i += 1;
+                        continue;
+                    };
+                    let Some(set) = lig.ligature_sets.get(idx) else {
+                        i += 1;
+                        continue;
+                    };
+                    let mut replaced = false;
+                    for k in 0..set.len() {
+                        let Some(l) = set.get(k) else { continue };
+                        let n = l.components.len() as usize;
+                        if i + n < glyphs.len() && l.components.into_iter().enumerate().all(|(c, g)| glyphs[i + 1 + c] == g) {
+                            glyphs.splice(i..=i + n, [l.glyph]);
+                            replaced = true;
+                            break;
+                        }
+                    }
+                    i += 1;
+                    let _ = replaced;
+                }
+            }
+        }
+    }
+
     /// Feeds the glyph outline (font units, y up) to `builder`.
     pub fn outline(&self, gid: GlyphId, builder: &mut dyn OutlineBuilder) -> bool {
         self.face.outline_glyph(gid, builder).is_some()
@@ -363,6 +518,56 @@ mod tests {
         let f = MathFont::from_bytes(FONT).unwrap();
         let fi = f.glyph_index('𝑓').unwrap();
         assert_eq!(f.math_kern(fi, KernCorner::BottomRight, 0.0), 0.0);
+    }
+
+    #[test]
+    fn stix_two_has_math_kerning() {
+        const STIX: &[u8] = include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf");
+        let f = MathFont::from_bytes(STIX).unwrap();
+        let fi = f.glyph_index('𝑓').unwrap();
+        // STIX Two kerns subscripts under the hook of italic f.
+        assert!(f.math_kern(fi, KernCorner::BottomRight, 0.0) < 0.0);
+        let v = f.glyph_index('𝑉').unwrap();
+        assert!(f.math_kern(v, KernCorner::BottomRight, 0.0) < 0.0);
+    }
+
+    #[test]
+    fn all_bundled_fonts_load() {
+        for bytes in [
+            &include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf")[..],
+            &include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf")[..],
+        ] {
+            let f = MathFont::from_bytes(bytes).unwrap();
+            assert!(f.constants().axis_height > 0.0);
+            assert!(f.glyph_index('√').is_some());
+            assert!(f.variants(f.glyph_index('(').unwrap(), true).len() > 1);
+        }
+    }
+
+    #[test]
+    fn ssty_alternates_exist_for_script_styles() {
+        let f = MathFont::from_bytes(FONT).unwrap();
+        let i = f.glyph_index('𝑖').unwrap();
+        let s1 = f.script_variant(i, 1);
+        assert_ne!(s1, i, "Latin Modern Math has an ssty alternate for math italic i");
+        assert_eq!(f.script_variant(i, 0), i);
+        let x = f.glyph_index('x').unwrap();
+        let _ = f.script_variant(x, 2); // must not panic for glyphs without alternates
+    }
+
+    #[test]
+    fn shaping_applies_kerning_and_ligatures() {
+        // Latin Modern Math carries no kerning for upright Latin, so use the other fonts.
+        let stix = MathFont::from_bytes(include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf")).unwrap();
+        let av = stix.shape("AV");
+        assert_eq!(av.len(), 2);
+        let plain: f32 = ["A", "V"].iter().map(|c| stix.shape(c)[0].x_advance).sum();
+        let shaped: f32 = av.iter().map(|g| g.x_advance).sum();
+        assert!(shaped < plain, "AV must be kerned: {shaped} vs {plain}");
+        let lib = MathFont::from_bytes(include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf")).unwrap();
+        assert_eq!(lib.shape("fi").len(), 1, "fi ligature");
+        let lm = MathFont::from_bytes(FONT).unwrap();
+        assert_eq!(lm.shape("otherwise").len(), 9);
     }
 
     #[test]

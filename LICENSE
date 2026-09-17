@@ -20,5 +20,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The bundled font assets/fonts/latinmodern-math.otf is licensed separately
-under the GUST Font License; see assets/fonts/GUST-FONT-LICENSE.txt.
+The bundled fonts are licensed separately:
+  assets/fonts/latinmodern-math.otf and latinmodern-math-subset.otf
+    GUST Font License, see assets/fonts/GUST-FONT-LICENSE.txt
+  assets/fonts/STIXTwoMath-Regular.otf (used by tests only)
+    SIL Open Font License 1.1, see assets/fonts/OFL-STIXTwo.txt
+  assets/fonts/LibertinusMath-Regular.otf (used by tests only)
+    SIL Open Font License 1.1, see assets/fonts/OFL-Libertinus.txt

@@ -88,7 +88,7 @@ pub extern "C" fn math_engine_new_bundled() -> *mut MathEngine {
     clear_error();
     #[cfg(feature = "bundled-font")]
     {
-        const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+        const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
         match MathFont::from_bytes(FONT) {
             Ok(font) => Box::into_raw(Box::new(MathEngine { data: None, font })),
             Err(e) => {
@@ -309,7 +309,7 @@ pub extern "C" fn math_version() -> *const c_char {
 mod tests {
     use super::*;
 
-    const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+    const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
     #[test]
     fn round_trip_through_the_c_abi() {

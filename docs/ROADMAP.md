@@ -7,24 +7,30 @@ CLI, golden-image tests, CI.
 
 ## Phase 1: correctness and coverage
 
-- [ ] Side-by-side comparison harness: render the corpus with real LaTeX
-      (`latex` + `dvisvgm`) and overlay against our output to find drift.
-      Blocked locally: no TeX installation on the dev machine.
-- [x] Math kerning from the MATH table (`MathKernInfo`). Implemented; Latin
-      Modern Math ships no kern data, so it only shows with STIX Two / Libertinus.
+- [x] Side-by-side comparison harness against LuaLaTeX (`tools/texcompare`).
+- [x] Math kerning from the MATH table (`MathKernInfo`), tested with STIX Two.
 - [x] `\middle`, `\cancel`, `\boxed`, `\underbrace` `\overbrace`, `\xrightarrow`,
       `\substack`, `\pmod`, `\bmod`, `\choose`, `\atop`, `\genfrac`.
 - [x] Colors: `\color`, `\textcolor`. `\colorbox` still open.
 - [x] User macros: `\newcommand`, `\def`, `\renewcommand`, `\providecommand`,
       and a host macro table (`RenderOptions::macros`).
 - [x] Unicode input: `α`, `≤`, `∑` typed directly.
-- [ ] Better `\text{}`: real shaping via `rustybuzz` for kerning/ligatures and
-      non-Latin scripts, or delegate text runs to the platform.
+- [x] `\text{}` shaping: built-in GPOS `kern` + GSUB `liga` over ttf-parser
+      (rustybuzz was tried and dropped: +560 KB per binary for Unicode tables).
+- [x] `ssty` script-style alternates, LaTeX array struts and interline glue,
+      amsmath `cases`/`smallmatrix`/`\substack` dimensions, TeX rule 15e fraction
+      delimiters, `\big` sizes via rule 19, absolute `\nulldelimiterspace`.
 - [x] Array extras: `|` column rules, `\hline`, row spacing `\\[2pt]`.
 - [ ] `\hdashline`, `\colorbox`, `\fcolorbox`, `\rule`, `\raisebox`, `\tag` display.
 - [ ] Wide accents `\overrightarrow` `\overleftarrow` using horizontal assemblies.
-- [ ] Second font (STIX Two Math) in the golden corpus to catch font-specific assumptions.
-- [ ] Font subsetting for the bundled font and a size budget (< 1 MB core+font).
+- [x] STIX Two Math and Libertinus Math in the golden corpus.
+- [x] Font subsetting (`scripts/subset-font.sh` + `tools/subset/repair_math.py`,
+      equivalence test over corpus geometry and every MATH record). Bindings ship
+      the 457 KB subset; the Android library is 1.05 MB per ABI.
+- [x] Fuzz test for panics and stack depth; parser nesting limit.
+- [x] Fix drift found by the TeX comparison harness. Remaining: `\left`/`\right`
+      around nested delimiters is ~5% taller than LuaLaTeX; `\mathsf`/`\mathtt`
+      fall back differently in unicode-math.
 
 ## Phase 2: platform bindings
 

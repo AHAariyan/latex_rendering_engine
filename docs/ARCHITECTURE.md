@@ -73,6 +73,11 @@ describes (base top-right at the script's bottom edge plus script bottom-left
 at the base's top edge, and the mirror for subscripts) and the sum offsets the
 script horizontally.
 
+**Text shaping.** `\text{}` runs go through a small built-in shaper:
+GSUB `liga` ligatures and GPOS `kern` pair adjustments read straight from
+ttf-parser. Script styles substitute the font's `ssty` alternates, which is
+what makes nested subscripts match LuaLaTeX.
+
 **Extensible glyphs.** Pick the smallest pre-drawn size variant that reaches
 the target, else build an assembly: repeat extender parts until the maximum
 length with minimum connector overlap reaches the target, then solve for the

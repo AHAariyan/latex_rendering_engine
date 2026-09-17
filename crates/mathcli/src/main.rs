@@ -11,7 +11,7 @@ use mathcore::{Color, MathFont, RenderOptions};
 use mathraster::RasterOptions;
 use std::path::PathBuf;
 
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 #[derive(Parser, Debug)]
 #[command(name = "mathcli", about = "Native TeX math renderer")]

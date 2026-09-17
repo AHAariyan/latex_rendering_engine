@@ -9,7 +9,7 @@ use mathcore::{Color, Macros, MathFont, RenderOptions};
 use ttf_parser::OutlineBuilder;
 use wasm_bindgen::prelude::*;
 
-const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 #[wasm_bindgen]
 pub struct MathEngine {

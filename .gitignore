@@ -18,3 +18,5 @@ platforms/flutter/*/android/src/main/jniLibs/
 platforms/flutter/*/ios/*.xcframework
 platforms/ios/*/*.xcframework
 platforms/ios/*/.build/
+# Comparison harness output
+texcompare.png
