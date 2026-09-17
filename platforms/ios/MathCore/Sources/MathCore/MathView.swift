@@ -38,6 +38,9 @@ public final class MathView: UIView {
             self.error = "\(error)"
             layoutResult = nil
         }
+        isAccessibilityElement = true
+        accessibilityTraits = .staticText
+        accessibilityLabel = (try? MathEngine.speech(latex)) ?? latex
         invalidateIntrinsicContentSize()
         setNeedsDisplay()
     }

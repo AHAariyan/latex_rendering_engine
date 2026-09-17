@@ -83,6 +83,15 @@ the target, else build an assembly: repeat extender parts until the maximum
 length with minimum connector overlap reaches the target, then solve for the
 overlap that hits the target exactly, clamped to the connector lengths.
 
+### Accessibility (`a11y.rs`)
+
+Two writers walk the same `Node` tree the layout engine uses, so what a screen
+reader announces is what the engine drew, and neither needs a font. `mathml`
+emits Presentation MathML; `speech` emits a sentence for platforms that want a
+label, following the usual conventions ("squared", "over", "the square root
+of"), and shortens the scaffolding when an argument is a single token, so
+`\frac{1}{2}` is "1 over 2" rather than "the fraction 1 over 2".
+
 ### Line breaking
 
 `RenderOptions::line_break` gives the engine an available width. Candidates are

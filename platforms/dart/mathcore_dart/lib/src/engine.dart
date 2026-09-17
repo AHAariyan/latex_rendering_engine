@@ -69,6 +69,27 @@ class MathEngine {
 
   static String get nativeVersion => bindings.version().toDartString();
 
+  /// Presentation MathML for [tex], for a screen reader. Needs no engine.
+  static String mathml(String tex, {bool displayMode = true}) =>
+      _string(tex, (b, t) => b.mathml(t, displayMode, nullptr));
+
+  /// A spoken sentence for [tex], for a semantics label. Needs no engine.
+  static String speech(String tex) => _string(tex, (b, t) => b.speech(t, nullptr));
+
+  static String _string(String tex, Pointer<Utf8> Function(MathBindings, Pointer<Utf8>) call) {
+    final b = bindings;
+    final texP = tex.toNativeUtf8();
+    try {
+      final p = call(b, texP);
+      if (p == nullptr) throw MathParseException(_lastError(b));
+      final s = p.toDartString();
+      b.stringFree(p);
+      return s;
+    } finally {
+      malloc.free(texP);
+    }
+  }
+
   /// Lays out [tex] at [fontSizePx]. When [maxWidth] is given, a formula wider
   /// than that is broken into lines before relations and binary operators.
   /// Throws [MathParseException] on bad input.

@@ -44,6 +44,8 @@ public struct MathText: View {
                 gc.withCGContext { ctx in MathEngine.shared.draw(layout, in: ctx) }
             }
             .frame(width: layout.width, height: layout.height)
+            .accessibilityElement()
+            .accessibilityLabel((try? MathEngine.speech(latex)) ?? latex)
         case .failure(let error):
             Text("\(error)").font(.caption).foregroundColor(.red)
         }

@@ -94,6 +94,22 @@ public final class MathEngine {
         return MathLayout(width: CGFloat(res.width), ascent: CGFloat(res.ascent), descent: CGFloat(res.descent), items: items)
     }
 
+    /// Presentation MathML for a formula, for assistive technology. Needs no engine.
+    public static func mathml(_ tex: String, displayMode: Bool = true) throws -> String {
+        try string { tex.withCString { math_mathml($0, displayMode, nil) } }
+    }
+
+    /// A spoken sentence for a formula, for `accessibilityLabel`. Needs no engine.
+    public static func speech(_ tex: String) throws -> String {
+        try string { tex.withCString { math_speech($0, nil) } }
+    }
+
+    private static func string(_ call: () -> UnsafeMutablePointer<CChar>?) throws -> String {
+        guard let p = call() else { throw MathEngine.lastError() }
+        defer { math_string_free(p) }
+        return String(cString: p)
+    }
+
     /// Glyph outline in font units with y pointing down, cached.
     public func glyphPath(_ glyph: UInt16) -> CGPath? {
         lock.lock(); defer { lock.unlock() }

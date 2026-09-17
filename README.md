@@ -31,6 +31,11 @@ Working today:
 - Macros: `\newcommand`, `\renewcommand`, `\providecommand`, `\def` in the
   source, plus host-supplied definitions through `RenderOptions::macros`.
 - Unicode input: `α ≤ ∑` typed directly.
+- **Accessibility**: Presentation MathML and a spoken sentence, written from
+  the same tree the engine draws from, so `x^2 + y^2 = z^2` is announced as
+  "x squared plus y squared equals z squared". The Compose, SwiftUI, Flutter
+  and Android View widgets carry it automatically, so TalkBack and VoiceOver
+  read the formula instead of skipping it.
 - **Line breaking**: a formula too wide for the space available is broken into
   lines before relations and binary operators, the way an author breaks a long
   equation by hand, with the split chosen by a Knuth-Plass style dynamic
@@ -59,7 +64,7 @@ Working today:
   | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
   | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
-Not yet: line breaking, `mhchem`, accessibility output, React Native. See `docs/ROADMAP.md`.
+Not yet: `mhchem`, React Native, an editing model. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -79,6 +84,9 @@ let opts = mathcore::RenderOptions { font_size: 32.0, display_mode: true, ..Defa
 let list = mathcore::render(&font, r"\frac{a}{b}", &opts)?;
 // ... or fit it to a width:
 let opts = mathcore::RenderOptions { line_break: Some(mathcore::LineBreak::new(360.0)), ..opts };
+// For a screen reader, with no font needed:
+let spoken = mathcore::render_speech(r"\frac{a}{b}", &Default::default())?;
+let markup = mathcore::render_mathml(r"\frac{a}{b}", true, &Default::default())?;
 for item in &list.items {
     match item {
         mathcore::Item::Glyph { id, x, y, size, .. } => { /* draw glyph `id` at (x, y) with em size `size` */ }

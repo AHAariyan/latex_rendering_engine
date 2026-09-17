@@ -21,6 +21,10 @@ val layout = MathEngine.shared.render("\\sum_{i=1}^n i", fontSizePx = 40f, displ
 MathEngine.shared.draw(layout, canvas, left = 0f, top = 0f)
 ```
 
+TalkBack reads formulas aloud: `MathText` and `MathView` set a spoken content
+description automatically, and `MathAccessibility.speech(latex)` /
+`MathAccessibility.mathml(latex)` expose it directly.
+
 `render` throws `MathParseException` with the byte offset and reason for bad
 input. Custom fonts: `MathEngine.fromFont(bytes)` accepts any OpenType font
 with a MATH table.

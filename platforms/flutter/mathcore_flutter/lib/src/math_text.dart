@@ -1,3 +1,4 @@
+import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:mathcore_dart/mathcore_dart.dart';
 
@@ -13,6 +14,9 @@ class MathCore {
 }
 
 /// Typesets [latex] natively and sizes itself to the formula.
+///
+/// TalkBack and VoiceOver read the formula aloud: the widget carries a spoken
+/// rendering as its semantics label, so `x^2` is announced as "x squared".
 ///
 /// With [wrap] on, a formula too wide for the space the parent offers is broken
 /// into lines before relations and binary operators, the way an author breaks a
@@ -59,9 +63,19 @@ class MathText extends StatelessWidget {
           ? b(context, e.message)
           : Text(e.message, style: const TextStyle(color: Color(0xFFB00020), fontSize: 12));
     }
-    return CustomPaint(
-      size: Size(layout.width, layout.height),
-      painter: MathPainter(layout, MathCore.cache),
+    String? spoken;
+    try {
+      spoken = MathEngine.speech(latex);
+    } on MathParseException {
+      spoken = null;
+    }
+    return Semantics(
+      label: spoken,
+      excludeSemantics: true,
+      child: CustomPaint(
+        size: Size(layout.width, layout.height),
+        painter: MathPainter(layout, MathCore.cache),
+      ),
     );
   }
 }

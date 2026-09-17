@@ -22,6 +22,8 @@ jobs:
           cargo install wasm-pack --locked
           (cd crates/mathwasm && wasm-pack build --release --target nodejs --out-dir ../../platforms/web/pkg-node)
           node platforms/web/test.mjs
+      - name: web demo build
+        run: (cd crates/mathwasm && wasm-pack build --release --target web --out-dir ../../platforms/web/pkg)
       - uses: dart-lang/setup-dart@v1
       - name: dart binding
         run: |

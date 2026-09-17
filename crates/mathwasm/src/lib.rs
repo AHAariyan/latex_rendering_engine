@@ -128,6 +128,18 @@ impl MathEngine {
     }
 }
 
+/// Presentation MathML for a formula, for a screen reader. Needs no font.
+#[wasm_bindgen]
+pub fn mathml(tex: &str, display_mode: bool, macros: Option<String>) -> Result<String, JsError> {
+    mathcore::render_mathml(tex, display_mode, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// A spoken sentence for a formula, for an `aria-label`. Needs no font.
+#[wasm_bindgen]
+pub fn speech(tex: &str, macros: Option<String>) -> Result<String, JsError> {
+    mathcore::render_speech(tex, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[wasm_bindgen]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()

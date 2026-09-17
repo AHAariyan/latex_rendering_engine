@@ -2,7 +2,7 @@
 import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
-const { MathEngine, version } = require("./pkg-node/mathwasm.js");
+const { MathEngine, version, mathml, speech } = require("./pkg-node/mathwasm.js");
 
 const engine = new MathEngine();
 assert.equal(engine.unitsPerEm(), 1000);
@@ -31,6 +31,13 @@ const wide = engine.render("a + b + c + d + e + f + g + h + i + j", 32, true, 0x
 const narrow = engine.render("a + b + c + d + e + f + g + h + i + j", 32, true, 0xff000000, null, 150);
 assert.ok(narrow[0] <= 150 && narrow[0] < wide[0], "line breaking respects the width");
 assert.ok(narrow[1] + narrow[2] > wide[1] + wide[2], "broken layout is taller");
+
+const ml = mathml("x^2 + \\frac{1}{2}", true, null);
+assert.ok(ml.startsWith("<math") && ml.includes("<msup>") && ml.includes("<mfrac>"), "mathml output");
+assert.equal(speech("x^2 + \\frac{1}{2}", null), "x squared plus 1 over 2");
+let a11yThrew = false;
+try { speech("\\frac{a", null); } catch { a11yThrew = true; }
+assert.ok(a11yThrew, "accessibility reports parse errors");
 
 const outline = engine.glyphOutline(flat[5]);
 assert.ok(outline && outline.length > 3 && outline[0] === 0, "outline starts with move");

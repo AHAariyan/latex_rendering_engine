@@ -53,6 +53,11 @@ typedef OutlineC = Pointer<Float> Function(Pointer<MathEngineOpaque>, Uint16, Po
 typedef OutlineD = Pointer<Float> Function(Pointer<MathEngineOpaque>, int, Pointer<Size>);
 typedef BufferFreeC = Void Function(Pointer<Float>, Size);
 typedef BufferFreeD = void Function(Pointer<Float>, int);
+typedef MathmlC = Pointer<Utf8> Function(Pointer<Utf8>, Bool, Pointer<Utf8>);
+typedef MathmlD = Pointer<Utf8> Function(Pointer<Utf8>, bool, Pointer<Utf8>);
+typedef SpeechC = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>);
+typedef StringFreeC = Void Function(Pointer<Utf8>);
+typedef StringFreeD = void Function(Pointer<Utf8>);
 typedef LastErrorC = Pointer<Utf8> Function();
 typedef VersionC = Pointer<Utf8> Function();
 
@@ -66,6 +71,9 @@ class MathBindings {
         resultFree = lib.lookupFunction<ResultFreeC, ResultFreeD>('math_result_free'),
         glyphOutline = lib.lookupFunction<OutlineC, OutlineD>('math_engine_glyph_outline'),
         bufferFree = lib.lookupFunction<BufferFreeC, BufferFreeD>('math_buffer_free'),
+        mathml = lib.lookupFunction<MathmlC, MathmlD>('math_mathml'),
+        speech = lib.lookupFunction<SpeechC, SpeechC>('math_speech'),
+        stringFree = lib.lookupFunction<StringFreeC, StringFreeD>('math_string_free'),
         lastError = lib.lookupFunction<LastErrorC, LastErrorC>('math_last_error'),
         version = lib.lookupFunction<VersionC, VersionC>('math_version');
 
@@ -77,6 +85,9 @@ class MathBindings {
   final ResultFreeD resultFree;
   final OutlineD glyphOutline;
   final BufferFreeD bufferFree;
+  final MathmlD mathml;
+  final SpeechC speech;
+  final StringFreeD stringFree;
   final LastErrorC lastError;
   final VersionC version;
 }

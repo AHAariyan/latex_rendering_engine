@@ -155,16 +155,7 @@ pub unsafe extern "C" fn math_engine_render(
             return std::ptr::null_mut();
         }
     };
-    let mut defs = Macros::new();
-    if !macros.is_null() {
-        if let Ok(text) = CStr::from_ptr(macros).to_str() {
-            for line in text.lines() {
-                if let Some((name, body)) = line.split_once('=') {
-                    defs.define(name.trim(), body);
-                }
-            }
-        }
-    }
+    let defs = macros_from_c(macros);
     let opts = RenderOptions {
         font_size: font_size_px,
         display_mode,
@@ -297,6 +288,70 @@ pub unsafe extern "C" fn math_buffer_free(buffer: *mut f32, len: usize) {
     }
 }
 
+fn macros_from_c(macros: *const c_char) -> Macros {
+    let mut defs = Macros::new();
+    if !macros.is_null() {
+        // SAFETY: the caller promises a NUL-terminated string or null.
+        if let Ok(text) = unsafe { CStr::from_ptr(macros) }.to_str() {
+            for line in text.lines() {
+                if let Some((name, body)) = line.split_once('=') {
+                    defs.define(name.trim(), body);
+                }
+            }
+        }
+    }
+    defs
+}
+
+/// Presentation MathML for `tex`, for a screen reader. The caller owns the
+/// string and must release it with `math_string_free`. NULL on a parse error.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_mathml(tex: *const c_char, display_mode: bool, macros: *const c_char) -> *mut c_char {
+    string_out(tex, macros, |t, m| mathcore::render_mathml(t, display_mode, m))
+}
+
+/// A spoken sentence for `tex`. Ownership and errors as `math_mathml`.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech(tex: *const c_char, macros: *const c_char) -> *mut c_char {
+    string_out(tex, macros, mathcore::render_speech)
+}
+
+unsafe fn string_out(tex: *const c_char, macros: *const c_char, f: impl Fn(&str, &Macros) -> mathcore::Result<String>) -> *mut c_char {
+    clear_error();
+    if tex.is_null() {
+        set_error("tex is null");
+        return std::ptr::null_mut();
+    }
+    let Ok(tex) = CStr::from_ptr(tex).to_str() else {
+        set_error("tex is not valid UTF-8");
+        return std::ptr::null_mut();
+    };
+    match f(tex, &macros_from_c(macros)) {
+        Ok(s) => CString::new(s).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),
+        Err(e) => {
+            set_error(e.to_string());
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Releases a string returned by `math_mathml` or `math_speech`.
+///
+/// # Safety
+/// `s` must come from one of those calls and not be used afterwards.
+#[no_mangle]
+pub unsafe extern "C" fn math_string_free(s: *mut c_char) {
+    if !s.is_null() {
+        drop(CString::from_raw(s));
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn math_last_error() -> *const c_char {
     LAST_ERROR.with(|e| e.borrow().as_ref().map_or(std::ptr::null(), |s| s.as_ptr()))
@@ -352,6 +407,26 @@ mod tests {
             let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
             assert!(msg.contains("parse error"), "{msg}");
             math_engine_free(engine);
+        }
+    }
+
+    #[test]
+    fn accessibility_strings_round_trip() {
+        unsafe {
+            let tex = CString::new(r"x^2 + \frac{1}{2}").unwrap();
+            let ml = math_mathml(tex.as_ptr(), true, std::ptr::null());
+            assert!(!ml.is_null());
+            let s = CStr::from_ptr(ml).to_str().unwrap();
+            assert!(s.starts_with("<math") && s.contains("<msup>") && s.contains("<mfrac>"));
+            math_string_free(ml);
+
+            let sp = math_speech(tex.as_ptr(), std::ptr::null());
+            assert_eq!(CStr::from_ptr(sp).to_str().unwrap(), "x squared plus 1 over 2");
+            math_string_free(sp);
+
+            let bad = CString::new(r"\frac{a").unwrap();
+            assert!(math_speech(bad.as_ptr(), std::ptr::null()).is_null());
+            assert!(!math_last_error().is_null());
         }
     }
 

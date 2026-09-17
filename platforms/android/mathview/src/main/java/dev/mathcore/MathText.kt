@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
@@ -21,6 +23,9 @@ import androidx.compose.ui.unit.sp
  * into lines before relations and binary operators, the way an author breaks a
  * long equation by hand. With it off the formula keeps its natural width, which
  * suits a horizontally scrollable row.
+ *
+ * TalkBack reads the formula aloud: the composable carries a spoken rendering
+ * as its content description, so `x^2` is announced as "x squared".
  *
  * When the source fails to parse, [onError] receives the message and nothing is drawn.
  */
@@ -51,7 +56,10 @@ fun MathText(
         }
         val w = with(density) { (layout?.width ?: 0f).toDp() }
         val h = with(density) { (layout?.height ?: 0f).toDp() }
-        Canvas(modifier = Modifier.size(w, h)) {
+        val spoken = remember(latex) { MathAccessibility.speechOrNull(latex) }
+        Canvas(
+            modifier = Modifier.size(w, h).semantics { spoken?.let { contentDescription = it } },
+        ) {
             val l = layout ?: return@Canvas
             drawIntoCanvas { engine.draw(l, it.nativeCanvas) }
         }

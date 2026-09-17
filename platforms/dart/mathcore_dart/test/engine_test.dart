@@ -40,6 +40,14 @@ void main() {
     e.dispose();
   });
 
+  test('accessibility output', () {
+    expect(MathEngine.speech(r'x^2 + \frac{1}{2}'), 'x squared plus 1 over 2');
+    final ml = MathEngine.mathml(r'x^2');
+    expect(ml, startsWith('<math'));
+    expect(ml, contains('<msup>'));
+    expect(() => MathEngine.speech(r'\frac{a'), throwsA(isA<MathParseException>()));
+  });
+
   test('glyph outlines are cached command streams', () {
     final e = MathEngine.bundled();
     final g = e.render('x', 32).items.first as MathGlyph;

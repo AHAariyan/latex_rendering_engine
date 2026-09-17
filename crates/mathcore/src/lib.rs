@@ -4,6 +4,7 @@
 //! boxes) -> `DisplayList` (glyph ids, positions and rules in pixels).
 //! Nothing here touches a canvas; platform backends draw the display list.
 
+pub mod a11y;
 pub mod ast;
 pub mod display;
 pub mod error;
@@ -14,6 +15,7 @@ pub mod macros;
 pub mod parser;
 pub mod symbols;
 
+pub use a11y::{mathml, speech};
 pub use ast::Node;
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
@@ -21,6 +23,16 @@ pub use font::MathFont;
 pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
+
+/// Parses a formula and writes Presentation MathML for a screen reader.
+pub fn render_mathml(tex: &str, display_mode: bool, macros: &Macros) -> Result<String> {
+    Ok(a11y::mathml(&parse_with(tex, macros)?, display_mode))
+}
+
+/// Parses a formula and writes a spoken sentence for a screen reader.
+pub fn render_speech(tex: &str, macros: &Macros) -> Result<String> {
+    Ok(a11y::speech(&parse_with(tex, macros)?))
+}
 
 /// Parses and lays out a formula in one call.
 pub fn render(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<DisplayList> {

@@ -19,16 +19,20 @@ Formulas wider than this column are broken into lines; resize the window to see 
 <div class="err" id="err"></div>
 <h3>SVG</h3>
 <div class="out" id="svg"></div>
+<h3>What a screen reader hears</h3>
+<div class="out" id="spoken"></div>
+<details><summary>MathML</summary><pre id="mathml" style="white-space:pre-wrap;font-size:12px"></pre></details>
 <h3>Canvas</h3>
 <canvas id="cv"></canvas>
 <script type="module">
-  import init, { MathEngine } from "./pkg/mathwasm.js";
+  import init, { MathEngine, mathml, speech } from "./pkg/mathwasm.js";
   import { CanvasRenderer } from "./mathcore.js";
   await init();
   const engine = new MathEngine();
   const renderer = new CanvasRenderer(engine);
   const src = document.getElementById("src"), err = document.getElementById("err");
   const svgOut = document.getElementById("svg"), cv = document.getElementById("cv");
+  const spokenOut = document.getElementById("spoken"), mathmlOut = document.getElementById("mathml");
   function update() {
     try {
       const t0 = performance.now();
@@ -40,6 +44,15 @@ Formulas wider than this column are broken into lines; resize the window to see 
       cv.style.width = (s.width + 16) + "px"; cv.style.height = (s.height + 16) + "px";
       const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
       renderer.draw(layout, ctx, 8, 8);
+      // Label the drawing for assistive technology.
+      const spoken = speech(src.value, null);
+      spokenOut.textContent = spoken;
+      mathmlOut.textContent = mathml(src.value, true, null);
+      for (const el of [svgOut.firstElementChild, cv]) {
+        if (!el) continue;
+        el.setAttribute("role", "math");
+        el.setAttribute("aria-label", spoken);
+      }
       err.textContent = `${(performance.now() - t0).toFixed(2)} ms`;
     } catch (e) { err.textContent = String(e.message || e); }
   }

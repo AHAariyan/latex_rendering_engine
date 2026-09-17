@@ -193,6 +193,36 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
     }
 }
 
+fn string_result(env: &JNIEnv, r: mathcore::Result<String>) -> jstring {
+    match r {
+        Ok(s) => env.new_string(s).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),
+        Err(e) => {
+            set_error(e.to_string());
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_mathml(mut env: JNIEnv, _class: JClass, tex: JString, display: jboolean) -> jstring {
+    let Ok(tex) = env.get_string(&tex) else {
+        set_error("tex is not a string");
+        return std::ptr::null_mut();
+    };
+    let tex: String = tex.into();
+    string_result(&env, mathcore::render_mathml(&tex, display != 0, &Macros::new()))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speech(mut env: JNIEnv, _class: JClass, tex: JString) -> jstring {
+    let Ok(tex) = env.get_string(&tex) else {
+        set_error("tex is not a string");
+        return std::ptr::null_mut();
+    };
+    let tex: String = tex.into();
+    string_result(&env, mathcore::render_speech(&tex, &Macros::new()))
+}
+
 #[no_mangle]
 pub extern "system" fn Java_dev_mathcore_NativeBridge_lastError(env: JNIEnv, _class: JClass) -> jstring {
     let msg = LAST_ERROR.with(|e| e.borrow_mut().take());

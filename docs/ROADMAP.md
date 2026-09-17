@@ -51,7 +51,9 @@ CLI, golden-image tests, CI.
 - [x] Display-math line breaking for long equations on narrow screens, wired
       through every binding; the Compose, SwiftUI, Flutter and View widgets wrap
       to the width their parent offers.
-- [ ] Accessibility: MathML and spoken-text output from the AST.
+- [x] Accessibility: Presentation MathML and spoken text from the AST
+      (`crates/mathcore/src/a11y.rs`), carried by every widget as a content
+      description, semantics label or aria-label.
 - [ ] Editing model: cursor, selection and incremental relayout for a math input control.
 - [ ] Chemistry (`mhchem`), physics package macros, `siunitx` subset.
 - [ ] Multiple fonts (STIX Two, Fira Math) and font fallback for missing glyphs.

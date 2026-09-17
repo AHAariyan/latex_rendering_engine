@@ -66,6 +66,13 @@ void math_result_free(MathResult* result);
 float* math_engine_glyph_outline(const MathEngine* engine, uint16_t glyph, size_t* out_len);
 void math_buffer_free(float* buffer, size_t len);
 
+/* Accessibility. Both parse `tex` and return a string the caller owns and must
+ * release with math_string_free; NULL on a parse error. Neither needs an engine
+ * or a font. `macros` is optional, as in math_engine_render. */
+char* math_mathml(const char* tex, bool display_mode, const char* macros);
+char* math_speech(const char* tex, const char* macros);
+void math_string_free(char* s);
+
 /* Message for the last failed call on this thread, or NULL. Valid until the next call. */
 const char* math_last_error(void);
 

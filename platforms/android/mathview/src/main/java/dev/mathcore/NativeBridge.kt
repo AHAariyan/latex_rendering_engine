@@ -19,6 +19,8 @@ internal object NativeBridge {
         macros: String?,
         maxWidthPx: Float,
     ): FloatArray?
+    external fun mathml(tex: String, display: Boolean): String?
+    external fun speech(tex: String): String?
     external fun lastError(): String?
     external fun glyphOutline(handle: Long, glyph: Int): FloatArray?
 }

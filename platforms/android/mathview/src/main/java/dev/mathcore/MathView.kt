@@ -13,6 +13,9 @@ import android.view.View
  *
  * With [wrap] on (the default) a formula too wide for the width the parent
  * offers is broken into lines before relations and binary operators.
+ *
+ * TalkBack reads the formula aloud: the view's content description is a spoken
+ * rendering, so `x^2` is announced as "x squared".
  */
 class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
     View(context, attrs, defStyleAttr) {
@@ -52,6 +55,7 @@ class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
             error = e.message
             null
         }
+        contentDescription = MathAccessibility.speechOrNull(latex) ?: latex
     }
 
     private fun relayout() {
