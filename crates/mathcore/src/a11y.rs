@@ -285,6 +285,7 @@ fn node(out: &mut String, n: &Node) {
             let _ = write!(out, "</{tag}>");
         }
         Node::Class { body, .. } => one(out, body),
+        Node::Spanned { body, .. } => one(out, body),
     }
 }
 
@@ -490,6 +491,7 @@ fn say(out: &mut String, n: &Node) {
             }
         }
         Node::Class { body, .. } => say_one(out, body),
+        Node::Spanned { body, .. } => say_one(out, body),
     }
 }
 

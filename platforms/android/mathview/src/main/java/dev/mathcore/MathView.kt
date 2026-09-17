@@ -38,6 +38,10 @@ class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
     var wrap: Boolean = true
         set(value) { field = value; relayout() }
 
+    /** Record source regions so [regionAt] can answer. Off by default. */
+    var hitTesting: Boolean = false
+        set(value) { field = value; relayout() }
+
     /** Non-null when the current [latex] failed to parse. */
     var error: String? = null
         private set
@@ -50,7 +54,11 @@ class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
         appliedWidth = maxWidthPx
         layoutResult = try {
             error = null
-            if (latex.isBlank()) null else engine.render(latex, textSizePx, displayMode, textColor, emptyMap(), maxWidthPx)
+            if (latex.isBlank()) {
+                null
+            } else {
+                engine.render(latex, textSizePx, displayMode, textColor, emptyMap(), maxWidthPx, hitTesting)
+            }
         } catch (e: MathParseException) {
             error = e.message
             null
@@ -84,6 +92,13 @@ class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
         val l = layoutResult ?: return
         engine.draw(l, canvas, paddingLeft.toFloat(), paddingTop.toFloat())
     }
+
+    /**
+     * The smallest sub-expression under a point in this view's coordinates.
+     * Requires [hitTesting]; its `start` and `end` index into [latex].
+     */
+    fun regionAt(x: Float, y: Float): MathRegion? =
+        layoutResult?.hitNearest(x - paddingLeft, y - paddingTop)
 
     /** Baseline of the first line, for alignment with surrounding text. */
     override fun getBaseline(): Int = layoutResult?.let { (it.ascent + paddingTop).toInt() } ?: super.getBaseline()

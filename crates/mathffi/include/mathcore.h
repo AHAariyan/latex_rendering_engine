@@ -36,12 +36,27 @@ typedef struct MathItem {
     uint32_t color;    /* 0xRRGGBBAA */
 } MathItem;
 
+/* Where a piece of the source ended up on screen, for hit testing and
+ * selection. Regions nest; a point usually falls in several, and the smallest
+ * is the innermost sub-expression. */
+typedef struct MathRegion {
+    uint32_t start;   /* byte range of the source that produced this piece */
+    uint32_t end;
+    float x;          /* bounding box, same pixel space as MathItem */
+    float y;
+    float width;
+    float height;
+    uint16_t depth;   /* nesting level, 0 is a top-level atom */
+} MathRegion;
+
 typedef struct MathResult {
     float width;
     float ascent;   /* top of bounding box to baseline */
     float descent;  /* baseline to bottom of bounding box */
     size_t count;
     const MathItem* items;
+    size_t region_count;          /* zero unless hit_testing was requested */
+    const MathRegion* regions;    /* outermost first */
 } MathResult;
 
 /* Creates an engine from an OpenType math font (the bytes are copied). Returns NULL on failure. */
@@ -58,7 +73,7 @@ float math_engine_units_per_em(const MathEngine* engine);
  * 0 or less renders one line of any width. Returns NULL on error; see
  * math_last_error(). */
 MathResult* math_engine_render(const MathEngine* engine, const char* tex, float font_size_px, bool display_mode,
-                               uint32_t color, const char* macros, float max_width);
+                               uint32_t color, const char* macros, float max_width, bool hit_testing);
 void math_result_free(MathResult* result);
 
 /* Glyph outline in font units, y up, as a flat command stream:

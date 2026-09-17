@@ -83,6 +83,18 @@ the target, else build an assembly: repeat extender parts until the maximum
 length with minimum connector overlap reaches the target, then solve for the
 overlap that hits the target exactly, clamped to the connector lengths.
 
+### Hit testing
+
+With `RenderOptions::hit_testing`, the parser wraps every element of every list
+in a node carrying its byte range, layout copies that onto the box, and
+flattening emits a `Region` beside each drawable item. Because the wrappers nest
+with the formula's structure, a point usually falls inside several regions: the
+smallest is the symbol, the largest the sub-expression containing it. Off by
+default, since it costs a wrapper node per atom.
+
+`hit_nearest` falls back to the closest region when a point lands in the space
+between atoms, which is what a finger-sized tap needs.
+
 ### Accessibility (`a11y.rs`)
 
 Two writers walk the same `Node` tree the layout engine uses, so what a screen

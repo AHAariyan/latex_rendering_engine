@@ -42,6 +42,19 @@ pub struct MathItem {
     pub color: u32,
 }
 
+/// Where a piece of the source ended up on screen. See `MathResult::regions`.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct MathRegion {
+    pub start: u32,
+    pub end: u32,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub depth: u16,
+}
+
 #[repr(C)]
 pub struct MathResult {
     pub width: f32,
@@ -49,6 +62,9 @@ pub struct MathResult {
     pub descent: f32,
     pub count: usize,
     pub items: *const MathItem,
+    /// Empty unless `hit_testing` was asked for. Outermost first.
+    pub region_count: usize,
+    pub regions: *const MathRegion,
 }
 
 fn pack(c: Color) -> u32 {
@@ -142,6 +158,7 @@ pub unsafe extern "C" fn math_engine_render(
     color: u32,
     macros: *const c_char,
     max_width: f32,
+    hit_testing: bool,
 ) -> *mut MathResult {
     clear_error();
     if engine.is_null() || tex.is_null() {
@@ -162,6 +179,7 @@ pub unsafe extern "C" fn math_engine_render(
         color: unpack(color),
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
+        hit_testing,
         budget: mathcore::Budget::default(),
     };
     let dl = match mathcore::render(&(*engine).font, tex, &opts) {
@@ -222,12 +240,29 @@ pub unsafe extern "C" fn math_engine_render(
         .collect();
     let count = items.len();
     let items = Box::leak(items.into_boxed_slice()).as_ptr();
+    let regions: Vec<MathRegion> = dl
+        .regions
+        .iter()
+        .map(|r| MathRegion {
+            start: r.start,
+            end: r.end,
+            x: r.x,
+            y: r.y,
+            width: r.width,
+            height: r.height,
+            depth: r.depth,
+        })
+        .collect();
+    let region_count = regions.len();
+    let regions = Box::leak(regions.into_boxed_slice()).as_ptr();
     Box::into_raw(Box::new(MathResult {
         width: dl.width,
         ascent: dl.ascent,
         descent: dl.descent,
         count,
         items,
+        region_count,
+        regions,
     }))
 }
 
@@ -241,6 +276,12 @@ pub unsafe extern "C" fn math_result_free(result: *mut MathResult) {
     let r = Box::from_raw(result);
     if !r.items.is_null() {
         drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(r.items as *mut MathItem, r.count)));
+    }
+    if !r.regions.is_null() {
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            r.regions as *mut MathRegion,
+            r.region_count,
+        )));
     }
 }
 
@@ -378,7 +419,7 @@ mod tests {
             assert_eq!(math_engine_units_per_em(engine), 1000.0);
             let tex = CString::new(r"\half + \frac{a}{b}").unwrap();
             let macros = CString::new("\\half=\\frac{1}{2}").unwrap();
-            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0);
+            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0, false);
             assert!(!r.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
             let items = std::slice::from_raw_parts((*r).items, (*r).count);
             assert!(items.iter().filter(|i| i.kind == 1).count() == 2, "two fraction rules");
@@ -394,8 +435,8 @@ mod tests {
 
             // Line breaking: the same formula gets taller and no wider than asked.
             let long = CString::new(r"a + b + c + d + e + f + g + h + i + j").unwrap();
-            let wide = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0);
-            let narrow = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 150.0);
+            let wide = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
+            let narrow = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 150.0, false);
             assert!(!wide.is_null() && !narrow.is_null());
             assert!((*narrow).width <= 150.0 && (*narrow).width < (*wide).width);
             assert!((*narrow).ascent + (*narrow).descent > (*wide).ascent + (*wide).descent);
@@ -403,7 +444,7 @@ mod tests {
             math_result_free(narrow);
 
             let bad = CString::new(r"\frac{a").unwrap();
-            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0);
+            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
             assert!(r.is_null());
             let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
             assert!(msg.contains("parse error"), "{msg}");
@@ -428,6 +469,30 @@ mod tests {
             let bad = CString::new(r"\frac{a").unwrap();
             assert!(math_speech(bad.as_ptr(), std::ptr::null()).is_null());
             assert!(!math_last_error().is_null());
+        }
+    }
+
+    #[test]
+    fn hit_testing_maps_a_point_to_the_source() {
+        unsafe {
+            let engine = math_engine_new_bundled();
+            // Hit testing: a tap on the first glyph names the source it came from.
+            let hit_tex = CString::new(r"\frac{a}{b}+x").unwrap();
+            let r = math_engine_render(engine, hit_tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, true);
+            assert!(!r.is_null());
+            let regions = std::slice::from_raw_parts((*r).regions, (*r).region_count);
+            assert!(!regions.is_empty());
+            let items = std::slice::from_raw_parts((*r).items, (*r).count);
+            let first = items.iter().find(|i| i.kind == 0).unwrap();
+            let under: Vec<&MathRegion> = regions
+                .iter()
+                .filter(|g| {
+                    first.x + 1.0 >= g.x && first.x + 1.0 <= g.x + g.width && first.y - 5.0 >= g.y && first.y - 5.0 <= g.y + g.height
+                })
+                .collect();
+            assert!(!under.is_empty(), "no region under the first glyph");
+            math_result_free(r);
+            math_engine_free(engine);
         }
     }
 

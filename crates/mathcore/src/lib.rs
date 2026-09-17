@@ -73,7 +73,11 @@ pub fn render_speech(tex: &str, macros: &Macros) -> Result<String> {
 
 /// Parses and lays out a formula in one call.
 pub fn render(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<DisplayList> {
-    let nodes = parser::parse_with_budget(tex, &opts.macros, opts.budget)?;
+    let nodes = if opts.hit_testing {
+        parser::parse_with_spans(tex, &opts.macros, opts.budget)?
+    } else {
+        parser::parse_with_budget(tex, &opts.macros, opts.budget)?
+    };
     let dl = Layouter::new(font, opts).layout(&nodes, opts.display_mode);
     if dl.items.len() > opts.budget.max_items {
         return Err(Error::TooLarge {
@@ -349,6 +353,85 @@ mod tests {
         let dl = render(&f, r"\frac{a+b+c+d}{e+f+g+h}", &opts).unwrap();
         assert_eq!(line_count(&dl), 2, "numerator and denominator, not broken lines");
         assert!(dl.width > 60.0);
+    }
+
+    fn hit_opts() -> RenderOptions {
+        RenderOptions {
+            hit_testing: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn hit_testing_maps_a_point_back_to_the_source() {
+        let f = font();
+        let tex = r"\frac{a}{b} + x";
+        let dl = render(&f, tex, &hit_opts()).unwrap();
+        assert!(!dl.regions.is_empty());
+
+        // The glyph `a` is the numerator of the fraction.
+        let a = glyphs(&dl)[0];
+        let inner = dl.hit_innermost(a.0 + 1.0, a.1 - 5.0).expect("a region under the numerator");
+        assert_eq!(&tex[inner.start as usize..inner.end as usize], "a");
+
+        // The same point is inside the whole fraction as well, outermost first.
+        let stack = dl.hit(a.0 + 1.0, a.1 - 5.0);
+        assert!(stack.len() >= 2);
+        assert_eq!(&tex[stack[0].start as usize..stack[0].end as usize], r"\frac{a}{b}");
+
+        // A point outside the formula hits nothing exactly, but the nearest
+        // region is what a finger-sized tap should land on.
+        assert!(dl.hit_innermost(-10.0, -10.0).is_none());
+        let near = dl.hit_nearest(a.0 + 1.0, a.1 - 5.0).unwrap();
+        assert_eq!(&tex[near.start as usize..near.end as usize], "a");
+        assert!(dl.hit_nearest(-4.0, 4.0).is_some());
+    }
+
+    #[test]
+    fn flat_layout_carries_regions() {
+        let f = font();
+        let dl = render(&f, "a+b", &hit_opts()).unwrap();
+        let flat = dl.to_flat();
+        let base = 4 + dl.items.len() * 8;
+        assert_eq!(flat[base] as usize, dl.regions.len());
+        assert_eq!(flat.len(), base + 1 + dl.regions.len() * 7);
+        assert_eq!(flat[base + 1] as u32, dl.regions[0].start);
+        // Without hit testing the block is present but empty.
+        let plain = render(&f, "a+b", &RenderOptions::default()).unwrap().to_flat();
+        assert_eq!(plain[4 + 3 * 8], 0.0);
+    }
+
+    #[test]
+    fn hit_testing_is_off_by_default() {
+        let f = font();
+        let dl = render(&f, "x+y", &RenderOptions::default()).unwrap();
+        assert!(dl.regions.is_empty());
+        assert!(dl.hit_innermost(1.0, 1.0).is_none());
+    }
+
+    #[test]
+    fn highlight_covers_a_source_range_without_overlap() {
+        let f = font();
+        let tex = r"a + \frac{b}{c} + d";
+        let dl = render(&f, tex, &hit_opts()).unwrap();
+        let start = tex.find(r"\frac").unwrap() as u32;
+        let rects = dl.highlight(start, start + r"\frac{b}{c}".len() as u32);
+        assert_eq!(rects.len(), 1, "one rectangle for one sub-expression");
+        let r = rects[0];
+        assert!(r.width > 0.0 && r.height > 0.0);
+        // It covers the fraction and nothing else.
+        let whole = dl.highlight(0, tex.len() as u32);
+        assert!(whole.len() >= 3, "each top-level atom is its own rectangle");
+        assert!(whole.iter().map(|r| r.width).sum::<f32>() <= dl.width + 1.0);
+    }
+
+    #[test]
+    fn regions_cover_every_glyph() {
+        let f = font();
+        let dl = render(&f, r"x^2 + \sqrt{y}", &hit_opts()).unwrap();
+        for g in glyphs(&dl) {
+            assert!(dl.hit_innermost(g.0 + 1.0, g.1 - 2.0).is_some(), "no region at {g:?}");
+        }
     }
 
     #[test]

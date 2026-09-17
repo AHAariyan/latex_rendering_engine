@@ -157,6 +157,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
     color: jint,
     macros: JString,
     max_width: jfloat,
+    hit_testing: jboolean,
 ) -> jfloatArray {
     let Some(eng) = engine(handle) else { return std::ptr::null_mut() };
     let tex: String = match env.get_string(&tex) {
@@ -183,6 +184,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
         color: color_from_argb(color),
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
+        hit_testing: hit_testing != 0,
         budget: mathcore::Budget::default(),
     };
     match mathcore::render(&eng.font, &tex, &opts) {
@@ -273,11 +275,24 @@ mod tests {
         let font = MathFont::from_bytes(BUNDLED_FONT).unwrap();
         let dl = mathcore::render(&font, r"\frac{a}{b}", &RenderOptions::default()).unwrap();
         let p = pack(&dl);
-        assert_eq!(p.len(), 4 + dl.items.len() * 8);
+        let regions_at = 4 + dl.items.len() * 8;
+        assert_eq!(p.len(), regions_at + 1, "items then an empty region block");
         assert_eq!(p[3] as usize, dl.items.len());
-        let kinds: Vec<f32> = p[4..].chunks(8).map(|c| c[0]).collect();
+        assert_eq!(p[regions_at], 0.0, "no regions without hit testing");
+        let kinds: Vec<f32> = p[4..regions_at].chunks(8).map(|c| c[0]).collect();
         assert!(kinds.contains(&1.0), "fraction rule present");
         assert_eq!(p[4 + 7].to_bits(), 0xFF000000, "opaque black in ARGB");
+
+        // With hit testing the region block carries one record per atom.
+        let opts = RenderOptions {
+            hit_testing: true,
+            ..Default::default()
+        };
+        let dl = mathcore::render(&font, r"\frac{a}{b}", &opts).unwrap();
+        let p = pack(&dl);
+        let regions_at = 4 + dl.items.len() * 8;
+        assert_eq!(p[regions_at] as usize, dl.regions.len());
+        assert_eq!(p.len(), regions_at + 1 + dl.regions.len() * 7);
     }
 
     #[test]

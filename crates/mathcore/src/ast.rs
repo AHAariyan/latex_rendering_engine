@@ -95,6 +95,15 @@ pub enum CancelKind {
     Cross,
 }
 
+/// Byte range of the source that produced a node, for hit testing. Offsets are
+/// into the source the parser saw, which is the caller's string unless macros
+/// expanded it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: u32,
+    pub end: u32,
+}
+
 /// A delimiter for `\left` / `\right`. `None` is the null delimiter `.`.
 pub type Delim = Option<char>;
 
@@ -243,9 +252,24 @@ pub enum Node {
         body: Box<Node>,
         limits: Limits,
     },
+    /// Records where in the source an atom came from. The parser wraps every
+    /// element of a list, so the wrappers nest with the formula's structure and
+    /// a point in the drawing maps back to a range of source.
+    Spanned {
+        span: Span,
+        body: Box<Node>,
+    },
 }
 
 impl Node {
+    /// The node itself with any span wrapper removed.
+    pub fn bare(&self) -> &Node {
+        match self {
+            Node::Spanned { body, .. } => body.bare(),
+            other => other,
+        }
+    }
+
     pub fn row(nodes: Vec<Node>) -> Node {
         if nodes.len() == 1 {
             nodes.into_iter().next().unwrap()

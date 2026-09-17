@@ -31,6 +31,11 @@ Working today:
 - Macros: `\newcommand`, `\renewcommand`, `\providecommand`, `\def` in the
   source, plus host-supplied definitions through `RenderOptions::macros`.
 - Unicode input: `α ≤ ∑` typed directly.
+- **Hit testing and selection**: with `hit_testing` on, the layout records the
+  byte range of source behind every piece of the drawing. A tap maps back to a
+  sub-expression, regions nest so a host can offer the symbol or the whole
+  fraction, and `highlight` returns the rectangles covering a source range.
+  Slicing the source gives copy-as-LaTeX for free.
 - **Accessibility**: Presentation MathML and a spoken sentence, written from
   the same tree the engine draws from, so `x^2 + y^2 = z^2` is announced as
   "x squared plus y squared equals z squared". The Compose, SwiftUI, Flutter
@@ -84,6 +89,10 @@ let opts = mathcore::RenderOptions { font_size: 32.0, display_mode: true, ..Defa
 let list = mathcore::render(&font, r"\frac{a}{b}", &opts)?;
 // ... or fit it to a width:
 let opts = mathcore::RenderOptions { line_break: Some(mathcore::LineBreak::new(360.0)), ..opts };
+// Tap support:
+let opts = mathcore::RenderOptions { hit_testing: true, ..opts };
+// let region = list.hit_nearest(x, y);   // -> byte range of the source
+
 // For a screen reader, with no font needed:
 let spoken = mathcore::render_speech(r"\frac{a}{b}", &Default::default())?;
 let markup = mathcore::render_mathml(r"\frac{a}{b}", true, &Default::default())?;

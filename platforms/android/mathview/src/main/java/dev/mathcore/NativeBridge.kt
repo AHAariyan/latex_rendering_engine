@@ -18,6 +18,7 @@ internal object NativeBridge {
         argb: Int,
         macros: String?,
         maxWidthPx: Float,
+        hitTesting: Boolean,
     ): FloatArray?
     external fun mathml(tex: String, display: Boolean): String?
     external fun speech(tex: String): String?

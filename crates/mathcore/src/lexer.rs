@@ -22,11 +22,19 @@ pub struct Lexer<'a> {
     src: &'a str,
     pos: usize,
     peeked: Option<(usize, Tok<'a>)>,
+    /// Byte offset just past the last token actually consumed, which is where
+    /// a source span ends. `pos` would include the whitespace before the next.
+    last_end: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
-        Lexer { src, pos: 0, peeked: None }
+        Lexer {
+            src,
+            pos: 0,
+            peeked: None,
+            last_end: 0,
+        }
     }
 
     /// Byte offset of the next unread token.
@@ -48,10 +56,18 @@ impl<'a> Lexer<'a> {
 
     pub fn advance(&mut self) -> Result<Tok<'a>> {
         if let Some((_, t)) = self.peeked.take() {
+            self.last_end = self.pos;
             return Ok(t);
         }
         self.skip_ws();
-        self.lex()
+        let t = self.lex();
+        self.last_end = self.pos;
+        t
+    }
+
+    /// Byte offset just past the last consumed token.
+    pub fn end(&self) -> usize {
+        self.last_end
     }
 
     /// Reads a balanced `{...}` group as raw text, or a single character.
@@ -69,6 +85,7 @@ impl<'a> Lexer<'a> {
             Some((_, '{')) => {}
             Some((i, c)) => {
                 self.pos = start + i + c.len_utf8();
+                self.last_end = self.pos;
                 return Ok(&self.src[start..self.pos]);
             }
             None => return Err(Error::parse(start, "expected a group")),
@@ -87,6 +104,7 @@ impl<'a> Lexer<'a> {
                     depth -= 1;
                     if depth == 0 {
                         self.pos = start + i + 1;
+                        self.last_end = self.pos;
                         return Ok(&self.src[start + 1..start + i]);
                     }
                 }

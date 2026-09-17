@@ -29,6 +29,18 @@ final class MathCoreTests: XCTestCase {
         XCTAssertTrue(a === b)
     }
 
+    func testHitTestingMapsAPointToTheSource() throws {
+        let tex = #"\frac{a}{b} + x"#
+        let layout = try MathEngine.shared.render(tex, fontSize: 32, hitTesting: true)
+        XCTAssertFalse(layout.regions.isEmpty)
+        guard case let .glyph(_, x, y, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
+        let point = CGPoint(x: x + 1, y: y - 5)
+        XCTAssertEqual(layout.hitTest(point)?.text(in: tex), "a")
+        XCTAssertEqual(layout.hit(point).first?.text(in: tex), #"\frac{a}{b}"#)
+        XCTAssertNil(layout.hitTest(CGPoint(x: -10, y: -10)))
+        XCTAssertTrue(try MathEngine.shared.render(tex, fontSize: 32).regions.isEmpty)
+    }
+
     func testDrawsIntoBitmap() throws {
         let layout = try MathEngine.shared.render(#"\sqrt{2}"#, fontSize: 40)
         let w = Int(layout.width.rounded(.up)) + 4, h = Int(layout.height.rounded(.up)) + 4

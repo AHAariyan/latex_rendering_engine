@@ -24,6 +24,17 @@ pub fn parse_with(src: &str, macros: &Macros) -> Result<Vec<Node>> {
 
 /// `parse_with`, refusing any formula that exceeds `budget`.
 pub fn parse_with_budget(src: &str, macros: &Macros, budget: Budget) -> Result<Vec<Node>> {
+    parse_inner(src, macros, budget, false)
+}
+
+/// `parse_with_budget`, also recording the source range of every atom so a
+/// point in the drawing can be mapped back to the source. Costs one wrapper
+/// node per atom, which is why it is not the default.
+pub fn parse_with_spans(src: &str, macros: &Macros, budget: Budget) -> Result<Vec<Node>> {
+    parse_inner(src, macros, budget, true)
+}
+
+fn parse_inner(src: &str, macros: &Macros, budget: Budget, spans: bool) -> Result<Vec<Node>> {
     let expanded = macros::expand_within(src, macros, budget.max_expanded_bytes)?;
     let mut p = Parser {
         lx: Lexer::new(&expanded),
@@ -32,6 +43,7 @@ pub fn parse_with_budget(src: &str, macros: &Macros, budget: Budget) -> Result<V
         depth: 0,
         nodes: 0,
         max_nodes: budget.max_nodes,
+        spans,
     };
     let nodes = p.parse_list()?;
     match p.lx.advance()? {
@@ -52,6 +64,8 @@ struct Parser<'a> {
     /// Nodes produced so far, and the cap from the caller's `Budget`.
     nodes: usize,
     max_nodes: usize,
+    /// Record the source range of every atom.
+    spans: bool,
 }
 
 /// Deeper nesting than this is rejected. The layout engine recurses once per
@@ -135,8 +149,20 @@ impl<'a> Parser<'a> {
                 let _ = pos;
                 return Ok(vec![node]);
             }
+            let start = self.lx.pos() as u32;
             let node = self.parse_atom()?;
-            out.push(node);
+            out.push(if self.spans {
+                let span = Span {
+                    start,
+                    end: self.lx.end() as u32,
+                };
+                Node::Spanned {
+                    span,
+                    body: Box::new(node),
+                }
+            } else {
+                node
+            });
         }
     }
 

@@ -9,14 +9,59 @@ public enum MathItem {
     case line(x1: CGFloat, y1: CGFloat, x2: CGFloat, y2: CGFloat, thickness: CGFloat, color: UInt32)
 }
 
+/// Where a piece of the source ended up on screen. Regions nest, so a point
+/// usually falls in several and the smallest is the innermost sub-expression.
+public struct MathSourceRegion {
+    /// Byte range of the source that produced this piece.
+    public let start: Int
+    public let end: Int
+    public let frame: CGRect
+    /// Nesting level; 0 is a top-level atom.
+    public let depth: Int
+
+    /// Slices the source this region came from.
+    public func text(in latex: String) -> String {
+        let utf8 = Array(latex.utf8)
+        let lo = min(start, utf8.count), hi = min(end, utf8.count)
+        return String(decoding: utf8[lo..<max(lo, hi)], as: UTF8.self)
+    }
+}
+
 /// A laid-out formula. The baseline sits at `ascent` from the top.
 public struct MathLayout {
     public let width: CGFloat
     public let ascent: CGFloat
     public let descent: CGFloat
     public let items: [MathItem]
+    /// Empty unless the layout was rendered with `hitTesting`.
+    public let regions: [MathSourceRegion]
     public var height: CGFloat { ascent + descent }
     public var size: CGSize { CGSize(width: width, height: height) }
+
+    /// Every region containing the point, outermost first.
+    public func hit(_ point: CGPoint) -> [MathSourceRegion] {
+        regions.filter { $0.frame.contains(point) }
+            .sorted { $0.frame.width * $0.frame.height > $1.frame.width * $1.frame.height }
+    }
+
+    /// The smallest piece of source under the point.
+    public func hitTest(_ point: CGPoint) -> MathSourceRegion? { hit(point).last }
+
+    /// The piece of source under the point, or the closest one when the point
+    /// falls in the space between atoms. A tap is never pixel-exact, so this is
+    /// what a view should call.
+    public func hitNearest(_ point: CGPoint) -> MathSourceRegion? {
+        if let exact = hitTest(point) { return exact }
+        func distance(_ r: CGRect) -> CGFloat {
+            let dx = max(r.minX - point.x, point.x - r.maxX, 0)
+            let dy = max(r.minY - point.y, point.y - r.maxY, 0)
+            return (dx * dx + dy * dy).squareRoot()
+        }
+        return regions.min {
+            let (a, b) = (distance($0.frame), distance($1.frame))
+            return a == b ? $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height : a < b
+        }
+    }
 }
 
 public struct MathParseError: Error, CustomStringConvertible {
@@ -65,16 +110,18 @@ public final class MathEngine {
     /// relations and binary operators.
     public func render(_ tex: String, fontSize: CGFloat, displayMode: Bool = true,
                        color: UInt32 = 0xFF00_0000, macros: [String: String] = [:],
-                       maxWidth: CGFloat? = nil) throws -> MathLayout {
+                       maxWidth: CGFloat? = nil, hitTesting: Bool = false) throws -> MathLayout {
         lock.lock(); defer { lock.unlock() }
         let rgba = ((color & 0x00FF_FFFF) << 8) | ((color >> 24) & 0xFF)
         let macroText: String? = macros.isEmpty ? nil : macros.map { "\($0.key)=\($0.value)" }.joined(separator: "\n")
         let width = Float(maxWidth ?? 0)
         let result: UnsafeMutablePointer<MathResult>? = tex.withCString { texP in
             if let m = macroText {
-                return m.withCString { math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, $0, width) }
+                return m.withCString {
+                    math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, $0, width, hitTesting)
+                }
             }
-            return math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, nil, width)
+            return math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, nil, width, hitTesting)
         }
         guard let r = result else { throw MathEngine.lastError() }
         defer { math_result_free(r) }
@@ -91,7 +138,19 @@ public final class MathEngine {
                                        thickness: CGFloat(it.thickness), color: argb))
             }
         }
-        return MathLayout(width: CGFloat(res.width), ascent: CGFloat(res.ascent), descent: CGFloat(res.descent), items: items)
+        var regions: [MathSourceRegion] = []
+        regions.reserveCapacity(res.region_count)
+        for i in 0..<res.region_count {
+            let g = res.regions[i]
+            regions.append(MathSourceRegion(
+                start: Int(g.start),
+                end: Int(g.end),
+                frame: CGRect(x: CGFloat(g.x), y: CGFloat(g.y), width: CGFloat(g.width), height: CGFloat(g.height)),
+                depth: Int(g.depth)
+            ))
+        }
+        return MathLayout(width: CGFloat(res.width), ascent: CGFloat(res.ascent), descent: CGFloat(res.descent),
+                          items: items, regions: regions)
     }
 
     /// Presentation MathML for a formula, for assistive technology. Needs no engine.

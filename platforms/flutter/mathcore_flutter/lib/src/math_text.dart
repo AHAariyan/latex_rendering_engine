@@ -32,6 +32,7 @@ class MathText extends StatelessWidget {
     this.wrap = true,
     this.macros = const {},
     this.errorBuilder,
+    this.onTap,
   });
 
   final String latex;
@@ -44,6 +45,10 @@ class MathText extends StatelessWidget {
   /// Shown instead of the formula when parsing fails. Defaults to the message in red.
   final Widget Function(BuildContext, String message)? errorBuilder;
 
+  /// Called with the smallest sub-expression under the finger. Its `start` and
+  /// `end` index into [latex]. Providing it turns hit testing on.
+  final void Function(MathRegion region)? onTap;
+
   @override
   Widget build(BuildContext context) {
     if (!wrap) return _paint(context, null);
@@ -55,8 +60,15 @@ class MathText extends StatelessWidget {
   Widget _paint(BuildContext context, double? maxWidth) {
     final MathLayout layout;
     try {
-      layout = MathCore.engine
-          .render(latex, fontSize, displayMode: displayMode, argb: color.toARGB32(), macros: macros, maxWidth: maxWidth);
+      layout = MathCore.engine.render(
+        latex,
+        fontSize,
+        displayMode: displayMode,
+        argb: color.toARGB32(),
+        macros: macros,
+        maxWidth: maxWidth,
+        hitTesting: onTap != null,
+      );
     } on MathParseException catch (e) {
       final b = errorBuilder;
       return b != null
@@ -69,13 +81,21 @@ class MathText extends StatelessWidget {
     } on MathParseException {
       spoken = null;
     }
-    return Semantics(
-      label: spoken,
-      excludeSemantics: true,
-      child: CustomPaint(
-        size: Size(layout.width, layout.height),
-        painter: MathPainter(layout, MathCore.cache),
-      ),
+    Widget child = CustomPaint(
+      size: Size(layout.width, layout.height),
+      painter: MathPainter(layout, MathCore.cache),
     );
+    final tap = onTap;
+    if (tap != null) {
+      child = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (d) {
+          final r = layout.hitNearest(d.localPosition.dx, d.localPosition.dy);
+          if (r != null) tap(r);
+        },
+        child: child,
+      );
+    }
+    return Semantics(label: spoken, excludeSemantics: true, child: child);
   }
 }

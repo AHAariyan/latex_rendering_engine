@@ -78,6 +78,7 @@ fn main() -> Result<()> {
             indent: args.indent,
         }),
         budget: mathcore::Budget::default(),
+        hit_testing: false,
     };
     let dl = mathcore::render(&font, tex.trim(), &opts).map_err(|e| anyhow!("{e}"))?;
     if args.dump {

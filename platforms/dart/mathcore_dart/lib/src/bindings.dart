@@ -22,6 +22,23 @@ final class MathItemStruct extends Struct {
   external int color;
 }
 
+final class MathRegionStruct extends Struct {
+  @Uint32()
+  external int start;
+  @Uint32()
+  external int end;
+  @Float()
+  external double x;
+  @Float()
+  external double y;
+  @Float()
+  external double width;
+  @Float()
+  external double height;
+  @Uint16()
+  external int depth;
+}
+
 final class MathResultStruct extends Struct {
   @Float()
   external double width;
@@ -32,6 +49,9 @@ final class MathResultStruct extends Struct {
   @Size()
   external int count;
   external Pointer<MathItemStruct> items;
+  @Size()
+  external int regionCount;
+  external Pointer<MathRegionStruct> regions;
 }
 
 final class MathEngineOpaque extends Opaque {}
@@ -44,9 +64,9 @@ typedef FreeD = void Function(Pointer<MathEngineOpaque>);
 typedef UpemC = Float Function(Pointer<MathEngineOpaque>);
 typedef UpemD = double Function(Pointer<MathEngineOpaque>);
 typedef RenderC = Pointer<MathResultStruct> Function(
-    Pointer<MathEngineOpaque>, Pointer<Utf8>, Float, Bool, Uint32, Pointer<Utf8>, Float);
+    Pointer<MathEngineOpaque>, Pointer<Utf8>, Float, Bool, Uint32, Pointer<Utf8>, Float, Bool);
 typedef RenderD = Pointer<MathResultStruct> Function(
-    Pointer<MathEngineOpaque>, Pointer<Utf8>, double, bool, int, Pointer<Utf8>, double);
+    Pointer<MathEngineOpaque>, Pointer<Utf8>, double, bool, int, Pointer<Utf8>, double, bool);
 typedef ResultFreeC = Void Function(Pointer<MathResultStruct>);
 typedef ResultFreeD = void Function(Pointer<MathResultStruct>);
 typedef OutlineC = Pointer<Float> Function(Pointer<MathEngineOpaque>, Uint16, Pointer<Size>);

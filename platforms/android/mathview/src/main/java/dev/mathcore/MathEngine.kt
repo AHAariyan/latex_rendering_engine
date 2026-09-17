@@ -39,7 +39,9 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
     /**
      * Lays out [tex]. [fontSizePx] is the em size in pixels. When [maxWidthPx]
      * is positive, a formula wider than that is broken into lines before
-     * relations and binary operators.
+     * relations and binary operators. With [hitTesting] on, the layout also
+     * records which part of the source each piece came from, so a tap can be
+     * mapped back to a sub-expression.
      * @throws MathParseException when the source cannot be parsed.
      */
     @Synchronized
@@ -50,9 +52,10 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         color: Int = Color.BLACK,
         macros: Map<String, String> = emptyMap(),
         maxWidthPx: Float = 0f,
+        hitTesting: Boolean = false,
     ): MathLayout {
         val macroText = if (macros.isEmpty()) null else macros.entries.joinToString("\n") { "${it.key}=${it.value}" }
-        val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText, maxWidthPx)
+        val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText, maxWidthPx, hitTesting)
             ?: throw MathParseException(NativeBridge.lastError() ?: "render failed")
         return MathLayout(data)
     }

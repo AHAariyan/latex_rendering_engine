@@ -23,7 +23,9 @@ Formulas wider than this column are broken into lines; resize the window to see 
 <div class="out" id="spoken"></div>
 <details><summary>MathML</summary><pre id="mathml" style="white-space:pre-wrap;font-size:12px"></pre></details>
 <h3>Canvas</h3>
-<canvas id="cv"></canvas>
+<p style="font-size:14px;color:#555">Click the canvas to see which part of the source a symbol came from.</p>
+<canvas id="cv" style="cursor:crosshair"></canvas>
+<div class="out" id="picked" style="font-family:monospace;font-size:14px;min-height:1.5em"></div>
 <script type="module">
   import init, { MathEngine, mathml, speech } from "./pkg/mathwasm.js";
   import { CanvasRenderer } from "./mathcore.js";
@@ -33,12 +35,15 @@ Formulas wider than this column are broken into lines; resize the window to see 
   const src = document.getElementById("src"), err = document.getElementById("err");
   const svgOut = document.getElementById("svg"), cv = document.getElementById("cv");
   const spokenOut = document.getElementById("spoken"), mathmlOut = document.getElementById("mathml");
+  const pickedOut = document.getElementById("picked");
+  let lastLayout = null, lastPadding = 8;
   function update() {
     try {
       const t0 = performance.now();
       const avail = svgOut.clientWidth;
       svgOut.innerHTML = engine.renderSvg(src.value, 36, true, 0xff000000, null, avail);
-      const layout = engine.render(src.value, 36, true, 0xff1a237e, null, avail);
+      const layout = engine.render(src.value, 36, true, 0xff1a237e, null, avail, true);
+      lastLayout = layout;
       const dpr = window.devicePixelRatio || 1, s = CanvasRenderer.size(layout);
       cv.width = Math.ceil((s.width + 16) * dpr); cv.height = Math.ceil((s.height + 16) * dpr);
       cv.style.width = (s.width + 16) + "px"; cv.style.height = (s.height + 16) + "px";
@@ -56,6 +61,27 @@ Formulas wider than this column are broken into lines; resize the window to see 
       err.textContent = `${(performance.now() - t0).toFixed(2)} ms`;
     } catch (e) { err.textContent = String(e.message || e); }
   }
+  // Hit testing: the region block follows the items in the flat layout.
+  function regionsOf(layout) {
+    const base = 4 + layout[3] * 8;
+    const n = layout[base];
+    const out = [];
+    for (let i = 0, b = base + 1; i < n; i++, b += 7) {
+      out.push({ start: layout[b], end: layout[b + 1], x: layout[b + 2], y: layout[b + 3], w: layout[b + 4], h: layout[b + 5] });
+    }
+    return out;
+  }
+  cv.addEventListener("click", (e) => {
+    if (!lastLayout) return;
+    const rect = cv.getBoundingClientRect();
+    const x = e.clientX - rect.left - lastPadding, y = e.clientY - rect.top - lastPadding;
+    const hits = regionsOf(lastLayout)
+      .filter((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)
+      .sort((a, b) => b.w * b.h - a.w * a.h);
+    const bytes = new TextEncoder().encode(src.value);
+    const slice = (r) => new TextDecoder().decode(bytes.slice(r.start, r.end));
+    pickedOut.textContent = hits.length ? `${slice(hits[hits.length - 1])}   (inside ${slice(hits[0])})` : "";
+  });
   src.addEventListener("input", update);
   window.addEventListener("resize", update);
   update();

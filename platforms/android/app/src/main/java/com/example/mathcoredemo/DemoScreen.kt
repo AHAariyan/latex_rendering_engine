@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.mathcore.MathRegion
 import dev.mathcore.MathText
 
 private val samples = listOf(
@@ -41,6 +42,7 @@ private val samples = listOf(
 fun DemoScreen() {
     var input by remember { mutableStateOf("\\frac{a}{b} + \\sqrt{x^2 + y^2}") }
     var error by remember { mutableStateOf<String?>(null) }
+    var tapped by remember { mutableStateOf<String?>(null) }
     LazyColumn(modifier = Modifier.safeDrawingPadding().padding(horizontal = 16.dp)) {
         item {
             Text("mathcore demo", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 12.dp))
@@ -57,8 +59,14 @@ fun DemoScreen() {
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.fillMaxWidth(),
                 onError = { error = it },
+                onTap = { r: MathRegion -> tapped = r.textIn(input) },
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            Text(
+                tapped?.let { "tapped: $it" } ?: "tap the formula to inspect a sub-expression",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
             Spacer(Modifier.height(12.dp))
             HorizontalDivider()
         }

@@ -73,12 +73,16 @@ impl MathEngine {
             macros: macros_from(macros),
             line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
             budget: mathcore::Budget::default(),
+            hit_testing: false,
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(mathraster::to_svg(&self.font, &dl, 0.0))
     }
 
-    /// Renders to the flat layout `[width, ascent, descent, count, (kind, glyph, x, y, w, h, thickness, colorBits) * count]`.
+    /// Renders to the flat layout `[width, ascent, descent, count, (kind, glyph,
+    /// x, y, w, h, thickness, colorBits) * count, regionCount, (start, end, x,
+    /// y, w, h, depth) * regionCount]`. Regions are empty unless `hitTesting`.
+    #[allow(clippy::too_many_arguments)] // one JavaScript-facing entry point
     pub fn render(
         &self,
         tex: &str,
@@ -87,6 +91,7 @@ impl MathEngine {
         argb: u32,
         macros: Option<String>,
         max_width: Option<f32>,
+        hit_testing: Option<bool>,
     ) -> Result<Vec<f32>, JsError> {
         let opts = RenderOptions {
             font_size,
@@ -95,6 +100,7 @@ impl MathEngine {
             macros: macros_from(macros),
             line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
             budget: mathcore::Budget::default(),
+            hit_testing: hit_testing.unwrap_or(false),
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(dl.to_flat())

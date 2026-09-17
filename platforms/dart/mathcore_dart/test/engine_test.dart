@@ -40,6 +40,20 @@ void main() {
     e.dispose();
   });
 
+  test('hit testing maps a point back to the source', () {
+    final e = MathEngine.bundled();
+    const tex = r'\frac{a}{b} + x';
+    final l = e.render(tex, 32, hitTesting: true);
+    expect(l.regions, isNotEmpty);
+    final g = l.items.whereType<MathGlyph>().first;
+    final inner = l.hitTest(g.x + 1, g.y - 5)!;
+    expect(inner.textIn(tex), 'a');
+    expect(l.hit(g.x + 1, g.y - 5).first.textIn(tex), r'\frac{a}{b}');
+    expect(l.hitTest(-10, -10), isNull);
+    expect(e.render(tex, 32).regions, isEmpty);
+    e.dispose();
+  });
+
   test('accessibility output', () {
     expect(MathEngine.speech(r'x^2 + \frac{1}{2}'), 'x squared plus 1 over 2');
     final ml = MathEngine.mathml(r'x^2');

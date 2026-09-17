@@ -46,6 +46,9 @@ pub struct RenderOptions {
     pub line_break: Option<LineBreak>,
     /// Caps on the work one formula may cost. Matters for untrusted input.
     pub budget: crate::Budget,
+    /// Record source regions so a point in the drawing can be mapped back to a
+    /// range of source. Costs one small record per atom.
+    pub hit_testing: bool,
 }
 
 impl Default for RenderOptions {
@@ -57,6 +60,7 @@ impl Default for RenderOptions {
             macros: Macros::new(),
             line_break: None,
             budget: crate::Budget::default(),
+            hit_testing: false,
         }
     }
 }
@@ -130,6 +134,8 @@ struct BBox {
     ink_right: f32,
     /// Color override for this subtree.
     color: Option<Color>,
+    /// Source range this box came from, recorded as a region when flattening.
+    span: Option<(crate::ast::Span, u16)>,
     content: Content,
 }
 
@@ -169,6 +175,7 @@ impl BBox {
             ink_left: 0.0,
             ink_right: 0.0,
             color: None,
+            span: None,
             content: Content::Empty,
         }
     }
@@ -231,11 +238,19 @@ impl BBox {
     }
 }
 
+/// What `flatten` fills, plus the baseline it measures from.
+struct Out<'o> {
+    items: &'o mut Vec<Item>,
+    regions: &'o mut Vec<crate::display::Region>,
+    ascent: f32,
+}
+
 pub struct Layouter<'f, 'a> {
     font: &'f MathFont<'a>,
     base_size: f32,
     color: Color,
     line_break: Option<LineBreak>,
+    hit_testing: bool,
 }
 
 impl<'f, 'a> Layouter<'f, 'a> {
@@ -245,6 +260,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             base_size: opts.font_size,
             color: opts.color,
             line_break: opts.line_break,
+            hit_testing: opts.hit_testing,
         }
     }
 
@@ -258,13 +274,20 @@ impl<'f, 'a> Layouter<'f, 'a> {
             _ => self.layout_list(nodes, sty),
         };
         let mut items = Vec::new();
+        let mut regions = Vec::new();
         let ascent = root.h.max(0.0);
-        self.flatten(&root, -root.ink_left.min(0.0), 0.0, ascent, self.color, &mut items);
+        let out = Out {
+            items: &mut items,
+            regions: &mut regions,
+            ascent,
+        };
+        self.flatten(&root, -root.ink_left.min(0.0), 0.0, self.color, 0, out);
         DisplayList {
             width: root.ink_right.max(root.w) - root.ink_left.min(0.0),
             ascent,
             descent: root.d.max(0.0),
             items,
+            regions,
         }
     }
 
@@ -305,6 +328,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             ink_left: m.x_min * s,
             ink_right: m.x_max * s,
             color: None,
+            span: None,
             content: Content::Glyph {
                 id: gid,
                 size: self.em(sty),
@@ -760,6 +784,13 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Cancel { body, kind } => self.cancel(body, *kind, sty),
             Node::HBrace { base, over } => self.hbrace(base, *over, sty),
             Node::XArrow { ch, over, under } => self.xarrow(*ch, over.as_deref(), under.as_deref(), sty),
+            Node::Spanned { span, body } => {
+                let mut b = self.layout_node(body, sty);
+                if self.hit_testing {
+                    b.span = Some((*span, 0));
+                }
+                b
+            }
             Node::Class { atom, body, .. } => {
                 let mut b = self.layout_node(body, sty);
                 if *atom == AtomType::Op && b.glyph.is_some() {
@@ -1455,8 +1486,26 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     // ---- output ------------------------------------------------------------
 
-    fn flatten(&self, b: &BBox, x: f32, y: f32, ascent: f32, color: Color, out: &mut Vec<Item>) {
+    fn flatten(&self, b: &BBox, x: f32, y: f32, color: Color, depth: u16, out: Out<'_>) {
         let color = b.color.unwrap_or(color);
+        let Out {
+            items: out,
+            regions,
+            ascent,
+        } = out;
+        let mut depth = depth;
+        if let Some((span, _)) = b.span {
+            regions.push(crate::display::Region {
+                start: span.start,
+                end: span.end,
+                x: x + b.ink_left.min(0.0),
+                y: ascent - (y + b.h),
+                width: (b.ink_right.max(b.w) - b.ink_left.min(0.0)).max(b.w),
+                height: b.h + b.d,
+                depth,
+            });
+            depth += 1;
+        }
         match &b.content {
             Content::Empty => {}
             Content::Glyph { id, size } => out.push(Item::Glyph {
@@ -1490,7 +1539,18 @@ impl<'f, 'a> Layouter<'f, 'a> {
             }
             Content::List(children) => {
                 for p in children {
-                    self.flatten(&p.b, x + p.x, y + p.y, ascent, color, out);
+                    self.flatten(
+                        &p.b,
+                        x + p.x,
+                        y + p.y,
+                        color,
+                        depth,
+                        Out {
+                            items: out,
+                            regions,
+                            ascent,
+                        },
+                    );
                 }
             }
         }

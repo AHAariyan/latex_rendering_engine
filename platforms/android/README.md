@@ -21,6 +21,12 @@ val layout = MathEngine.shared.render("\\sum_{i=1}^n i", fontSizePx = 40f, displ
 MathEngine.shared.draw(layout, canvas, left = 0f, top = 0f)
 ```
 
+Tapping a formula reports the sub-expression under the finger:
+
+```kotlin
+MathText(latex = tex, onTap = { region -> println(region.textIn(tex)) })
+```
+
 TalkBack reads formulas aloud: `MathText` and `MathView` set a spoken content
 description automatically, and `MathAccessibility.speech(latex)` /
 `MathAccessibility.mathml(latex)` expose it directly.
