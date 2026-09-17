@@ -10,6 +10,7 @@ use crate::error::{Error, Result};
 use crate::lexer::{Lexer, Tok};
 use crate::macros::{self, Macros};
 use crate::symbols;
+use crate::Budget;
 
 /// Parses a formula with no host-supplied macros.
 pub fn parse(src: &str) -> Result<Vec<Node>> {
@@ -18,12 +19,19 @@ pub fn parse(src: &str) -> Result<Vec<Node>> {
 
 /// Parses a formula after expanding `macros` and any definitions in the source.
 pub fn parse_with(src: &str, macros: &Macros) -> Result<Vec<Node>> {
-    let expanded = macros::expand(src, macros)?;
+    parse_with_budget(src, macros, Budget::default())
+}
+
+/// `parse_with`, refusing any formula that exceeds `budget`.
+pub fn parse_with_budget(src: &str, macros: &Macros, budget: Budget) -> Result<Vec<Node>> {
+    let expanded = macros::expand_within(src, macros, budget.max_expanded_bytes)?;
     let mut p = Parser {
         lx: Lexer::new(&expanded),
         variant: Variant::Normal,
         in_left_right: 0,
         depth: 0,
+        nodes: 0,
+        max_nodes: budget.max_nodes,
     };
     let nodes = p.parse_list()?;
     match p.lx.advance()? {
@@ -41,6 +49,9 @@ struct Parser<'a> {
     in_left_right: usize,
     /// Current nesting of groups, arguments and environments.
     depth: usize,
+    /// Nodes produced so far, and the cap from the caller's `Budget`.
+    nodes: usize,
+    max_nodes: usize,
 }
 
 /// Deeper nesting than this is rejected. The layout engine recurses once per
@@ -235,6 +246,13 @@ impl<'a> Parser<'a> {
 
     fn parse_nucleus(&mut self) -> Result<Node> {
         let pos = self.lx.pos();
+        self.nodes += 1;
+        if self.nodes > self.max_nodes {
+            return Err(Error::TooLarge {
+                what: "symbols",
+                limit: self.max_nodes,
+            });
+        }
         match self.lx.advance()? {
             Tok::Char(c) => Ok(self.char_node(c)),
             Tok::LBrace => {

@@ -16,6 +16,11 @@
 extern "C" {
 #endif
 
+/* Formulas are capped by a default budget (256 KB of source after macro
+ * expansion, 50k symbols, 200k drawable items) so untrusted input fails
+ * cleanly instead of exhausting memory. Rendering past a cap returns NULL and
+ * math_last_error() explains which one. Use the Rust API to change them. */
+
 typedef struct MathEngine MathEngine;
 
 enum MathItemKind { MATH_ITEM_GLYPH = 0, MATH_ITEM_RULE = 1, MATH_ITEM_LINE = 2 };

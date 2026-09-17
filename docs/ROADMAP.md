@@ -46,6 +46,16 @@ CLI, golden-image tests, CI.
 - [x] Web: wasm-bindgen + SVG/canvas renderer (`crates/mathwasm`, `platforms/web`), Node smoke test. npm publishing open.
 - [ ] Demo apps and benchmarks (target: < 1 ms layout for a typical equation on a mid-range phone).
 
+## Hardening
+
+- [x] Caps on expanded source, node count and item count (`Budget`), with a
+      fuzz test that a hostile formula is refused rather than fatal.
+- [x] Cross-binding parity harness (`scripts/parity.sh`): wasm and Dart lay out
+      the corpus and are compared against the core item by item. The JNI binding
+      shares `DisplayList::to_flat` with wasm, so it is covered by construction;
+      an on-device check needs an emulator in CI.
+- [ ] Expose `Budget` through the C ABI for hosts that want tighter limits.
+
 ## Phase 3: product features
 
 - [x] Display-math line breaking for long equations on narrow screens, wired

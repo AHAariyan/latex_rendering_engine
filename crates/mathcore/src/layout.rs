@@ -44,6 +44,8 @@ pub struct RenderOptions {
     pub macros: Macros,
     /// Break the formula to fit a width. `None` renders one line of any width.
     pub line_break: Option<LineBreak>,
+    /// Caps on the work one formula may cost. Matters for untrusted input.
+    pub budget: crate::Budget,
 }
 
 impl Default for RenderOptions {
@@ -54,6 +56,7 @@ impl Default for RenderOptions {
             color: Color::BLACK,
             macros: Macros::new(),
             line_break: None,
+            budget: crate::Budget::default(),
         }
     }
 }

@@ -139,6 +139,14 @@ for item in &list.items {
   every corpus formula is within 5% of LuaLaTeX in both dimensions except the
   display-style `\binom` family, where LuaLaTeX picks a larger delimiter than
   TeX's own rule (and KaTeX/pdfLaTeX) calls for.
+- **Cross-binding parity**: `scripts/parity.sh` has the WebAssembly and Dart
+  bindings lay out the whole corpus and compares every glyph position against
+  the Rust core, so the promise that a formula looks the same on every platform
+  is checked rather than asserted. 48 formulas, 853 items.
+- **Limits for untrusted input**: `RenderOptions::budget` caps expanded source,
+  parsed nodes and drawable items. A formula from a stranger that would cost
+  real memory is an error, not an out-of-memory kill. Defaults are far above
+  anything a person writes; `Budget::unlimited()` opts out.
 - **Benchmarks**: `cargo bench -p mathcore`.
 
 ## Development

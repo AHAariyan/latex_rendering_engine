@@ -69,22 +69,36 @@ fn max_param(body: &str) -> usize {
     max
 }
 
+/// Expansion steps allowed before a macro is treated as runaway.
+const MAX_EXPANSIONS: usize = 10_000;
+
 /// Expands macros in `src`. Definitions found in the source are removed from
 /// the output. Returns the source unchanged when there is nothing to expand.
 pub fn expand(src: &str, host: &Macros) -> Result<String> {
+    expand_within(src, host, usize::MAX)
+}
+
+/// Expands macros, refusing to produce more than `max_bytes` of source.
+pub fn expand_within(src: &str, host: &Macros, max_bytes: usize) -> Result<String> {
     let mut macros = host.clone();
     let mut text = collect_definitions(src, &mut macros)?;
     if macros.is_empty() {
         return Ok(text);
     }
-    let mut budget = 10_000usize;
+    let mut budget = MAX_EXPANSIONS;
     loop {
         let Some((start, end, name)) = find_macro_use(&text, &macros) else {
             return Ok(text);
         };
         budget -= 1;
         if budget == 0 {
-            return Err(Error::parse(start, format!("macro \\{name} expands without end")));
+            // Either a recursive macro or one that doubles its output each
+            // level; both are a size problem, not a syntax one.
+            let _ = (start, &name);
+            return Err(Error::TooLarge {
+                what: "macro expansions",
+                limit: MAX_EXPANSIONS,
+            });
         }
         let def = macros.get(&name).unwrap().clone();
         let mut pos = end;
@@ -99,6 +113,12 @@ pub fn expand(src: &str, host: &Macros) -> Result<String> {
         // A macro used before a letter needs a separating space, e.g. `\R x` -> `\mathbb{R} x`.
         let needs_space =
             replacement.ends_with(|c: char| c.is_ascii_alphabetic()) && text[pos..].starts_with(|c: char| c.is_ascii_alphabetic());
+        if text.len() + replacement.len() > max_bytes {
+            return Err(Error::TooLarge {
+                what: "bytes of source after macro expansion",
+                limit: max_bytes,
+            });
+        }
         let mut out = String::with_capacity(text.len() + replacement.len());
         out.push_str(&text[..start]);
         out.push_str(&replacement);
@@ -367,6 +387,14 @@ mod tests {
         host.define(r"\eps", r"\varepsilon");
         assert_eq!(expand(r"\eps x", &host).unwrap(), r"\varepsilon x");
         assert_eq!(expand(r"\epsilon", &host).unwrap(), r"\epsilon", "longer names are not touched");
+    }
+
+    #[test]
+    fn expansion_is_capped() {
+        // Doubling macros: each level squares the output.
+        let src = r"\def\a{xx}\def\b{\a\a}\def\c{\b\b}\def\d{\c\c}\def\e{\d\d}\e\e\e";
+        assert!(expand_within(src, &Macros::new(), 32).is_err());
+        assert!(expand_within(src, &Macros::new(), 4096).is_ok());
     }
 
     #[test]

@@ -183,6 +183,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
         color: color_from_argb(color),
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
+        budget: mathcore::Budget::default(),
     };
     match mathcore::render(&eng.font, &tex, &opts) {
         Ok(dl) => float_array(&env, &pack(&dl)),

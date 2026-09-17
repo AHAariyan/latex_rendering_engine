@@ -162,6 +162,7 @@ pub unsafe extern "C" fn math_engine_render(
         color: unpack(color),
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
+        budget: mathcore::Budget::default(),
     };
     let dl = match mathcore::render(&(*engine).font, tex, &opts) {
         Ok(dl) => dl,

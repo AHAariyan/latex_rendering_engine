@@ -24,6 +24,43 @@ pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
 
+/// Caps on the work one formula may cost.
+///
+/// A host that renders TeX written by other people (a chat client, a notes
+/// app, a comment field) needs a formula it cannot afford to be an error
+/// rather than an out-of-memory kill. The defaults are far above any formula a
+/// person writes and far below what hurts a phone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Budget {
+    /// Bytes of source after macro expansion.
+    pub max_expanded_bytes: usize,
+    /// Nodes in the parsed formula.
+    pub max_nodes: usize,
+    /// Glyphs, rules and lines in the display list.
+    pub max_items: usize,
+}
+
+impl Default for Budget {
+    fn default() -> Self {
+        Budget {
+            max_expanded_bytes: 256 * 1024,
+            max_nodes: 50_000,
+            max_items: 200_000,
+        }
+    }
+}
+
+impl Budget {
+    /// No limits. Only for input you produced yourself.
+    pub fn unlimited() -> Self {
+        Budget {
+            max_expanded_bytes: usize::MAX,
+            max_nodes: usize::MAX,
+            max_items: usize::MAX,
+        }
+    }
+}
+
 /// Parses a formula and writes Presentation MathML for a screen reader.
 pub fn render_mathml(tex: &str, display_mode: bool, macros: &Macros) -> Result<String> {
     Ok(a11y::mathml(&parse_with(tex, macros)?, display_mode))
@@ -36,8 +73,15 @@ pub fn render_speech(tex: &str, macros: &Macros) -> Result<String> {
 
 /// Parses and lays out a formula in one call.
 pub fn render(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<DisplayList> {
-    let nodes = parse_with(tex, &opts.macros)?;
-    Ok(Layouter::new(font, opts).layout(&nodes, opts.display_mode))
+    let nodes = parser::parse_with_budget(tex, &opts.macros, opts.budget)?;
+    let dl = Layouter::new(font, opts).layout(&nodes, opts.display_mode);
+    if dl.items.len() > opts.budget.max_items {
+        return Err(Error::TooLarge {
+            what: "items to draw",
+            limit: opts.budget.max_items,
+        });
+    }
+    Ok(dl)
 }
 
 #[cfg(test)]

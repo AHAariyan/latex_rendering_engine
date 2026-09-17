@@ -241,3 +241,54 @@ fn pathological_inputs() {
         assert!(r.is_ok(), "panic on {:?}", &tex[..tex.len().min(80)]);
     }
 }
+
+/// The default `Budget` must stop a hostile formula before it costs real
+/// memory, and must never get in the way of a formula a person would write.
+#[test]
+fn budget_stops_oversized_input() {
+    use mathcore::{Budget, Error};
+    let font = MathFont::from_bytes(FONT).unwrap();
+    let opts = RenderOptions::default();
+
+    // 300k symbols: allowed by nothing, rejected before layout.
+    let huge = "x+".repeat(300_000);
+    match mathcore::render(&font, &huge, &opts) {
+        Err(Error::TooLarge { .. }) => {}
+        other => panic!(
+            "expected a size error, got {}",
+            if other.is_ok() {
+                "success".into()
+            } else {
+                format!("{:?}", other.err())
+            }
+        ),
+    }
+
+    // A macro that squares its output each level.
+    let bomb = r"\def\a{xxxxxxxx}\def\b{\a\a\a\a\a\a\a\a}\def\c{\b\b\b\b\b\b\b\b}\def\d{\c\c\c\c\c\c\c\c}\def\e{\d\d\d\d\d\d\d\d}\e\e\e";
+    assert!(matches!(mathcore::render(&font, bomb, &opts), Err(Error::TooLarge { .. })));
+
+    // Real formulas are untouched, and an explicit opt-out still works.
+    for tex in [
+        r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}",
+        r"\begin{matrix} a & b \\ c & d \end{matrix}",
+    ] {
+        assert!(mathcore::render(&font, tex, &opts).is_ok(), "{tex}");
+    }
+    let unlimited = RenderOptions {
+        budget: Budget::unlimited(),
+        ..Default::default()
+    };
+    assert!(mathcore::render(&font, &"x+".repeat(60_000), &unlimited).is_ok());
+
+    // A tight budget reports which limit was hit.
+    let tight = RenderOptions {
+        budget: Budget {
+            max_nodes: 10,
+            ..Budget::default()
+        },
+        ..Default::default()
+    };
+    let e = mathcore::render(&font, "a+b+c+d+e+f+g+h", &tight).unwrap_err();
+    assert!(e.to_string().contains("more than 10 symbols"), "{e}");
+}

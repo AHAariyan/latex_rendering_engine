@@ -72,6 +72,7 @@ impl MathEngine {
             color: color_from_argb(argb),
             macros: macros_from(macros),
             line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
+            budget: mathcore::Budget::default(),
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(mathraster::to_svg(&self.font, &dl, 0.0))
@@ -93,6 +94,7 @@ impl MathEngine {
             color: color_from_argb(argb),
             macros: macros_from(macros),
             line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
+            budget: mathcore::Budget::default(),
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(dl.to_flat())
