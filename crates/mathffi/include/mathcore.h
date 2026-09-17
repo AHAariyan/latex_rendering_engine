@@ -27,7 +27,8 @@ enum MathItemKind { MATH_ITEM_GLYPH = 0, MATH_ITEM_RULE = 1, MATH_ITEM_LINE = 2 
 
 typedef struct MathItem {
     uint8_t kind;      /* MathItemKind */
-    uint16_t glyph;    /* glyph index in the engine's font (GLYPH only) */
+    uint16_t font;     /* which font of the chain: 0 is the primary (GLYPH only) */
+    uint16_t glyph;    /* glyph index in that font (GLYPH only) */
     float x;           /* GLYPH: baseline origin x. RULE: left. LINE: x1 */
     float y;           /* GLYPH: baseline origin y. RULE: top.  LINE: y1 */
     float w;           /* GLYPH: em size in px. RULE: width. LINE: x2 */
@@ -59,14 +60,20 @@ typedef struct MathResult {
     const MathRegion* regions;    /* outermost first */
 } MathResult;
 
+/* A formula may draw from more than one font: the bundled engine pairs Latin
+ * Modern Math with a small slice of STIX Two for the symbols it predates, and a
+ * custom font keeps that slice as a fallback. Every glyph item says which font
+ * it came from. */
+
 /* Creates an engine from an OpenType math font (the bytes are copied). Returns NULL on failure. */
 MathEngine* math_engine_new(const uint8_t* font_data, size_t font_len);
 /* Engine with the bundled Latin Modern Math font (NULL if built without it). */
 MathEngine* math_engine_new_bundled(void);
 void math_engine_free(MathEngine* engine);
 
-/* Font units per em, needed to scale glyph outlines: px = units * (item.w / upem). */
-float math_engine_units_per_em(const MathEngine* engine);
+/* Font units per em of one font of the chain, needed to scale its outlines:
+ * px = units * (item.w / upem). A fallback font may differ from the primary. */
+float math_engine_units_per_em(const MathEngine* engine, uint16_t font);
 
 /* Renders `tex`. `macros` is optional: newline-separated "\name=body" definitions.
  * `color` is 0xRRGGBBAA. `max_width` breaks the formula to fit that many pixels;
@@ -83,7 +90,7 @@ void math_result_free(MathResult* result);
  *   3 x1 y1 x2 y2 x y cubic
  *   4                close
  * Returns NULL for glyphs without an outline. Release with math_buffer_free. */
-float* math_engine_glyph_outline(const MathEngine* engine, uint16_t glyph, size_t* out_len);
+float* math_engine_glyph_outline(const MathEngine* engine, uint16_t font, uint16_t glyph, size_t* out_len);
 void math_buffer_free(float* buffer, size_t len);
 
 /* Accessibility. Both parse `tex` and return a string the caller owns and must

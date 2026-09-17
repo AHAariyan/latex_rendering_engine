@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const { MathEngine, version, mathml, speech } = require("./pkg-node/mathwasm.js");
 
 const engine = new MathEngine();
-assert.equal(engine.unitsPerEm(), 1000);
+assert.equal(engine.unitsPerEm(0), 1000);
 console.log("mathwasm", version());
 
 const svg = engine.renderSvg("x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}", 32, true, 0xff000000, null);
@@ -47,7 +47,7 @@ let a11yThrew = false;
 try { speech("\\frac{a", null); } catch { a11yThrew = true; }
 assert.ok(a11yThrew, "accessibility reports parse errors");
 
-const outline = engine.glyphOutline(flat[5]);
+const outline = engine.glyphOutline(0, flat[5]);
 assert.ok(outline && outline.length > 3 && outline[0] === 0, "outline starts with move");
 
 const N = 200, t0 = performance.now();

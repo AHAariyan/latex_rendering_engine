@@ -22,9 +22,9 @@ final class MathCoreTests: XCTestCase {
 
     func testGlyphPathIsCached() throws {
         let layout = try MathEngine.shared.render("x", fontSize: 32)
-        guard case let .glyph(id, _, _, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
-        let a = MathEngine.shared.glyphPath(id)
-        let b = MathEngine.shared.glyphPath(id)
+        guard case let .glyph(font, id, _, _, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
+        let a = MathEngine.shared.glyphPath(font: font, glyph: id)
+        let b = MathEngine.shared.glyphPath(font: font, glyph: id)
         XCTAssertNotNil(a)
         XCTAssertTrue(a === b)
     }
@@ -33,7 +33,7 @@ final class MathCoreTests: XCTestCase {
         let tex = #"\frac{a}{b} + x"#
         let layout = try MathEngine.shared.render(tex, fontSize: 32, hitTesting: true)
         XCTAssertFalse(layout.regions.isEmpty)
-        guard case let .glyph(_, x, y, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
+        guard case let .glyph(_, _, x, y, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
         let point = CGPoint(x: x + 1, y: y - 5)
         XCTAssertEqual(layout.hitTest(point)?.text(in: tex), "a")
         XCTAssertEqual(layout.hit(point).first?.text(in: tex), #"\frac{a}{b}"#)

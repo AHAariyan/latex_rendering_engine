@@ -17,6 +17,9 @@ import java.io.Closeable
  */
 class MathEngine private constructor(private var handle: Long) : Closeable {
     companion object {
+        /** The primary plus a small number of fallbacks; more than this is not a font stack. */
+        private const val MAX_FONTS = 8
+
         /** Engine with the bundled font, created on first use. */
         val shared: MathEngine by lazy { bundled() }
 
@@ -31,7 +34,12 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         }
     }
 
-    val unitsPerEm: Float = NativeBridge.unitsPerEm(handle)
+    private val unitsPerEm = FloatArray(MAX_FONTS) { NativeBridge.unitsPerEm(handle, it) }
+
+    /** Font units per em of one font of the chain; a fallback may differ. */
+    fun unitsPerEm(font: Int = 0): Float = unitsPerEm.getOrElse(font) { 0f }
+
+    /** Keyed by font and glyph, since a formula may draw from more than one font. */
     private val paths = HashMap<Int, Path?>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val matrix = Matrix()
@@ -62,8 +70,8 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
 
     /** Outline of a glyph in font units, y down. Null when the glyph has no outline. */
     @Synchronized
-    fun glyphPath(glyph: Int): Path? = paths.getOrPut(glyph) {
-        val cmds = NativeBridge.glyphOutline(handle, glyph) ?: return@getOrPut null
+    fun glyphPath(font: Int, glyph: Int): Path? = paths.getOrPut((font shl 16) or glyph) {
+        val cmds = NativeBridge.glyphOutline(handle, font, glyph) ?: return@getOrPut null
         val p = Path()
         var i = 0
         while (i < cmds.size) {
@@ -82,10 +90,10 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
     @Synchronized
     fun draw(layout: MathLayout, canvas: Canvas, left: Float = 0f, top: Float = 0f) {
         layout.forEach(
-            glyph = { id, x, y, em, argb ->
-                val path = glyphPath(id)
+            glyph = { font, id, x, y, em, argb ->
+                val path = glyphPath(font, id)
                 if (path != null) {
-                    val k = em / unitsPerEm
+                    val k = em / unitsPerEm(font)
                     matrix.reset()
                     matrix.setScale(k, k)
                     matrix.postTranslate(left + x, top + y)

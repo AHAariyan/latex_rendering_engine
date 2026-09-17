@@ -4,7 +4,8 @@ import MathCoreFFI
 
 /// A drawable item of a laid-out formula. Pixels, y down, origin top-left.
 public enum MathItem {
-    case glyph(id: UInt16, x: CGFloat, y: CGFloat, emSize: CGFloat, color: UInt32)
+    /// `font` is which font of the engine's chain the glyph belongs to; 0 is the primary.
+    case glyph(font: UInt16, id: UInt16, x: CGFloat, y: CGFloat, emSize: CGFloat, color: UInt32)
     case rule(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, color: UInt32)
     case line(x1: CGFloat, y1: CGFloat, x2: CGFloat, y2: CGFloat, thickness: CGFloat, color: UInt32)
 }
@@ -78,15 +79,23 @@ public final class MathEngine {
     public static let shared = try! MathEngine()
 
     private var handle: OpaquePointer
-    public let unitsPerEm: CGFloat
-    private var paths: [UInt16: CGPath?] = [:]
+    /// Keyed by font and glyph, since a formula may draw from more than one font.
+    private var paths: [UInt32: CGPath?] = [:]
+    private var upem: [UInt16: CGFloat] = [:]
     private let lock = NSLock()
 
     /// Engine with the bundled font.
     public init() throws {
         guard let h = math_engine_new_bundled() else { throw MathEngine.lastError() }
         handle = h
-        unitsPerEm = CGFloat(math_engine_units_per_em(h))
+    }
+
+    /// Font units per em of one font of the chain; a fallback may differ.
+    public func unitsPerEm(_ font: UInt16 = 0) -> CGFloat {
+        if let v = upem[font] { return v }
+        let v = CGFloat(math_engine_units_per_em(handle, font))
+        upem[font] = v
+        return v
     }
 
     /// Engine for any OpenType font with a MATH table.
@@ -96,7 +105,6 @@ public final class MathEngine {
         }
         guard let h else { throw MathEngine.lastError() }
         handle = h
-        unitsPerEm = CGFloat(math_engine_units_per_em(h))
     }
 
     deinit { math_engine_free(handle) }
@@ -132,7 +140,9 @@ public final class MathEngine {
             let it = res.items[i]
             let argb = ((it.color & 0xFF) << 24) | (it.color >> 8)
             switch it.kind {
-            case 0: items.append(.glyph(id: it.glyph, x: CGFloat(it.x), y: CGFloat(it.y), emSize: CGFloat(it.w), color: argb))
+            case 0:
+                items.append(.glyph(font: it.font, id: it.glyph, x: CGFloat(it.x), y: CGFloat(it.y),
+                                    emSize: CGFloat(it.w), color: argb))
             case 1: items.append(.rule(x: CGFloat(it.x), y: CGFloat(it.y), width: CGFloat(it.w), height: CGFloat(it.h), color: argb))
             default: items.append(.line(x1: CGFloat(it.x), y1: CGFloat(it.y), x2: CGFloat(it.w), y2: CGFloat(it.h),
                                        thickness: CGFloat(it.thickness), color: argb))
@@ -170,11 +180,12 @@ public final class MathEngine {
     }
 
     /// Glyph outline in font units with y pointing down, cached.
-    public func glyphPath(_ glyph: UInt16) -> CGPath? {
+    public func glyphPath(font: UInt16 = 0, glyph: UInt16) -> CGPath? {
         lock.lock(); defer { lock.unlock() }
-        if let cached = paths[glyph] { return cached }
+        let key = UInt32(font) << 16 | UInt32(glyph)
+        if let cached = paths[key] { return cached }
         var len = 0
-        guard let buf = math_engine_glyph_outline(handle, glyph, &len) else { paths[glyph] = .some(nil); return nil }
+        guard let buf = math_engine_glyph_outline(handle, font, glyph, &len) else { paths[key] = .some(nil); return nil }
         defer { math_buffer_free(buf, len) }
         let path = CGMutablePath()
         var i = 0
@@ -190,7 +201,7 @@ public final class MathEngine {
             default: path.closeSubpath(); i += 1
             }
         }
-        paths[glyph] = path
+        paths[key] = path
         return path
     }
 
@@ -204,12 +215,12 @@ public final class MathEngine {
         }
         for item in layout.items {
             switch item {
-            case let .glyph(id, x, y, em, color):
-                guard let path = glyphPath(id) else { continue }
+            case let .glyph(font, id, x, y, em, color):
+                guard let path = glyphPath(font: font, glyph: id) else { continue }
                 setColor(color)
                 ctx.saveGState()
                 ctx.translateBy(x: origin.x + x, y: origin.y + y)
-                let k = em / unitsPerEm
+                let k = em / unitsPerEm(font)
                 ctx.scaleBy(x: k, y: k)
                 ctx.addPath(path)
                 ctx.fillPath()

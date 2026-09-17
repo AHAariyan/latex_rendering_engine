@@ -18,7 +18,7 @@ class MathParseException implements Exception {
 ///
 /// One engine per font. Not thread-safe across isolates; create one per isolate.
 class MathEngine {
-  MathEngine._(this._b, this._handle) : unitsPerEm = _b.unitsPerEm(_handle);
+  MathEngine._(this._b, this._handle);
 
   /// Override the library location, e.g. for tests: `MathEngine.libraryPath = 'target/release/libmathcore_ffi.so'`.
   static String? libraryPath;
@@ -64,8 +64,12 @@ class MathEngine {
 
   final MathBindings _b;
   Pointer<MathEngineOpaque> _handle;
-  final double unitsPerEm;
+  /// Keyed by font and glyph, since a formula may draw from more than one font.
   final Map<int, GlyphOutline?> _outlines = {};
+  final Map<int, double> _upem = {};
+
+  /// Font units per em of one font of the chain; a fallback may differ.
+  double unitsPerEm([int font = 0]) => _upem.putIfAbsent(font, () => _b.unitsPerEm(_handle, font));
 
   static String get nativeVersion => bindings.version().toDartString();
 
@@ -116,7 +120,7 @@ class MathEngine {
           final it = res.items[i];
           final a = ((it.color & 0xFF) << 24) | (it.color >> 8);
           return switch (it.kind) {
-            0 => MathGlyph(it.glyph, it.x, it.y, it.w, a),
+            0 => MathGlyph(it.font, it.glyph, it.x, it.y, it.w, a),
             1 => MathRule(it.x, it.y, it.w, it.h, a),
             _ => MathLine(it.x, it.y, it.w, it.h, it.thickness, a),
           };
@@ -136,12 +140,12 @@ class MathEngine {
   }
 
   /// Outline of a glyph, cached. Null when the glyph has no outline.
-  GlyphOutline? glyphOutline(int glyph) {
+  GlyphOutline? glyphOutline(int font, int glyph) {
     _check();
-    return _outlines.putIfAbsent(glyph, () {
+    return _outlines.putIfAbsent((font << 16) | glyph, () {
       final lenP = malloc<Size>();
       try {
-        final p = _b.glyphOutline(_handle, glyph, lenP);
+        final p = _b.glyphOutline(_handle, font, glyph, lenP);
         if (p == nullptr) return null;
         final len = lenP.value;
         final cmds = List<double>.from(p.asTypedList(len), growable: false);

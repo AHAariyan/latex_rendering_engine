@@ -58,9 +58,9 @@ impl OutlineBuilder for SkiaOutline {
     }
 }
 
-fn glyph_path(font: &MathFont<'_>, id: u16) -> Option<tiny_skia::Path> {
+fn glyph_path(font: &MathFont<'_>, which: u16, id: u16) -> Option<tiny_skia::Path> {
     let mut b = SkiaOutline { pb: PathBuilder::new() };
-    if !font.outline(GlyphId(id), &mut b) {
+    if !font.font_at(which as usize).outline(GlyphId(id), &mut b) {
         return None;
     }
     b.pb.finish()
@@ -75,19 +75,25 @@ pub fn rasterize(font: &MathFont<'_>, dl: &DisplayList, opts: &RasterOptions) ->
     if let Some(bg) = opts.background {
         pixmap.fill(tiny_skia::Color::from_rgba8(bg.0, bg.1, bg.2, bg.3));
     }
-    let upem = font.units_per_em();
-    let mut cache: BTreeMap<u16, Option<tiny_skia::Path>> = BTreeMap::new();
+    let mut cache: BTreeMap<(u16, u16), Option<tiny_skia::Path>> = BTreeMap::new();
     let mut paint = Paint {
         anti_alias: true,
         ..Default::default()
     };
     for item in &dl.items {
         match item {
-            Item::Glyph { id, x, y, size, color } => {
-                let path = cache.entry(*id).or_insert_with(|| glyph_path(font, *id));
+            Item::Glyph {
+                font: which,
+                id,
+                x,
+                y,
+                size,
+                color,
+            } => {
+                let path = cache.entry((*which, *id)).or_insert_with(|| glyph_path(font, *which, *id));
                 let Some(path) = path else { continue };
                 paint.set_color_rgba8(color.0, color.1, color.2, color.3);
-                let k = size / upem * opts.scale;
+                let k = size / font.font_at(*which as usize).units_per_em() * opts.scale;
                 let t = Transform::from_row(k, 0.0, 0.0, -k, (x + pad) * opts.scale, (y + pad) * opts.scale);
                 pixmap.fill_path(path, &paint, FillRule::Winding, t, None);
             }
@@ -183,19 +189,25 @@ fn css_color(c: &Color) -> String {
 
 /// Serializes the display list as a standalone SVG document.
 pub fn to_svg(font: &MathFont<'_>, dl: &DisplayList, padding: f32) -> String {
-    let upem = font.units_per_em();
     let w = dl.width + 2.0 * padding;
     let h = dl.height() + 2.0 * padding;
     let mut defs = String::new();
     let mut body = String::new();
-    let mut seen: BTreeMap<u16, bool> = BTreeMap::new();
+    let mut seen: BTreeMap<(u16, u16), bool> = BTreeMap::new();
     for item in &dl.items {
         match item {
-            Item::Glyph { id, x, y, size, color } => {
-                let has_outline = *seen.entry(*id).or_insert_with(|| {
+            Item::Glyph {
+                font: which,
+                id,
+                x,
+                y,
+                size,
+                color,
+            } => {
+                let has_outline = *seen.entry((*which, *id)).or_insert_with(|| {
                     let mut b = SvgOutline { d: String::new() };
-                    if font.outline(GlyphId(*id), &mut b) && !b.d.is_empty() {
-                        let _ = write!(defs, r##"<path id="g{id}" d="{}"/>"##, b.d);
+                    if font.font_at(*which as usize).outline(GlyphId(*id), &mut b) && !b.d.is_empty() {
+                        let _ = write!(defs, r##"<path id="g{which}_{id}" d="{}"/>"##, b.d);
                         true
                     } else {
                         false
@@ -204,10 +216,10 @@ pub fn to_svg(font: &MathFont<'_>, dl: &DisplayList, padding: f32) -> String {
                 if !has_outline {
                     continue;
                 }
-                let k = size / upem;
+                let k = size / font.font_at(*which as usize).units_per_em();
                 let _ = write!(
                     body,
-                    r##"<use href="#g{id}" transform="translate({} {}) scale({k} {})" fill="{}"/>"##,
+                    r##"<use href="#g{which}_{id}" transform="translate({} {}) scale({k} {})" fill="{}"/>"##,
                     x + padding,
                     y + padding,
                     -k,

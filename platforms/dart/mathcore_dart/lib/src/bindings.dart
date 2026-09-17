@@ -7,6 +7,8 @@ final class MathItemStruct extends Struct {
   @Uint8()
   external int kind;
   @Uint16()
+  external int font;
+  @Uint16()
   external int glyph;
   @Float()
   external double x;
@@ -61,16 +63,16 @@ typedef NewD = Pointer<MathEngineOpaque> Function(Pointer<Uint8>, int);
 typedef NewBundledC = Pointer<MathEngineOpaque> Function();
 typedef FreeC = Void Function(Pointer<MathEngineOpaque>);
 typedef FreeD = void Function(Pointer<MathEngineOpaque>);
-typedef UpemC = Float Function(Pointer<MathEngineOpaque>);
-typedef UpemD = double Function(Pointer<MathEngineOpaque>);
+typedef UpemC = Float Function(Pointer<MathEngineOpaque>, Uint16);
+typedef UpemD = double Function(Pointer<MathEngineOpaque>, int);
 typedef RenderC = Pointer<MathResultStruct> Function(
     Pointer<MathEngineOpaque>, Pointer<Utf8>, Float, Bool, Uint32, Pointer<Utf8>, Float, Bool);
 typedef RenderD = Pointer<MathResultStruct> Function(
     Pointer<MathEngineOpaque>, Pointer<Utf8>, double, bool, int, Pointer<Utf8>, double, bool);
 typedef ResultFreeC = Void Function(Pointer<MathResultStruct>);
 typedef ResultFreeD = void Function(Pointer<MathResultStruct>);
-typedef OutlineC = Pointer<Float> Function(Pointer<MathEngineOpaque>, Uint16, Pointer<Size>);
-typedef OutlineD = Pointer<Float> Function(Pointer<MathEngineOpaque>, int, Pointer<Size>);
+typedef OutlineC = Pointer<Float> Function(Pointer<MathEngineOpaque>, Uint16, Uint16, Pointer<Size>);
+typedef OutlineD = Pointer<Float> Function(Pointer<MathEngineOpaque>, int, int, Pointer<Size>);
 typedef BufferFreeC = Void Function(Pointer<Float>, Size);
 typedef BufferFreeD = void Function(Pointer<Float>, int);
 typedef MathmlC = Pointer<Utf8> Function(Pointer<Utf8>, Bool, Pointer<Utf8>);

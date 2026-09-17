@@ -35,7 +35,7 @@ void main() {
         final e = (items[i] as List).map((v) => (v as num).toDouble()).toList();
         final got = layout.items[i];
         final actual = switch (got) {
-          MathGlyph g => [0.0, g.id.toDouble(), g.x, g.y, g.emSize, 0.0, 0.0],
+          MathGlyph g => [0.0, g.id.toDouble(), g.x, g.y, g.emSize, g.font.toDouble(), 0.0],
           MathRule r => [1.0, 0.0, r.x, r.y, r.width, r.height, 0.0],
           MathLine l => [2.0, 0.0, l.x1, l.y1, l.x2, l.y2, l.thickness],
         };

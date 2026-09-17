@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use ttf_parser::OutlineBuilder;
 
 #[cfg(feature = "bundled-font")]
-const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
+use mathcore::bundled;
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -51,7 +51,10 @@ impl Drop for Engine {
 fn engine_from_bytes(bytes: Vec<u8>) -> Result<Box<Engine>, String> {
     let data: *mut [u8] = Box::into_raw(bytes.into_boxed_slice());
     // SAFETY: `data` stays alive until Engine::drop, which runs after `font` is dropped.
-    let font = match MathFont::from_bytes(unsafe { &*data }) {
+    let font = match MathFont::from_bytes(unsafe { &*data }).map(|f| match MathFont::from_bytes(bundled::FALLBACK) {
+        Ok(fb) => f.with_fallback(fb),
+        Err(_) => f,
+    }) {
         Ok(f) => f,
         Err(e) => {
             unsafe { drop(Box::from_raw(data)) };
@@ -118,7 +121,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_create(env: JNIEnv, _class
 pub extern "system" fn Java_dev_mathcore_NativeBridge_createBundled(_env: JNIEnv, _class: JClass) -> jlong {
     #[cfg(feature = "bundled-font")]
     {
-        match MathFont::from_bytes(BUNDLED_FONT) {
+        match bundled::font() {
             Ok(font) => Box::into_raw(Box::new(Engine { data: None, font })) as jlong,
             Err(e) => {
                 set_error(e.to_string());
@@ -142,8 +145,14 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_destroy(_env: JNIEnv, _cla
 }
 
 #[no_mangle]
-pub extern "system" fn Java_dev_mathcore_NativeBridge_unitsPerEm(_env: JNIEnv, _class: JClass, handle: jlong) -> jfloat {
-    engine(handle).map_or(0.0, |e| e.font.units_per_em())
+pub extern "system" fn Java_dev_mathcore_NativeBridge_unitsPerEm(_env: JNIEnv, _class: JClass, handle: jlong, font: jint) -> jfloat {
+    engine(handle).map_or(0.0, |e| {
+        if font as usize > e.font.fallback_count() {
+            0.0
+        } else {
+            e.font.font_at(font as usize).units_per_em()
+        }
+    })
 }
 
 #[no_mangle]
@@ -257,10 +266,19 @@ impl OutlineBuilder for Stream {
 
 /// Glyph outline in font units, y up, as the same command stream as the C ABI.
 #[no_mangle]
-pub extern "system" fn Java_dev_mathcore_NativeBridge_glyphOutline(env: JNIEnv, _class: JClass, handle: jlong, glyph: jint) -> jfloatArray {
+pub extern "system" fn Java_dev_mathcore_NativeBridge_glyphOutline(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    font: jint,
+    glyph: jint,
+) -> jfloatArray {
     let Some(eng) = engine(handle) else { return std::ptr::null_mut() };
+    if font as usize > eng.font.fallback_count() {
+        return std::ptr::null_mut();
+    }
     let mut s = Stream(Vec::new());
-    if !eng.font.outline(ttf_parser::GlyphId(glyph as u16), &mut s) || s.0.is_empty() {
+    if !eng.font.font_at(font as usize).outline(ttf_parser::GlyphId(glyph as u16), &mut s) || s.0.is_empty() {
         return std::ptr::null_mut();
     }
     float_array(&env, &s.0)
@@ -272,7 +290,7 @@ mod tests {
 
     #[test]
     fn pack_layout_matches_documentation() {
-        let font = MathFont::from_bytes(BUNDLED_FONT).unwrap();
+        let font = bundled::font().unwrap();
         let dl = mathcore::render(&font, r"\frac{a}{b}", &RenderOptions::default()).unwrap();
         let p = pack(&dl);
         let regions_at = 4 + dl.items.len() * 8;
@@ -297,7 +315,7 @@ mod tests {
 
     #[test]
     fn runtime_font_engine_round_trips() {
-        let e = engine_from_bytes(BUNDLED_FONT.to_vec()).unwrap();
+        let e = engine_from_bytes(bundled::PRIMARY.to_vec()).unwrap();
         assert_eq!(e.font.units_per_em(), 1000.0);
         assert!(engine_from_bytes(b"junk".to_vec()).is_err());
     }

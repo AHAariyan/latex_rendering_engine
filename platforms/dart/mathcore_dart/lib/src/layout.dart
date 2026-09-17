@@ -11,7 +11,10 @@ sealed class MathItem {
 
 /// A glyph of the engine's font, drawn with its baseline origin at ([x], [y]) at [emSize] px.
 class MathGlyph extends MathItem {
-  const MathGlyph(this.id, this.x, this.y, this.emSize, super.argb);
+  const MathGlyph(this.font, this.id, this.x, this.y, this.emSize, super.argb);
+
+  /// Which font of the engine's chain this glyph belongs to; 0 is the primary.
+  final int font;
   final int id;
   final double x, y, emSize;
 }

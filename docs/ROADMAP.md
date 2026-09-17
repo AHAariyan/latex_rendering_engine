@@ -27,7 +27,8 @@ CLI, golden-image tests, CI.
 - [ ] `\hdashline`, `\tag` display, `mhchem`, `\let`/`\expandafter`/`\csname`.
 - [x] Wide accents above and below, including `\overleftrightarrow`,
       `\underrightarrow`, `\overgroup` and `\overlinesegment`.
-- [ ] Font fallback, so a glyph missing from the primary font comes from another.
+- [x] Font fallback: `MathFont::with_fallback`, a font index on every glyph item,
+      and a 5 KB STIX Two slice bundled so the whole symbol table renders.
 - [x] STIX Two Math and Libertinus Math in the golden corpus.
 - [x] Font subsetting (`scripts/subset-font.sh` + `tools/subset/repair_math.py`,
       equivalence test over corpus geometry and every MATH record). Bindings ship

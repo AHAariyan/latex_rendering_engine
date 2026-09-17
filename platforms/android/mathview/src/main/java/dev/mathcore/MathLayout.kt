@@ -12,9 +12,13 @@ class MathLayout internal constructor(private val data: FloatArray) {
     val height: Float get() = ascent + descent
     val itemCount: Int get() = data[3].toInt()
 
-    /** Visits every item. Glyph: (x, y, size). Rule: (x, y, w, h). Line: (x1, y1, x2, y2, thickness). */
+    /**
+     * Visits every item. Glyph: (font, id, x, y, size). Rule: (x, y, w, h).
+     * Line: (x1, y1, x2, y2, thickness). `font` is which font of the engine's
+     * chain the glyph belongs to; 0 is the primary.
+     */
     inline fun forEach(
-        glyph: (id: Int, x: Float, y: Float, emSize: Float, argb: Int) -> Unit,
+        glyph: (font: Int, id: Int, x: Float, y: Float, emSize: Float, argb: Int) -> Unit,
         rule: (x: Float, y: Float, w: Float, h: Float, argb: Int) -> Unit,
         line: (x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, argb: Int) -> Unit,
     ) {
@@ -22,7 +26,7 @@ class MathLayout internal constructor(private val data: FloatArray) {
         repeat(itemCount) {
             val color = raw(i + 7).toRawBits()
             when (raw(i).toInt()) {
-                0 -> glyph(raw(i + 1).toInt(), raw(i + 2), raw(i + 3), raw(i + 4), color)
+                0 -> glyph(raw(i + 5).toInt(), raw(i + 1).toInt(), raw(i + 2), raw(i + 3), raw(i + 4), color)
                 1 -> rule(raw(i + 2), raw(i + 3), raw(i + 4), raw(i + 5), color)
                 else -> line(raw(i + 2), raw(i + 3), raw(i + 4), raw(i + 5), raw(i + 6), color)
             }

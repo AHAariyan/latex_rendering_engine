@@ -7,11 +7,9 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use mathcore::{Color, MathFont, RenderOptions};
+use mathcore::{Color, RenderOptions};
 use mathraster::RasterOptions;
 use std::path::PathBuf;
-
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 #[derive(Parser, Debug)]
 #[command(name = "mathcli", about = "Native TeX math renderer")]
@@ -62,7 +60,7 @@ fn main() -> Result<()> {
     } else {
         args.tex.clone()
     };
-    let font = MathFont::from_bytes(FONT).map_err(|e| anyhow!("{e}"))?;
+    let font = mathcore::bundled::font().map_err(|e| anyhow!("{e}"))?;
     let mut macros = mathcore::Macros::new();
     for m in &args.macros {
         let (name, body) = m.split_once('=').ok_or_else(|| anyhow!("--macro expects NAME=BODY, got `{m}`"))?;

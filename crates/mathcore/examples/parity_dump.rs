@@ -6,13 +6,11 @@
 //! platform; this is what checks it. The bundled subset font is used because
 //! that is what the bindings embed.
 
-use mathcore::{Item, LineBreak, MathFont, RenderOptions};
+use mathcore::{Item, LineBreak, RenderOptions};
 
 #[path = "../../mathraster/tests/common/corpus.rs"]
 #[allow(dead_code)]
 mod corpus;
-
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 fn json_string(s: &str, out: &mut String) {
     out.push('"');
@@ -44,7 +42,7 @@ fn argb(c: mathcore::Color) -> u32 {
 }
 
 fn main() {
-    let font = MathFont::from_bytes(FONT).unwrap();
+    let font = mathcore::bundled::font().unwrap();
     let cases: Vec<(String, &str, bool, f32)> = corpus::CORPUS
         .iter()
         .map(|(n, t, d)| (n.to_string(), *t, *d, 0.0))
@@ -76,7 +74,14 @@ fn main() {
                 out.push_str(", ");
             }
             let (k, g, a, b, c, d, t, col) = match *item {
-                Item::Glyph { id, x, y, size, color } => (0, id, x, y, size, 0.0, 0.0, color),
+                Item::Glyph {
+                    font,
+                    id,
+                    x,
+                    y,
+                    size,
+                    color,
+                } => (0, id, x, y, size, font as f32, 0.0, color),
                 Item::Rule {
                     x,
                     y,

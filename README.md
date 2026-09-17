@@ -72,14 +72,13 @@ Working today:
   | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
   | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
-A note on fonts: Latin Modern Math predates some AMS symbols, so 27 of the 585
-(`\subseteqq`, `\precapprox`, `\bigstar` and friends) draw a hollow box with
-the bundled font. STIX Two Math covers all of them; pass it to
-`MathEngine.fromFont` if you need them. A test pins that list so it can only
-shrink on purpose.
+- **Font fallback**: a font can carry a chain, and a character the primary
+  lacks comes from the next one. Latin Modern Math predates 27 of the AMS
+  symbols, so every binding ships a 5 KB slice of STIX Two alongside it and the
+  whole table renders out of the box. Layout constants always come from the
+  primary, so adding a fallback cannot change a formula that did not need it.
 
-Not yet: `mhchem`, font fallback, React Native, an editing model. See
-`docs/ROADMAP.md`.
+Not yet: `mhchem`, React Native, an editing model. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -130,7 +129,7 @@ for item in &list.items {
 | `scripts/build-android-ffi.sh`, `scripts/build-ios.sh` | Cross-compiles the C ABI for Flutter on Android and for iOS. |
 | `platforms/android` | `mathview` Android library (Kotlin: `MathEngine`, `MathView`, Compose `MathText`) and demo app. |
 | `scripts/build-android.sh` | Cross-compiles the JNI library for arm64, armv7 and x86_64. |
-| `assets/fonts` | Latin Modern Math (GUST Font License, full + subset), STIX Two Math and Libertinus Math (OFL) for tests. |
+| `assets/fonts` | Latin Modern Math (GUST Font License, full + subset), the 5 KB STIX Two fallback slice, and STIX Two and Libertinus in full for tests (OFL). |
 
 | `tools/texcompare` | Side-by-side comparison against LuaLaTeX. |
 | `tools/subset` | MATH-table repair pass for subset fonts. |
@@ -139,7 +138,7 @@ for item in &list.items {
 
 ## Quality gates
 
-- **Golden images** for 54 formulas in three fonts (Latin Modern Math, STIX Two
+- **Golden images** for 56 formulas in three fonts (Latin Modern Math, STIX Two
   Math, Libertinus Math): `tests/golden/`.
 - **Fuzzing**: `crates/mathcore/tests/robustness.rs` throws 20,000 random
   token soups and a set of pathological inputs at the engine on a small-stack
@@ -162,7 +161,7 @@ for item in &list.items {
 - **Cross-binding parity**: `scripts/parity.sh` has the WebAssembly and Dart
   bindings lay out the whole corpus and compares every glyph position against
   the Rust core, so the promise that a formula looks the same on every platform
-  is checked rather than asserted. 48 formulas, 853 items.
+  is checked rather than asserted. 60 formulas, 1060 items.
 - **Limits for untrusted input**: `RenderOptions::budget` caps expanded source,
   parsed nodes and drawable items. A formula from a stranger that would cost
   real memory is an error, not an out-of-memory kill. Defaults are far above

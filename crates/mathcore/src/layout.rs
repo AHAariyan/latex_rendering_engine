@@ -127,8 +127,9 @@ struct BBox {
     italic: f32,
     /// `None` for kerns and explicit spaces, which do not take part in atom spacing.
     atom: Option<AtomType>,
-    /// Glyph id and scale when the box is exactly one glyph (for accent attachment, kerning and script placement).
-    glyph: Option<(GlyphId, f32)>,
+    /// Font index, glyph id and scale when the box is exactly one glyph (for
+    /// accent attachment, kerning and script placement).
+    glyph: Option<(usize, GlyphId, f32)>,
     /// Horizontal ink extent, used to keep accents inside the box.
     ink_left: f32,
     ink_right: f32,
@@ -143,6 +144,7 @@ struct BBox {
 enum Content {
     Empty,
     Glyph {
+        font: usize,
         id: GlyphId,
         size: f32,
     },
@@ -316,32 +318,43 @@ impl<'f, 'a> Layouter<'f, 'a> {
     // ---- glyph boxes -------------------------------------------------------
 
     fn glyph_box(&self, gid: GlyphId, sty: Sty) -> BBox {
-        let s = self.scale(sty);
-        let m = self.font.metrics(gid);
+        self.glyph_box_in(0, gid, sty)
+    }
+
+    /// A box for one glyph of the font at `font_index`. A fallback font may
+    /// have a different unit size, so the scale is taken from that font.
+    fn glyph_box_in(&self, font_index: usize, gid: GlyphId, sty: Sty) -> BBox {
+        let font = self.font.font_at(font_index);
+        let s = self.em(sty) / font.units_per_em();
+        let m = font.metrics(gid);
         BBox {
             w: m.advance * s,
             h: m.height * s,
             d: m.depth * s,
             italic: m.italic_correction * s,
             atom: Some(AtomType::Ord),
-            glyph: Some((gid, s)),
+            glyph: Some((font_index, gid, s)),
             ink_left: m.x_min * s,
             ink_right: m.x_max * s,
             color: None,
             span: None,
             content: Content::Glyph {
+                font: font_index,
                 id: gid,
                 size: self.em(sty),
             },
         }
     }
 
-    fn resolve_glyph(&self, ch: char, variant: Variant) -> Option<GlyphId> {
+    /// Which font and glyph a character maps to, trying the styled code point
+    /// first, then the unstyled one, then the character itself, and consulting
+    /// the fallback chain at each step.
+    fn resolve_glyph(&self, ch: char, variant: Variant) -> Option<(usize, GlyphId)> {
         let styled = styled_char(ch, variant);
         self.font
-            .glyph_index(styled)
-            .or_else(|| self.font.glyph_index(styled_char(ch, Variant::Normal)))
-            .or_else(|| self.font.glyph_index(ch))
+            .resolve(styled)
+            .or_else(|| self.font.resolve(styled_char(ch, Variant::Normal)))
+            .or_else(|| self.font.resolve(ch))
     }
 
     /// `ssty` level for a style: 1 in script, 2 in scriptscript.
@@ -355,7 +368,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     fn char_box(&self, ch: char, variant: Variant, sty: Sty) -> BBox {
         match self.resolve_glyph(ch, variant) {
-            Some(g) => self.glyph_box(self.font.script_variant(g, Self::ssty_level(sty)), sty),
+            Some((f, g)) => {
+                let g = self.font.font_at(f).script_variant(g, Self::ssty_level(sty));
+                self.glyph_box_in(f, g, sty)
+            }
             None => self.missing_glyph(sty),
         }
     }
@@ -380,24 +396,26 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     /// Smallest pre-drawn variant (or an assembly) of `gid` whose extent
     /// along the growth axis is at least `target` pixels.
-    fn extensible(&self, gid: GlyphId, target: f32, sty: Sty, vertical: bool) -> BBox {
-        let s = self.scale(sty);
-        let variants = self.font.variants(gid, vertical);
+    fn extensible(&self, (fi, gid): (usize, GlyphId), target: f32, sty: Sty, vertical: bool) -> BBox {
+        let font = self.font.font_at(fi);
+        let s = self.em(sty) / font.units_per_em();
+        let variants = font.variants(gid, vertical);
         for &(g, adv) in &variants {
             if adv * s >= target {
-                return self.glyph_box(g, sty);
+                return self.glyph_box_in(fi, g, sty);
             }
         }
-        if let Some(parts) = self.font.assembly(gid, vertical) {
-            return self.assemble(&parts, target, sty, vertical);
+        if let Some(parts) = font.assembly(gid, vertical) {
+            return self.assemble(fi, &parts, target, sty, vertical);
         }
         let largest = variants.last().map(|v| v.0).unwrap_or(gid);
-        self.glyph_box(largest, sty)
+        self.glyph_box_in(fi, largest, sty)
     }
 
-    fn assemble(&self, parts: &[crate::font::AssemblyPart], target: f32, sty: Sty, vertical: bool) -> BBox {
-        let s = self.scale(sty);
-        let min_ov = self.font.min_connector_overlap() * s;
+    fn assemble(&self, fi: usize, parts: &[crate::font::AssemblyPart], target: f32, sty: Sty, vertical: bool) -> BBox {
+        let font = self.font.font_at(fi);
+        let s = self.em(sty) / font.units_per_em();
+        let min_ov = font.min_connector_overlap() * s;
         let has_ext = parts.iter().any(|p| p.is_extender);
         let mut seq: Vec<&crate::font::AssemblyPart> = Vec::new();
         for repeat in 1..=64usize {
@@ -425,7 +443,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let mut children = Vec::new();
         let mut pos = 0.0;
         for p in &seq {
-            let g = self.glyph_box(p.glyph, sty);
+            let g = self.glyph_box_in(fi, p.glyph, sty);
             if vertical {
                 children.push(g.at(0.0, pos));
             } else {
@@ -439,7 +457,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             // Parts stack from the baseline upward; ink outside is clipped to the recipe.
             b.h = total;
             b.d = 0.0;
-            b.w = seq.iter().map(|p| self.font.metrics(p.glyph).advance * s).fold(0.0, f32::max);
+            b.w = seq.iter().map(|p| font.metrics(p.glyph).advance * s).fold(0.0, f32::max);
         } else {
             b.w = total;
         }
@@ -913,7 +931,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             let target = self.font.constants().display_operator_min_height * self.scale(sty);
             self.extensible(g, target, sty, true)
         } else {
-            self.glyph_box(g, sty)
+            self.glyph_box_in(g.0, g.1, sty)
         };
         // TeX rule 13 boxes the operator, so scripts are placed by the box rule
         // (dropped from the top and bottom) rather than the single-character rule.
@@ -925,19 +943,20 @@ impl<'f, 'a> Layouter<'f, 'a> {
     /// Math kerning between a base glyph and a script glyph (MathKernInfo).
     /// `shift` is the script baseline relative to the base baseline (positive up).
     fn script_kern(&self, base: &BBox, script: &BBox, shift: f32, top: bool) -> f32 {
-        let (Some((bg, bs)), Some((sg, ss))) = (base.glyph, script.glyph) else {
+        let (Some((bf, bg, bs)), Some((sf, sg, ss))) = (base.glyph, script.glyph) else {
             return 0.0;
         };
+        let (bfont, sfont) = (self.font.font_at(bf), self.font.font_at(sf));
         if top {
             let script_bottom = shift - script.d;
             let base_top_rel_script = base.h - shift;
-            self.font.math_kern(bg, KernCorner::TopRight, script_bottom / bs) * bs
-                + self.font.math_kern(sg, KernCorner::BottomLeft, base_top_rel_script / ss) * ss
+            bfont.math_kern(bg, KernCorner::TopRight, script_bottom / bs) * bs
+                + sfont.math_kern(sg, KernCorner::BottomLeft, base_top_rel_script / ss) * ss
         } else {
             let script_top = shift + script.h;
             let base_bottom_rel_script = -base.d - shift;
-            self.font.math_kern(bg, KernCorner::BottomRight, script_top / bs) * bs
-                + self.font.math_kern(sg, KernCorner::TopLeft, base_bottom_rel_script / ss) * ss
+            bfont.math_kern(bg, KernCorner::BottomRight, script_top / bs) * bs
+                + sfont.math_kern(sg, KernCorner::TopLeft, base_bottom_rel_script / ss) * ss
         }
     }
 
@@ -1175,7 +1194,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             c.radical_vertical_gap
         } * s;
         let needed = body.h + body.d + clearance + t;
-        let Some(sqrt_gid) = self.font.glyph_index('√') else {
+        let Some(sqrt_gid) = self.font.resolve('√') else {
             return body;
         };
         let sign = self.extensible(sqrt_gid, needed, sty, true);
@@ -1271,21 +1290,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let acc = if stretchy {
             self.stretch_accent(acc_gid, base_box.w, sty)
         } else {
-            self.glyph_box(acc_gid, sty)
+            self.glyph_box_in(acc_gid.0, acc_gid.1, sty)
         };
         // Horizontal attachment.
-        let base_skew = match base_box.glyph {
-            Some((g, gs)) => self.font.top_accent_attachment(g).map(|v| v * gs).unwrap_or(base_box.w / 2.0),
-            None => base_box.w / 2.0,
+        let attach = |b: &BBox, default: f32| match b.glyph {
+            Some((f, g, gs)) => self.font.font_at(f).top_accent_attachment(g).map(|v| v * gs).unwrap_or(default),
+            None => default,
         };
-        let acc_skew = match acc.glyph {
-            Some((g, gs)) => self
-                .font
-                .top_accent_attachment(g)
-                .map(|v| v * gs)
-                .unwrap_or((acc.ink_left + acc.ink_right) / 2.0),
-            None => acc.w / 2.0,
-        };
+        let base_skew = attach(&base_box, base_box.w / 2.0);
+        let acc_skew = attach(&acc, (acc.ink_left + acc.ink_right) / 2.0);
         let acc_x = base_skew - acc_skew;
         // Vertical placement: above the base, or hanging below it.
         let acc_y = if under {
@@ -1306,7 +1319,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     /// Stretchy accents: the smallest variant at least as wide as the base
     /// (LuaTeX's choice for OpenType math), an assembly beyond the largest.
-    fn stretch_accent(&self, gid: GlyphId, width: f32, sty: Sty) -> BBox {
+    fn stretch_accent(&self, gid: (usize, GlyphId), width: f32, sty: Sty) -> BBox {
         self.extensible(gid, width, sty, false)
     }
 
@@ -1607,7 +1620,8 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
         match &b.content {
             Content::Empty => {}
-            Content::Glyph { id, size } => out.push(Item::Glyph {
+            Content::Glyph { font, id, size } => out.push(Item::Glyph {
+                font: *font as u16,
                 id: id.0,
                 x,
                 y: ascent - y,

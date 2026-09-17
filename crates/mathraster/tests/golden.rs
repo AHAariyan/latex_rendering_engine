@@ -97,7 +97,13 @@ impl Session {
 fn golden_images() {
     let mut s = Session::new();
     for (suffix, bytes) in FONTS {
-        let font = MathFont::from_bytes(bytes).unwrap();
+        // The default column is the chain every binding ships: the primary font
+        // plus the small fallback that fills its gaps.
+        let font = if suffix.is_empty() {
+            mathcore::bundled::font().unwrap()
+        } else {
+            MathFont::from_bytes(bytes).unwrap()
+        };
         for (base, tex, display) in CORPUS {
             let name = if suffix.is_empty() {
                 base.to_string()
@@ -113,7 +119,7 @@ fn golden_images() {
         }
     }
     // Line breaking, with the default font only.
-    let font = MathFont::from_bytes(FONTS[0].1).unwrap();
+    let font = mathcore::bundled::font().unwrap();
     for (base, tex, width) in LINEBREAK {
         let opts = RenderOptions {
             font_size: 32.0,

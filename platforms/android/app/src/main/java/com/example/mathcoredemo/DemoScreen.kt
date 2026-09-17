@@ -35,6 +35,7 @@ private val samples = listOf(
     "Colors and boxes" to "\\boxed{E = mc^2} \\quad \\textcolor{red}{\\alpha} + \\textcolor{blue}{\\beta}",
     "Braces and arrows" to "\\underbrace{a + b + c}_{3} \\xrightarrow{\\ f\\ } \\overbrace{d}^{1}",
     "Wrapped to the screen" to "f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7",
+    "Fallback font" to "a \\subseteqq b \\precapprox c \\bigstar \\digamma \\pitchfork \\Game",
     "Wrapped chain" to "\\int_0^1 f(x)\\,dx = \\lim_{n\\to\\infty} \\sum_{i=1}^{n} f(x_i)\\Delta x = F(1) - F(0)",
 )
 

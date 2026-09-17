@@ -99,6 +99,10 @@ pub struct MathFont<'a> {
     upem: f32,
     consts: Constants,
     x_height: f32,
+    /// Consulted in order for characters this font has no glyph for. Layout
+    /// always uses the primary font's MATH constants, so adding a fallback
+    /// cannot change the shape of a formula it was not needed for.
+    fallbacks: Vec<MathFont<'a>>,
 }
 
 /// One shaped glyph of a text run, in font units.
@@ -175,7 +179,39 @@ impl<'a> MathFont<'a> {
             upem,
             consts,
             x_height,
+            fallbacks: Vec::new(),
         })
+    }
+
+    /// Adds a font to consult for characters this one lacks.
+    pub fn with_fallback(mut self, next: MathFont<'a>) -> Self {
+        self.fallbacks.push(next);
+        self
+    }
+
+    /// The font at an index: 0 is this one, 1 and up are its fallbacks.
+    pub fn font_at(&self, index: usize) -> &MathFont<'a> {
+        if index == 0 {
+            self
+        } else {
+            &self.fallbacks[index - 1]
+        }
+    }
+
+    pub fn fallback_count(&self) -> usize {
+        self.fallbacks.len()
+    }
+
+    /// Finds `ch` in this font or the first fallback that has it, returning
+    /// which font it came from.
+    pub fn resolve(&self, ch: char) -> Option<(usize, GlyphId)> {
+        if let Some(g) = self.glyph_index(ch) {
+            return Some((0, g));
+        }
+        self.fallbacks
+            .iter()
+            .enumerate()
+            .find_map(|(i, f)| f.glyph_index(ch).map(|g| (i + 1, g)))
     }
 
     pub fn units_per_em(&self) -> f32 {
@@ -485,6 +521,24 @@ mod tests {
     use super::*;
 
     pub(crate) const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+
+    #[test]
+    fn a_fallback_supplies_what_the_primary_lacks() {
+        const STIX: &[u8] = include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf");
+        let lm = MathFont::from_bytes(FONT).unwrap();
+        assert!(lm.glyph_index('⫅').is_none(), "Latin Modern has no \\subseteqq");
+        assert!(lm.resolve('⫅').is_none());
+
+        let chained = MathFont::from_bytes(FONT)
+            .unwrap()
+            .with_fallback(MathFont::from_bytes(STIX).unwrap());
+        assert_eq!(chained.resolve('x').map(|(i, _)| i), Some(0), "the primary still wins");
+        let (font, glyph) = chained.resolve('⫅').expect("the fallback has it");
+        assert_eq!(font, 1);
+        assert!(chained.font_at(font).metrics(glyph).advance > 0.0);
+        // The constants that drive layout still come from the primary.
+        assert_eq!(chained.constants().axis_height, lm.constants().axis_height);
+    }
 
     #[test]
     fn loads_latin_modern_math() {

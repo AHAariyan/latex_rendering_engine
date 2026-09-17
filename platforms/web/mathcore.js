@@ -12,14 +12,21 @@
 export class CanvasRenderer {
   constructor(engine) {
     this.engine = engine;
-    this.upem = engine.unitsPerEm();
+    this.upem = new Map();
     this.paths = new Map();
   }
 
+  /** Font units per em of one font of the chain; a fallback may differ. */
+  unitsPerEm(font) {
+    if (!this.upem.has(font)) this.upem.set(font, this.engine.unitsPerEm(font));
+    return this.upem.get(font);
+  }
+
   /** Path2D for a glyph in font units, y down. */
-  glyphPath(id) {
-    if (this.paths.has(id)) return this.paths.get(id);
-    const cmds = this.engine.glyphOutline(id);
+  glyphPath(font, id) {
+    const key = (font << 16) | id;
+    if (this.paths.has(key)) return this.paths.get(key);
+    const cmds = this.engine.glyphOutline(font, id);
     let path = null;
     if (cmds) {
       path = new Path2D();
@@ -33,7 +40,7 @@ export class CanvasRenderer {
         }
       }
     }
-    this.paths.set(id, path);
+    this.paths.set(key, path);
     return path;
   }
 
@@ -53,9 +60,10 @@ export class CanvasRenderer {
       ctx.fillStyle = ctx.strokeStyle = `rgba(${(argb >> 16) & 255},${(argb >> 8) & 255},${argb & 255},${((argb >>> 24) & 255) / 255})`;
       switch (layout[i]) {
         case 0: {
-          const path = this.glyphPath(layout[i + 1]);
+          const font = layout[i + 5];
+          const path = this.glyphPath(font, layout[i + 1]);
           if (!path) break;
-          const k = layout[i + 4] / this.upem;
+          const k = layout[i + 4] / this.unitsPerEm(font);
           ctx.save();
           ctx.translate(left + layout[i + 2], top + layout[i + 3]);
           ctx.scale(k, k);

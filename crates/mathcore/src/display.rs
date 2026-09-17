@@ -16,7 +16,10 @@ impl Color {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Glyph {
-        /// Glyph index in the engine's math font.
+        /// Which font of the engine's chain the glyph belongs to: 0 is the
+        /// primary, 1 and up are its fallbacks.
+        font: u16,
+        /// Glyph index in that font.
         id: u16,
         /// Baseline origin of the glyph.
         x: f32,
@@ -150,7 +153,7 @@ impl DisplayList {
     ///  ...]
     /// ```
     ///
-    /// `kind` is 0 glyph (`w` = em size), 1 rule (`w`,`h` = size), 2 line
+    /// `kind` is 0 glyph (`w` = em size, `h` = font index), 1 rule (`w`,`h` = size), 2 line
     /// (`w`,`h` = x2,y2). `colorBits` is 0xAARRGGBB reinterpreted as a float.
     /// A region block follows the items, empty unless hit testing was on:
     ///
@@ -170,7 +173,14 @@ impl DisplayList {
         out.extend([self.width, self.ascent, self.descent, self.items.len() as f32]);
         for it in &self.items {
             match *it {
-                Item::Glyph { id, x, y, size, color } => out.extend([0.0, id as f32, x, y, size, 0.0, 0.0, argb_bits(color)]),
+                Item::Glyph {
+                    font,
+                    id,
+                    x,
+                    y,
+                    size,
+                    color,
+                } => out.extend([0.0, id as f32, x, y, size, font as f32, 0.0, argb_bits(color)]),
                 Item::Rule {
                     x,
                     y,

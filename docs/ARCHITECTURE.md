@@ -41,6 +41,19 @@ Wraps `ttf-parser`. Exposes glyph metrics, the MATH constants as plain floats,
 italic corrections, top accent attachment points, size variants and extensible
 assemblies. All values are in font units; the layouter scales them.
 
+### Font fallback
+
+A `MathFont` can carry a chain of fallbacks. Character lookup walks it and
+returns which font answered, so a glyph item names its font as well as its
+glyph, and a backend caches outlines per font. Layout constants and the math
+axis always come from the primary, so adding a fallback cannot move a formula
+that did not need it; only the metrics of the borrowed glyph come from the font
+that owns it, including its own unit size.
+
+Every binding embeds Latin Modern Math plus a 5 KB slice of STIX Two carrying
+the two dozen AMS symbols Latin Modern predates, built by
+`scripts/build-fallback.sh` from the gap the audit test reports.
+
 ### Layout (`layout.rs`)
 
 Implements TeXbook Appendix G with OpenType MATH constants:

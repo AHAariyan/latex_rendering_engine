@@ -23,8 +23,8 @@ fn clear_error() {
 }
 
 pub struct MathEngine {
-    /// Leaked font bytes; reclaimed in `math_engine_free` after the font is dropped.
-    /// `None` for the bundled font.
+    /// Leaked font bytes; reclaimed in `math_engine_free` after the font is
+    /// dropped. `None` for the bundled fonts, which are static.
     data: Option<*mut [u8]>,
     font: MathFont<'static>,
 }
@@ -33,6 +33,8 @@ pub struct MathEngine {
 #[derive(Debug, Clone, Copy)]
 pub struct MathItem {
     pub kind: u8,
+    /// Which font of the engine's chain a glyph belongs to; 0 is the primary.
+    pub font: u16,
     pub glyph: u16,
     pub x: f32,
     pub y: f32,
@@ -86,7 +88,10 @@ pub unsafe extern "C" fn math_engine_new(font_data: *const u8, font_len: usize) 
     }
     let bytes = std::slice::from_raw_parts(font_data, font_len).to_vec().into_boxed_slice();
     let data: *mut [u8] = Box::into_raw(bytes);
-    let font = match MathFont::from_bytes(&*data) {
+    let font = match MathFont::from_bytes(&*data).map(|f| match MathFont::from_bytes(mathcore::bundled::FALLBACK) {
+        Ok(fb) => f.with_fallback(fb),
+        Err(_) => f,
+    }) {
         Ok(f) => f,
         Err(e) => {
             drop(Box::from_raw(data));
@@ -104,8 +109,7 @@ pub extern "C" fn math_engine_new_bundled() -> *mut MathEngine {
     clear_error();
     #[cfg(feature = "bundled-font")]
     {
-        const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
-        match MathFont::from_bytes(FONT) {
+        match mathcore::bundled::font() {
             Ok(font) => Box::into_raw(Box::new(MathEngine { data: None, font })),
             Err(e) => {
                 set_error(e.to_string());
@@ -138,11 +142,15 @@ pub unsafe extern "C" fn math_engine_free(engine: *mut MathEngine) {
 /// # Safety
 /// `engine` must be a live engine.
 #[no_mangle]
-pub unsafe extern "C" fn math_engine_units_per_em(engine: *const MathEngine) -> f32 {
+pub unsafe extern "C" fn math_engine_units_per_em(engine: *const MathEngine, font: u16) -> f32 {
     if engine.is_null() {
         return 0.0;
     }
-    (*engine).font.units_per_em()
+    let chain = &(*engine).font;
+    if font as usize > chain.fallback_count() {
+        return 0.0;
+    }
+    chain.font_at(font as usize).units_per_em()
 }
 
 /// # Safety
@@ -193,8 +201,16 @@ pub unsafe extern "C" fn math_engine_render(
         .items
         .iter()
         .map(|it| match *it {
-            Item::Glyph { id, x, y, size, color } => MathItem {
+            Item::Glyph {
+                font,
+                id,
+                x,
+                y,
+                size,
+                color,
+            } => MathItem {
                 kind: 0,
+                font,
                 glyph: id,
                 x,
                 y,
@@ -211,6 +227,7 @@ pub unsafe extern "C" fn math_engine_render(
                 color,
             } => MathItem {
                 kind: 1,
+                font: 0,
                 glyph: 0,
                 x,
                 y,
@@ -228,6 +245,7 @@ pub unsafe extern "C" fn math_engine_render(
                 color,
             } => MathItem {
                 kind: 2,
+                font: 0,
                 glyph: 0,
                 x: x1,
                 y: y1,
@@ -305,15 +323,23 @@ impl OutlineBuilder for Stream {
     }
 }
 
+/// Glyph outline in font units, y up, as the command stream documented in the
+/// header. `font` is the index an item carries: 0 is the primary.
+///
 /// # Safety
 /// `engine` must be a live engine; `out_len` must be a valid pointer.
 #[no_mangle]
-pub unsafe extern "C" fn math_engine_glyph_outline(engine: *const MathEngine, glyph: u16, out_len: *mut usize) -> *mut f32 {
+pub unsafe extern "C" fn math_engine_glyph_outline(engine: *const MathEngine, font: u16, glyph: u16, out_len: *mut usize) -> *mut f32 {
     if engine.is_null() || out_len.is_null() {
         return std::ptr::null_mut();
     }
+    let chain = &(*engine).font;
+    if font as usize > chain.fallback_count() {
+        *out_len = 0;
+        return std::ptr::null_mut();
+    }
     let mut s = Stream(Vec::new());
-    if !(*engine).font.outline(ttf_parser::GlyphId(glyph), &mut s) || s.0.is_empty() {
+    if !chain.font_at(font as usize).outline(ttf_parser::GlyphId(glyph), &mut s) || s.0.is_empty() {
         *out_len = 0;
         return std::ptr::null_mut();
     }
@@ -416,7 +442,7 @@ mod tests {
         unsafe {
             let engine = math_engine_new(FONT.as_ptr(), FONT.len());
             assert!(!engine.is_null());
-            assert_eq!(math_engine_units_per_em(engine), 1000.0);
+            assert_eq!(math_engine_units_per_em(engine, 0), 1000.0);
             let tex = CString::new(r"\half + \frac{a}{b}").unwrap();
             let macros = CString::new("\\half=\\frac{1}{2}").unwrap();
             let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0, false);
@@ -427,7 +453,7 @@ mod tests {
             assert!((*r).width > 0.0 && (*r).ascent > 0.0);
             let glyph = items.iter().find(|i| i.kind == 0).unwrap().glyph;
             let mut len = 0usize;
-            let outline = math_engine_glyph_outline(engine, glyph, &mut len);
+            let outline = math_engine_glyph_outline(engine, 0, glyph, &mut len);
             assert!(!outline.is_null() && len > 3);
             assert_eq!(*outline, 0.0, "starts with a move");
             math_buffer_free(outline, len);
@@ -501,7 +527,7 @@ mod tests {
         unsafe {
             let e = math_engine_new_bundled();
             assert!(!e.is_null());
-            assert_eq!(math_engine_units_per_em(e), 1000.0);
+            assert_eq!(math_engine_units_per_em(e, 0), 1000.0);
             math_engine_free(e);
         }
     }

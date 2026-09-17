@@ -7,11 +7,12 @@ import 'package:mathcore_dart/mathcore_dart.dart';
 class GlyphPathCache {
   GlyphPathCache(this.engine);
   final MathEngine engine;
+  /// Keyed by font and glyph, since a formula may draw from more than one font.
   final Map<int, ui.Path?> _paths = {};
 
   /// Glyph outline in font units, y down.
-  ui.Path? path(int glyph) => _paths.putIfAbsent(glyph, () {
-        final o = engine.glyphOutline(glyph);
+  ui.Path? path(int font, int glyph) => _paths.putIfAbsent((font << 16) | glyph, () {
+        final o = engine.glyphOutline(font, glyph);
         if (o == null) return null;
         final p = ui.Path();
         final c = o.commands;
@@ -47,14 +48,13 @@ class MathPainter extends CustomPainter {
 
   static void draw(Canvas canvas, MathLayout layout, GlyphPathCache cache, Offset offset) {
     final paint = Paint()..isAntiAlias = true;
-    final upem = cache.engine.unitsPerEm;
     for (final item in layout.items) {
       paint.color = Color(item.argb);
       switch (item) {
         case MathGlyph g:
-          final path = cache.path(g.id);
+          final path = cache.path(g.font, g.id);
           if (path == null) break;
-          final k = g.emSize / upem;
+          final k = g.emSize / cache.engine.unitsPerEm(g.font);
           canvas.save();
           canvas.translate(offset.dx + g.x, offset.dy + g.y);
           canvas.scale(k, k);

@@ -9,8 +9,6 @@ use mathcore::{Color, LineBreak, Macros, MathFont, RenderOptions};
 use ttf_parser::OutlineBuilder;
 use wasm_bindgen::prelude::*;
 
-const BUNDLED_FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
-
 #[wasm_bindgen]
 pub struct MathEngine {
     font: MathFont<'static>,
@@ -37,7 +35,7 @@ impl MathEngine {
     /// Engine with the bundled Latin Modern Math font.
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MathEngine, JsError> {
-        let font = MathFont::from_bytes(BUNDLED_FONT).map_err(|e| JsError::new(&e.to_string()))?;
+        let font = mathcore::bundled::font().map_err(|e| JsError::new(&e.to_string()))?;
         Ok(MathEngine { font })
     }
 
@@ -46,12 +44,21 @@ impl MathEngine {
     pub fn from_font(bytes: &[u8]) -> Result<MathEngine, JsError> {
         let leaked: &'static [u8] = Box::leak(bytes.to_vec().into_boxed_slice());
         let font = MathFont::from_bytes(leaked).map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(MathEngine { font })
+        let fallback = MathFont::from_bytes(mathcore::bundled::FALLBACK).map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(MathEngine {
+            font: font.with_fallback(fallback),
+        })
     }
 
+    /// Font units per em of one font of the chain; a fallback may differ.
     #[wasm_bindgen(js_name = unitsPerEm)]
-    pub fn units_per_em(&self) -> f32 {
-        self.font.units_per_em()
+    pub fn units_per_em(&self, font: Option<u16>) -> f32 {
+        let i = font.unwrap_or(0) as usize;
+        if i > self.font.fallback_count() {
+            0.0
+        } else {
+            self.font.font_at(i).units_per_em()
+        }
     }
 
     /// Renders to a standalone SVG string. `argb` is 0xAARRGGBB; `macros` is
@@ -108,7 +115,7 @@ impl MathEngine {
 
     /// Glyph outline in font units, y up: `0 x y` move, `1 x y` line, `2 x1 y1 x y` quad, `3 x1 y1 x2 y2 x y` cubic, `4` close.
     #[wasm_bindgen(js_name = glyphOutline)]
-    pub fn glyph_outline(&self, glyph: u16) -> Option<Vec<f32>> {
+    pub fn glyph_outline(&self, font: u16, glyph: u16) -> Option<Vec<f32>> {
         struct Stream(Vec<f32>);
         impl OutlineBuilder for Stream {
             fn move_to(&mut self, x: f32, y: f32) {
@@ -127,8 +134,11 @@ impl MathEngine {
                 self.0.push(4.0);
             }
         }
+        if font as usize > self.font.fallback_count() {
+            return None;
+        }
         let mut s = Stream(Vec::new());
-        if self.font.outline(ttf_parser::GlyphId(glyph), &mut s) && !s.0.is_empty() {
+        if self.font.font_at(font as usize).outline(ttf_parser::GlyphId(glyph), &mut s) && !s.0.is_empty() {
             Some(s.0)
         } else {
             None

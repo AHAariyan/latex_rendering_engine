@@ -11,7 +11,7 @@ void main() {
 
   test('bundled engine renders a fraction', () {
     final e = MathEngine.bundled();
-    expect(e.unitsPerEm, 1000);
+    expect(e.unitsPerEm(), 1000);
     final l = e.render(r'\frac{a}{b} + x^2', 32);
     expect(l.width, greaterThan(0));
     expect(l.items.whereType<MathRule>().length, 1);
@@ -65,10 +65,10 @@ void main() {
   test('glyph outlines are cached command streams', () {
     final e = MathEngine.bundled();
     final g = e.render('x', 32).items.first as MathGlyph;
-    final o = e.glyphOutline(g.id)!;
+    final o = e.glyphOutline(g.font, g.id)!;
     expect(o.commands.first, 0);
-    expect(identical(o, e.glyphOutline(g.id)), isTrue);
-    expect(e.glyphOutline(0), isNull);
+    expect(identical(o, e.glyphOutline(g.font, g.id)), isTrue);
+    expect(e.glyphOutline(0, 0), isNull);
     e.dispose();
   });
 

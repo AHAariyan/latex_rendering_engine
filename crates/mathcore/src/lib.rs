@@ -24,6 +24,21 @@ pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
 
+/// The fonts every binding embeds: Latin Modern Math, subset to what the
+/// parser can ask for, plus a 5 KB slice of STIX Two Math carrying the handful
+/// of AMS symbols Latin Modern predates. Together they cover the whole table.
+pub mod bundled {
+    /// Latin Modern Math, subset to the engine's character set.
+    pub const PRIMARY: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
+    /// The glyphs `PRIMARY` lacks, taken from STIX Two Math.
+    pub const FALLBACK: &[u8] = include_bytes!("../../../assets/fonts/fallback-subset.otf");
+
+    /// The bundled font with its fallback already chained.
+    pub fn font() -> crate::Result<crate::MathFont<'static>> {
+        Ok(crate::MathFont::from_bytes(PRIMARY)?.with_fallback(crate::MathFont::from_bytes(FALLBACK)?))
+    }
+}
+
 /// Caps on the work one formula may cost.
 ///
 /// A host that renders TeX written by other people (a chat client, a notes

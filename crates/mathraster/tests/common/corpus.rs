@@ -174,6 +174,17 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
         r"\tg x + \ctg y + \sh a + \ch b + \argmax_z f(z) + \projlim_n A_n",
         true,
     ),
+    // Symbols Latin Modern predates: these come from the bundled fallback font.
+    (
+        "fallback_glyphs",
+        r"a \subseteqq b \supseteqq c \precapprox d \succneqq e \Diamond \bigstar \digamma \pitchfork",
+        true,
+    ),
+    (
+        "fallback_more",
+        r"\blacktriangle \blacktriangledown \circledS \Finv \Game \diagup \dashrightarrow \doublebarwedge",
+        true,
+    ),
 ];
 
 /// Formulas rendered with line breaking: (name, tex, available width in px at 32 px/em).
