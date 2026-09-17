@@ -1,0 +1,17 @@
+[package]
+name = "mathcli"
+description = "Command line renderer: TeX math in, PNG or SVG out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mathcli"
+path = "src/main.rs"
+
+[dependencies]
+mathcore = { path = "../mathcore" }
+mathraster = { path = "../mathraster" }
+anyhow = { workspace = true }
+clap = { workspace = true }
