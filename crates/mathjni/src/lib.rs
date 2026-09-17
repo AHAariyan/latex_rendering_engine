@@ -16,7 +16,7 @@
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jboolean, jfloat, jfloatArray, jint, jlong, jstring};
 use jni::JNIEnv;
-use mathcore::{Color, Macros, MathFont, RenderOptions};
+use mathcore::{Color, LineBreak, Macros, MathFont, RenderOptions};
 use std::cell::RefCell;
 use ttf_parser::OutlineBuilder;
 
@@ -156,6 +156,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
     display: jboolean,
     color: jint,
     macros: JString,
+    max_width: jfloat,
 ) -> jfloatArray {
     let Some(eng) = engine(handle) else { return std::ptr::null_mut() };
     let tex: String = match env.get_string(&tex) {
@@ -181,6 +182,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
         display_mode: display != 0,
         color: color_from_argb(color),
         macros: defs,
+        line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
     };
     match mathcore::render(&eng.font, &tex, &opts) {
         Ok(dl) => float_array(&env, &pack(&dl)),

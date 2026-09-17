@@ -23,6 +23,9 @@ class _DemoState extends State<Demo> {
         const MathText(r'x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}', fontSize: 22),
         const MathText(r'\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}', fontSize: 22),
         const MathText(r'f(x) = \begin{cases} x^2 & x \ge 0 \\ -x & \text{otherwise} \end{cases}', fontSize: 22),
+        const Divider(),
+        const Text('Wrapped to the available width:'),
+        const MathText(r'f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7', fontSize: 20),
       ]),
     );
   }

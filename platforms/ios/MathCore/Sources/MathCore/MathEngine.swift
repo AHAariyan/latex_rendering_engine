@@ -60,17 +60,21 @@ public final class MathEngine {
         MathParseError(message: math_last_error().map { String(cString: $0) } ?? "unknown native error")
     }
 
-    /// Lays out `tex` at `fontSize` points. `color` is 0xAARRGGBB.
+    /// Lays out `tex` at `fontSize` points. `color` is 0xAARRGGBB. When
+    /// `maxWidth` is given, a wider formula is broken into lines before
+    /// relations and binary operators.
     public func render(_ tex: String, fontSize: CGFloat, displayMode: Bool = true,
-                       color: UInt32 = 0xFF00_0000, macros: [String: String] = [:]) throws -> MathLayout {
+                       color: UInt32 = 0xFF00_0000, macros: [String: String] = [:],
+                       maxWidth: CGFloat? = nil) throws -> MathLayout {
         lock.lock(); defer { lock.unlock() }
         let rgba = ((color & 0x00FF_FFFF) << 8) | ((color >> 24) & 0xFF)
         let macroText: String? = macros.isEmpty ? nil : macros.map { "\($0.key)=\($0.value)" }.joined(separator: "\n")
+        let width = Float(maxWidth ?? 0)
         let result: UnsafeMutablePointer<MathResult>? = tex.withCString { texP in
             if let m = macroText {
-                return m.withCString { math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, $0) }
+                return m.withCString { math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, $0, width) }
             }
-            return math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, nil)
+            return math_engine_render(handle, texP, Float(fontSize), displayMode, rgba, nil, width)
         }
         guard let r = result else { throw MathEngine.lastError() }
         defer { math_result_free(r) }

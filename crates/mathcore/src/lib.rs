@@ -18,7 +18,7 @@ pub use ast::Node;
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
 pub use font::MathFont;
-pub use layout::{Layouter, RenderOptions};
+pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
 
@@ -229,6 +229,70 @@ mod tests {
             (g[1].0 - g[0].0 - f_adv).abs() > 0.1,
             "subscript placed at the bare advance: kerning not applied"
         );
+    }
+
+    /// Groups glyph baselines into lines. Only valid for script-free formulas.
+    fn line_count(dl: &DisplayList) -> usize {
+        let mut ys: Vec<f32> = glyphs(dl).iter().map(|g| g.1).collect();
+        ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        ys.dedup_by(|a, b| (*a - *b).abs() < 1.0);
+        ys.len()
+    }
+
+    #[test]
+    fn line_breaking_fits_the_width() {
+        let f = font();
+        let tex = "a + b + c + d + e + f + g + h + i + j + k + l";
+        let wide = render(&f, tex, &RenderOptions::default()).unwrap();
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(150.0)),
+            ..Default::default()
+        };
+        let narrow = render(&f, tex, &opts).unwrap();
+        assert!(narrow.width <= 150.0, "width {} exceeds the limit", narrow.width);
+        assert!(narrow.height() > wide.height() * 2.0, "must use several lines");
+        assert_eq!(glyphs(&narrow).len(), glyphs(&wide).len(), "same glyphs, only rearranged");
+        assert!(line_count(&narrow) >= 3);
+    }
+
+    #[test]
+    fn line_breaking_leaves_a_fitting_formula_alone() {
+        let f = font();
+        let plain = render(&f, "E = mc^2", &RenderOptions::default()).unwrap();
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(400.0)),
+            ..Default::default()
+        };
+        let broken = render(&f, "E = mc^2", &opts).unwrap();
+        assert_eq!(plain, broken);
+    }
+
+    #[test]
+    fn line_breaking_balances_lines() {
+        // A greedy fit would leave one full line and a stub; the dynamic
+        // program spreads the terms over two lines of similar length.
+        let f = font();
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(230.0)),
+            ..Default::default()
+        };
+        let dl = render(&f, "a + b + c + d + e + f + g", &opts).unwrap();
+        assert_eq!(line_count(&dl), 2);
+        let last_line_glyphs = glyphs(&dl).iter().filter(|g| g.1 > dl.ascent + 1.0).count();
+        assert!(last_line_glyphs >= 4, "second line has only {last_line_glyphs} glyphs");
+    }
+
+    #[test]
+    fn line_breaking_cannot_split_an_atom() {
+        // Nothing to break: one fraction stays on one line and overflows.
+        let f = font();
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(60.0)),
+            ..Default::default()
+        };
+        let dl = render(&f, r"\frac{a+b+c+d}{e+f+g+h}", &opts).unwrap();
+        assert_eq!(line_count(&dl), 2, "numerator and denominator, not broken lines");
+        assert!(dl.width > 60.0);
     }
 
     #[test]

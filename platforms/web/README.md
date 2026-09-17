@@ -12,8 +12,9 @@ cd ../../platforms/web && python3 -m http.server   # open http://localhost:8000
 import init, { MathEngine } from "./pkg/mathwasm.js";
 await init();
 const engine = new MathEngine();
-el.innerHTML = engine.renderSvg("\\frac{a}{b}", 32, true, 0xff000000);   // SVG string
-const layout = engine.render("\\frac{a}{b}", 32, true, 0xff000000);       // Float32Array for canvas
+// The last argument is the available width; 0 renders one line of any width.
+el.innerHTML = engine.renderSvg("\\frac{a}{b}", 32, true, 0xff000000, null, el.clientWidth);
+const layout = engine.render("\\frac{a}{b}", 32, true, 0xff000000, null, 0);  // Float32Array for canvas
 new CanvasRenderer(engine).draw(layout, ctx, 0, 0);                        // see mathcore.js
 ```
 

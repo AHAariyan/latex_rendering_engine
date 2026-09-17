@@ -69,9 +69,11 @@ class MathEngine {
 
   static String get nativeVersion => bindings.version().toDartString();
 
-  /// Lays out [tex] at [fontSizePx]. Throws [MathParseException] on bad input.
+  /// Lays out [tex] at [fontSizePx]. When [maxWidth] is given, a formula wider
+  /// than that is broken into lines before relations and binary operators.
+  /// Throws [MathParseException] on bad input.
   MathLayout render(String tex, double fontSizePx,
-      {bool displayMode = true, int argb = 0xFF000000, Map<String, String> macros = const {}}) {
+      {bool displayMode = true, int argb = 0xFF000000, Map<String, String> macros = const {}, double? maxWidth}) {
     _check();
     final texP = tex.toNativeUtf8();
     final macroP = macros.isEmpty
@@ -80,7 +82,7 @@ class MathEngine {
     try {
       // The C ABI takes 0xRRGGBBAA.
       final rgba = ((argb & 0x00FFFFFF) << 8) | ((argb >> 24) & 0xFF);
-      final r = _b.render(_handle, texP, fontSizePx, displayMode, rgba, macroP.cast());
+      final r = _b.render(_handle, texP, fontSizePx, displayMode, rgba, macroP.cast(), maxWidth ?? 0);
       if (r == nullptr) throw MathParseException(_lastError(_b));
       try {
         final res = r.ref;

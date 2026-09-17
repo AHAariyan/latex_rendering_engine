@@ -49,9 +49,11 @@ void math_engine_free(MathEngine* engine);
 float math_engine_units_per_em(const MathEngine* engine);
 
 /* Renders `tex`. `macros` is optional: newline-separated "\name=body" definitions.
- * `color` is 0xRRGGBBAA. Returns NULL on error; see math_last_error(). */
+ * `color` is 0xRRGGBBAA. `max_width` breaks the formula to fit that many pixels;
+ * 0 or less renders one line of any width. Returns NULL on error; see
+ * math_last_error(). */
 MathResult* math_engine_render(const MathEngine* engine, const char* tex, float font_size_px, bool display_mode,
-                               uint32_t color, const char* macros);
+                               uint32_t color, const char* macros, float max_width);
 void math_result_free(MathResult* result);
 
 /* Glyph outline in font units, y up, as a flat command stream:

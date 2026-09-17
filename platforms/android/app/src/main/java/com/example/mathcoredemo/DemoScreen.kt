@@ -1,6 +1,5 @@
 package com.example.mathcoredemo
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,6 +33,8 @@ private val samples = listOf(
     "Limits" to "\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1, \\quad \\binom{n}{k} = \\frac{n!}{k!(n-k)!}",
     "Colors and boxes" to "\\boxed{E = mc^2} \\quad \\textcolor{red}{\\alpha} + \\textcolor{blue}{\\beta}",
     "Braces and arrows" to "\\underbrace{a + b + c}_{3} \\xrightarrow{\\ f\\ } \\overbrace{d}^{1}",
+    "Wrapped to the screen" to "f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7",
+    "Wrapped chain" to "\\int_0^1 f(x)\\,dx = \\lim_{n\\to\\infty} \\sum_{i=1}^{n} f(x_i)\\Delta x = F(1) - F(0)",
 )
 
 @Composable
@@ -55,7 +55,7 @@ fun DemoScreen() {
                 latex = input,
                 fontSize = 26.sp,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 onError = { error = it },
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -70,7 +70,7 @@ fun DemoScreen() {
                     latex = tex,
                     fontSize = 22.sp,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }

@@ -13,6 +13,26 @@ use crate::macros::Macros;
 use crate::symbols::styled_char;
 use ttf_parser::GlyphId;
 
+/// Breaks a formula too wide for the available space into several lines.
+///
+/// TeX does not break display math at all and leaves it to the author
+/// (`multline`, `split`), which is no help on a phone. This follows the
+/// convention those environments use by hand: break before a relation or a
+/// binary operator, and start the new line with that operator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LineBreak {
+    /// Available width in pixels.
+    pub max_width: f32,
+    /// Indent of continuation lines, in em.
+    pub indent: f32,
+}
+
+impl LineBreak {
+    pub fn new(max_width: f32) -> Self {
+        LineBreak { max_width, indent: 2.0 }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RenderOptions {
     /// Em size in pixels of the outermost formula.
@@ -22,6 +42,8 @@ pub struct RenderOptions {
     pub color: Color,
     /// Host-supplied macro definitions.
     pub macros: Macros,
+    /// Break the formula to fit a width. `None` renders one line of any width.
+    pub line_break: Option<LineBreak>,
 }
 
 impl Default for RenderOptions {
@@ -31,6 +53,7 @@ impl Default for RenderOptions {
             display_mode: true,
             color: Color::BLACK,
             macros: Macros::new(),
+            line_break: None,
         }
     }
 }
@@ -209,6 +232,7 @@ pub struct Layouter<'f, 'a> {
     font: &'f MathFont<'a>,
     base_size: f32,
     color: Color,
+    line_break: Option<LineBreak>,
 }
 
 impl<'f, 'a> Layouter<'f, 'a> {
@@ -217,6 +241,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             font,
             base_size: opts.font_size,
             color: opts.color,
+            line_break: opts.line_break,
         }
     }
 
@@ -225,7 +250,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
             style: if display_mode { MathStyle::Display } else { MathStyle::Text },
             cramped: false,
         };
-        let root = self.layout_list(nodes, sty);
+        let root = match self.line_break {
+            Some(lb) if lb.max_width > 0.0 => self.layout_broken(nodes, sty, lb),
+            _ => self.layout_list(nodes, sty),
+        };
         let mut items = Vec::new();
         let ascent = root.h.max(0.0);
         self.flatten(&root, -root.ink_left.min(0.0), 0.0, ascent, self.color, &mut items);
@@ -418,6 +446,12 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     /// Applies TeX's Bin/Ord rewriting and inter-atom spacing, then packs horizontally.
     fn hlist(&self, mut atoms: Vec<(BBox, Sty)>, sty: Sty) -> BBox {
+        self.rewrite_atoms(&mut atoms);
+        self.pack(atoms, sty)
+    }
+
+    /// TeXbook rules 5, 6 and 20: a Bin atom that cannot be binary becomes Ord.
+    fn rewrite_atoms(&self, atoms: &mut [(BBox, Sty)]) {
         use AtomType::*;
         // Rules 5 and 6: a Bin that cannot be binary becomes Ord.
         let mut prev: Option<usize> = None;
@@ -437,6 +471,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 atoms[p].0.atom = Some(Ord);
             }
         }
+    }
+
+    /// Packs already-classified atoms into one horizontal box.
+    fn pack(&self, atoms: Vec<(BBox, Sty)>, sty: Sty) -> BBox {
         let mut children = Vec::new();
         let mut x = 0.0;
         let mut prev_atom: Option<AtomType> = None;
@@ -458,12 +496,155 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
         let mut out = BBox::list(children);
         out.w = x;
-        out.atom = Some(Ord);
+        out.atom = Some(AtomType::Ord);
         if single {
             out.glyph = last_glyph;
             out.italic = last_italic;
         }
         let _ = sty;
+        out
+    }
+
+    /// Breaks the outermost list into lines no wider than `lb.max_width`.
+    ///
+    /// Candidates are the positions before a Rel or Bin atom, penalised as TeX
+    /// penalises them in text (`\relpenalty` 500, `\binoppenalty` 700), and
+    /// the split is chosen by a Knuth-Plass style dynamic program over total
+    /// demerits rather than greedily, so a formula breaks into lines of even
+    /// length instead of one full line and one stub. The inter-atom space at a
+    /// break is discarded, exactly as TeX discards glue at a line break.
+    fn layout_broken(&self, nodes: &[Node], sty: Sty, lb: LineBreak) -> BBox {
+        let mut atoms = Vec::new();
+        self.layout_atoms(nodes, sty, &mut atoms);
+        self.rewrite_atoms(&mut atoms);
+        let n = atoms.len();
+        if n < 2 {
+            return self.pack(atoms, sty);
+        }
+
+        // Width of each atom and the space that precedes it.
+        let mut space = vec![0.0f32; n];
+        let mut prev: Option<AtomType> = None;
+        for (i, (b, asty)) in atoms.iter().enumerate() {
+            if let (Some(l), Some(r)) = (prev, b.atom) {
+                space[i] = self.spacing(l, r, *asty) * self.mu(*asty);
+            }
+            if b.atom.is_some() {
+                prev = b.atom;
+            }
+        }
+        // cum[i] is the width of atoms 0..i including their leading spaces.
+        let mut cum = vec![0.0f32; n + 1];
+        for i in 0..n {
+            cum[i + 1] = cum[i] + space[i] + atoms[i].0.w;
+        }
+        let width = |a: usize, b: usize| cum[b] - cum[a] - space[a];
+
+        let indent = lb.indent * self.em(sty);
+        let breakable = |i: usize| -> bool {
+            !matches!(
+                atoms[i - 1].0.atom,
+                Some(AtomType::Open) | Some(AtomType::Bin) | Some(AtomType::Rel) | None
+            )
+        };
+        let relations: Vec<usize> = (1..n).filter(|&i| atoms[i].0.atom == Some(AtomType::Rel) && breakable(i)).collect();
+        let operators: Vec<usize> = (1..n)
+            .filter(|&i| matches!(atoms[i].0.atom, Some(AtomType::Rel) | Some(AtomType::Bin)) && breakable(i))
+            .collect();
+        if operators.is_empty() {
+            return self.pack(atoms, sty);
+        }
+
+        // Knuth-Plass over total demerits: `badness` punishes a short line by
+        // the cube of its slack, so lines come out even, and the atom penalty
+        // breaks ties. `max_slack` rejects a solution outright, which is how
+        // the relation-only pass below decides it is not good enough.
+        let solve = |candidates: &[usize], max_slack: f32| -> Option<Vec<usize>> {
+            let mut best = vec![f64::INFINITY; n + 1];
+            let mut from = vec![0usize; n + 1];
+            best[0] = 0.0;
+            for &end in candidates.iter().chain(std::iter::once(&n)) {
+                let penalty = if end == n {
+                    0.0
+                } else if atoms[end].0.atom == Some(AtomType::Rel) {
+                    500.0
+                } else {
+                    700.0
+                };
+                for &start in std::iter::once(&0).chain(candidates.iter()) {
+                    if start >= end || !best[start].is_finite() {
+                        continue;
+                    }
+                    let line = width(start, end) + if start == 0 { 0.0 } else { indent };
+                    let slack = lb.max_width - line;
+                    let badness = if slack < 0.0 {
+                        // Overfull: tolerated only for a line of one atom, which
+                        // cannot be broken any further.
+                        if end - start > 1 {
+                            continue;
+                        }
+                        10_000.0
+                    } else if end == n {
+                        0.0 // a last line may be as short as it likes
+                    } else if slack > max_slack {
+                        continue;
+                    } else {
+                        (100.0 * slack as f64 / lb.max_width as f64).powi(3)
+                    };
+                    let demerits = best[start] + (10.0 + badness).powi(2) + penalty * penalty / 100.0;
+                    if demerits < best[end] {
+                        best[end] = demerits;
+                        from[end] = start;
+                    }
+                }
+            }
+            if !best[n].is_finite() {
+                return None;
+            }
+            let mut breaks = vec![n];
+            let mut at = n;
+            while at != 0 {
+                at = from[at];
+                breaks.push(at);
+            }
+            breaks.reverse();
+            (breaks.len() > 2).then_some(breaks)
+        };
+
+        // A relation separates a formula at its highest level, so break there
+        // when the lines still come out reasonably full, and only fall back to
+        // binary operators when they do not.
+        let breaks = solve(&relations, 0.45 * lb.max_width).or_else(|| solve(&operators, f32::INFINITY));
+        let Some(breaks) = breaks else {
+            return self.pack(atoms, sty); // nothing fits; one long line
+        };
+
+        let em = self.em(sty);
+        let baselineskip = 1.2 * em;
+        let lineskip = 0.1 * em;
+        // amsmath adds \jot between the lines of multline and split. It is extra
+        // space, so it applies whichever branch of TeX's interline rule fires,
+        // which is what keeps tall lines such as stacked fractions apart.
+        let jot = if sty.is_display() { 0.3 * em } else { 0.0 };
+        let mut children = Vec::new();
+        let mut rest = atoms;
+        let mut y = 0.0f32;
+        let mut prev_depth: Option<f32> = None;
+        for (i, w) in breaks.windows(2).enumerate() {
+            let line: Vec<(BBox, Sty)> = rest.drain(..w[1] - w[0]).collect();
+            let line = self.pack(line, sty);
+            if let Some(pd) = prev_depth {
+                y -= if baselineskip - pd - line.h >= 0.0 {
+                    baselineskip
+                } else {
+                    pd + line.h + lineskip
+                } + jot;
+            }
+            prev_depth = Some(line.d);
+            children.push(line.at(if i == 0 { 0.0 } else { indent }, y));
+        }
+        let mut out = BBox::list(children);
+        out.atom = Some(AtomType::Ord);
         out
     }
 

@@ -37,7 +37,9 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
     private val matrix = Matrix()
 
     /**
-     * Lays out [tex]. [fontSizePx] is the em size in pixels.
+     * Lays out [tex]. [fontSizePx] is the em size in pixels. When [maxWidthPx]
+     * is positive, a formula wider than that is broken into lines before
+     * relations and binary operators.
      * @throws MathParseException when the source cannot be parsed.
      */
     @Synchronized
@@ -47,9 +49,10 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         displayMode: Boolean = true,
         color: Int = Color.BLACK,
         macros: Map<String, String> = emptyMap(),
+        maxWidthPx: Float = 0f,
     ): MathLayout {
         val macroText = if (macros.isEmpty()) null else macros.entries.joinToString("\n") { "${it.key}=${it.value}" }
-        val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText)
+        val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText, maxWidthPx)
             ?: throw MathParseException(NativeBridge.lastError() ?: "render failed")
         return MathLayout(data)
     }

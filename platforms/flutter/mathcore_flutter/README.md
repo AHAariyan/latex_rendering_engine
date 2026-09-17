@@ -6,7 +6,8 @@ Native TeX math rendering for Flutter over `dart:ffi`. No WebView.
 MathText(r'\frac{a}{b} + \sqrt{x^2 + y^2}', fontSize: 24, color: Colors.black)
 ```
 
-The widget sizes itself to the formula. Parse errors render as a red message,
+The widget sizes itself to the formula and, by default, breaks one too wide for
+its parent into lines. Pass `wrap: false` to keep it on a single line. Parse errors render as a red message,
 or use `errorBuilder`. `MathCore.engine` exposes the engine for custom
 painting through `MathPainter`.
 

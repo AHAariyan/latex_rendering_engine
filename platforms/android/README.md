@@ -9,14 +9,15 @@ Two modules:
 ## API
 
 ```kotlin
-// Compose
+// Compose. Wraps to the width the parent offers; pass wrap = false to keep
+// the formula on one line inside a horizontally scrollable row.
 MathText(latex = "\\frac{a}{b}", fontSize = 20.sp, color = Color.Black)
 
 // Views
 val view = MathView(context).apply { latex = "x^2"; textSizePx = 48f }
 
 // Engine directly (one per font; MathEngine.shared uses the bundled font)
-val layout = MathEngine.shared.render("\\sum_{i=1}^n i", fontSizePx = 40f, displayMode = true)
+val layout = MathEngine.shared.render("\\sum_{i=1}^n i", fontSizePx = 40f, displayMode = true, maxWidthPx = 720f)
 MathEngine.shared.draw(layout, canvas, left = 0f, top = 0f)
 ```
 

@@ -7,17 +7,38 @@ public struct MathText: View {
     let fontSize: CGFloat
     let color: Color
     let displayMode: Bool
+    let wrap: Bool
 
-    public init(_ latex: String, fontSize: CGFloat = 17, color: Color = .primary, displayMode: Bool = true) {
+    /// `wrap` breaks a formula too wide for the offered width into lines.
+    public init(_ latex: String, fontSize: CGFloat = 17, color: Color = .primary, displayMode: Bool = true, wrap: Bool = true) {
         self.latex = latex
         self.fontSize = fontSize
         self.color = color
         self.displayMode = displayMode
+        self.wrap = wrap
     }
 
     public var body: some View {
+        if wrap {
+            GeometryReader { geo in
+                content(maxWidth: geo.size.width)
+            }
+            .frame(height: measuredHeight)
+        } else {
+            content(maxWidth: nil)
+        }
+    }
+
+    private var measuredHeight: CGFloat {
+        (try? MathEngine.shared.render(latex, fontSize: fontSize, displayMode: displayMode))?.height ?? fontSize * 1.4
+    }
+
+    @ViewBuilder
+    private func content(maxWidth: CGFloat?) -> some View {
         let argb = UIColor(color).argb
-        switch Result(catching: { try MathEngine.shared.render(latex, fontSize: fontSize, displayMode: displayMode, color: argb) }) {
+        switch Result(catching: {
+            try MathEngine.shared.render(latex, fontSize: fontSize, displayMode: displayMode, color: argb, maxWidth: maxWidth)
+        }) {
         case .success(let layout):
             Canvas { gc, _ in
                 gc.withCGContext { ctx in MathEngine.shared.draw(layout, in: ctx) }

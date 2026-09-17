@@ -5,7 +5,7 @@
 //! same flat `Float32Array` layout as the Android binding, for drawing on a
 //! `<canvas>` with cached `Path2D` outlines (see `platforms/web/mathcore.js`).
 
-use mathcore::{Color, Macros, MathFont, RenderOptions};
+use mathcore::{Color, LineBreak, Macros, MathFont, RenderOptions};
 use ttf_parser::OutlineBuilder;
 use wasm_bindgen::prelude::*;
 
@@ -54,26 +54,45 @@ impl MathEngine {
         self.font.units_per_em()
     }
 
-    /// Renders to a standalone SVG string. `argb` is 0xAARRGGBB; `macros` is newline-separated `\name=body`.
+    /// Renders to a standalone SVG string. `argb` is 0xAARRGGBB; `macros` is
+    /// newline-separated `\name=body`; `maxWidth` of 0 renders one line.
     #[wasm_bindgen(js_name = renderSvg)]
-    pub fn render_svg(&self, tex: &str, font_size: f32, display_mode: bool, argb: u32, macros: Option<String>) -> Result<String, JsError> {
+    pub fn render_svg(
+        &self,
+        tex: &str,
+        font_size: f32,
+        display_mode: bool,
+        argb: u32,
+        macros: Option<String>,
+        max_width: Option<f32>,
+    ) -> Result<String, JsError> {
         let opts = RenderOptions {
             font_size,
             display_mode,
             color: color_from_argb(argb),
             macros: macros_from(macros),
+            line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(mathraster::to_svg(&self.font, &dl, 0.0))
     }
 
     /// Renders to the flat layout `[width, ascent, descent, count, (kind, glyph, x, y, w, h, thickness, colorBits) * count]`.
-    pub fn render(&self, tex: &str, font_size: f32, display_mode: bool, argb: u32, macros: Option<String>) -> Result<Vec<f32>, JsError> {
+    pub fn render(
+        &self,
+        tex: &str,
+        font_size: f32,
+        display_mode: bool,
+        argb: u32,
+        macros: Option<String>,
+        max_width: Option<f32>,
+    ) -> Result<Vec<f32>, JsError> {
         let opts = RenderOptions {
             font_size,
             display_mode,
             color: color_from_argb(argb),
             macros: macros_from(macros),
+            line_break: max_width.filter(|w| *w > 0.0).map(LineBreak::new),
         };
         let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(dl.to_flat())

@@ -13,8 +13,9 @@
 </head>
 <body>
 <h1>mathcore web demo</h1>
-<p>Same Rust engine as Android and iOS, compiled to WebAssembly. No MathJax, no KaTeX.</p>
-<textarea id="src" rows="3">x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}, \quad \sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}</textarea>
+<p>Same Rust engine as Android and iOS, compiled to WebAssembly. No MathJax, no KaTeX.
+Formulas wider than this column are broken into lines; resize the window to see it.</p>
+<textarea id="src" rows="3">f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7</textarea>
 <div class="err" id="err"></div>
 <h3>SVG</h3>
 <div class="out" id="svg"></div>
@@ -31,8 +32,9 @@
   function update() {
     try {
       const t0 = performance.now();
-      svgOut.innerHTML = engine.renderSvg(src.value, 36, true, 0xff000000);
-      const layout = engine.render(src.value, 36, true, 0xff1a237e);
+      const avail = svgOut.clientWidth;
+      svgOut.innerHTML = engine.renderSvg(src.value, 36, true, 0xff000000, null, avail);
+      const layout = engine.render(src.value, 36, true, 0xff1a237e, null, avail);
       const dpr = window.devicePixelRatio || 1, s = CanvasRenderer.size(layout);
       cv.width = Math.ceil((s.width + 16) * dpr); cv.height = Math.ceil((s.height + 16) * dpr);
       cv.style.width = (s.width + 16) + "px"; cv.style.height = (s.height + 16) + "px";
@@ -42,6 +44,7 @@
     } catch (e) { err.textContent = String(e.message || e); }
   }
   src.addEventListener("input", update);
+  window.addEventListener("resize", update);
   update();
 </script>
 </body>

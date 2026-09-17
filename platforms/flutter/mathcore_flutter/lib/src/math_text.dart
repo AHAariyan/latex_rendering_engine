@@ -12,8 +12,12 @@ class MathCore {
   static GlyphPathCache get cache => _cache ??= GlyphPathCache(engine);
 }
 
-/// Typesets [latex] natively. The widget sizes itself to the formula in
-/// logical pixels; the layout is computed at device pixel ratio for crisp glyphs.
+/// Typesets [latex] natively and sizes itself to the formula.
+///
+/// With [wrap] on, a formula too wide for the space the parent offers is broken
+/// into lines before relations and binary operators, the way an author breaks a
+/// long equation by hand. With it off the formula keeps its natural width,
+/// which suits a horizontally scrollable row.
 class MathText extends StatelessWidget {
   const MathText(
     this.latex, {
@@ -21,6 +25,7 @@ class MathText extends StatelessWidget {
     this.fontSize = 18,
     this.color = const Color(0xFF000000),
     this.displayMode = true,
+    this.wrap = true,
     this.macros = const {},
     this.errorBuilder,
   });
@@ -30,15 +35,24 @@ class MathText extends StatelessWidget {
   final double fontSize;
   final Color color;
   final bool displayMode;
+  final bool wrap;
   final Map<String, String> macros;
   /// Shown instead of the formula when parsing fails. Defaults to the message in red.
   final Widget Function(BuildContext, String message)? errorBuilder;
 
   @override
   Widget build(BuildContext context) {
+    if (!wrap) return _paint(context, null);
+    return LayoutBuilder(
+      builder: (context, constraints) => _paint(context, constraints.hasBoundedWidth ? constraints.maxWidth : null),
+    );
+  }
+
+  Widget _paint(BuildContext context, double? maxWidth) {
     final MathLayout layout;
     try {
-      layout = MathCore.engine.render(latex, fontSize, displayMode: displayMode, argb: color.toARGB32(), macros: macros);
+      layout = MathCore.engine
+          .render(latex, fontSize, displayMode: displayMode, argb: color.toARGB32(), macros: macros, maxWidth: maxWidth);
     } on MathParseException catch (e) {
       final b = errorBuilder;
       return b != null

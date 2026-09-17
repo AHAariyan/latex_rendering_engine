@@ -31,6 +31,12 @@ Working today:
 - Macros: `\newcommand`, `\renewcommand`, `\providecommand`, `\def` in the
   source, plus host-supplied definitions through `RenderOptions::macros`.
 - Unicode input: `α ≤ ∑` typed directly.
+- **Line breaking**: a formula too wide for the space available is broken into
+  lines before relations and binary operators, the way an author breaks a long
+  equation by hand, with the split chosen by a Knuth-Plass style dynamic
+  program so the lines come out even. TeX does not do this at all, KaTeX does
+  not try, and MathJax only breaks at top-level relations. On a phone it is the
+  difference between a readable equation and a horizontal scrollbar.
 - Layout: atom spacing with Bin/Ord rewriting, scripts with MATH-table
   kerning, limits, fractions and stacks, radicals with index, extensible
   delimiters via size variants and glyph assembly, large operators, accents
@@ -62,6 +68,7 @@ cargo run --release -p mathcli -- 'x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}' -o qu
 cargo run --release -p mathcli -- --svg '\sum_{n=1}^\infty \frac{1}{n^2}' -o basel.svg
 cargo run --release -p mathcli -- --inline --size 20 'e^{i\pi}+1=0' -o euler.png
 cargo run --release -p mathcli -- --macro '\R=\mathbb{R}' 'f: \R \to \R' -o f.png
+cargo run --release -p mathcli -- --width 360 'f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4' -o wrapped.png
 ```
 
 ## Use the library
@@ -70,6 +77,8 @@ cargo run --release -p mathcli -- --macro '\R=\mathbb{R}' 'f: \R \to \R' -o f.pn
 let font = mathcore::MathFont::from_bytes(include_bytes!("latinmodern-math.otf"))?;
 let opts = mathcore::RenderOptions { font_size: 32.0, display_mode: true, ..Default::default() };
 let list = mathcore::render(&font, r"\frac{a}{b}", &opts)?;
+// ... or fit it to a width:
+let opts = mathcore::RenderOptions { line_break: Some(mathcore::LineBreak::new(360.0)), ..opts };
 for item in &list.items {
     match item {
         mathcore::Item::Glyph { id, x, y, size, .. } => { /* draw glyph `id` at (x, y) with em size `size` */ }

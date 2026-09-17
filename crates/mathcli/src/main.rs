@@ -42,6 +42,12 @@ struct Args {
     /// Print the display list as text for debugging.
     #[arg(long)]
     dump: bool,
+    /// Break the formula to fit this width in layout pixels.
+    #[arg(long)]
+    width: Option<f32>,
+    /// Indent of continuation lines, in em.
+    #[arg(long, default_value_t = 2.0)]
+    indent: f32,
     /// Macro definition `\name=body`, repeatable. `#1`..`#9` are arguments.
     #[arg(long = "macro", value_name = "NAME=BODY")]
     macros: Vec<String>,
@@ -67,6 +73,10 @@ fn main() -> Result<()> {
         display_mode: !args.inline,
         color: Color::BLACK,
         macros,
+        line_break: args.width.map(|w| mathcore::LineBreak {
+            max_width: w,
+            indent: args.indent,
+        }),
     };
     let dl = mathcore::render(&font, tex.trim(), &opts).map_err(|e| anyhow!("{e}"))?;
     if args.dump {

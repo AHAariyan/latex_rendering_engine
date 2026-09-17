@@ -29,6 +29,17 @@ void main() {
     e.dispose();
   });
 
+  test('line breaking fits the requested width', () {
+    final e = MathEngine.bundled();
+    const tex = r'a + b + c + d + e + f + g + h + i + j';
+    final wide = e.render(tex, 32);
+    final narrow = e.render(tex, 32, maxWidth: 150);
+    expect(narrow.width, lessThanOrEqualTo(150));
+    expect(narrow.width, lessThan(wide.width));
+    expect(narrow.height, greaterThan(wide.height));
+    e.dispose();
+  });
+
   test('glyph outlines are cached command streams', () {
     final e = MathEngine.bundled();
     final g = e.render('x', 32).items.first as MathGlyph;

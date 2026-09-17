@@ -44,9 +44,9 @@ typedef FreeD = void Function(Pointer<MathEngineOpaque>);
 typedef UpemC = Float Function(Pointer<MathEngineOpaque>);
 typedef UpemD = double Function(Pointer<MathEngineOpaque>);
 typedef RenderC = Pointer<MathResultStruct> Function(
-    Pointer<MathEngineOpaque>, Pointer<Utf8>, Float, Bool, Uint32, Pointer<Utf8>);
+    Pointer<MathEngineOpaque>, Pointer<Utf8>, Float, Bool, Uint32, Pointer<Utf8>, Float);
 typedef RenderD = Pointer<MathResultStruct> Function(
-    Pointer<MathEngineOpaque>, Pointer<Utf8>, double, bool, int, Pointer<Utf8>);
+    Pointer<MathEngineOpaque>, Pointer<Utf8>, double, bool, int, Pointer<Utf8>, double);
 typedef ResultFreeC = Void Function(Pointer<MathResultStruct>);
 typedef ResultFreeD = void Function(Pointer<MathResultStruct>);
 typedef OutlineC = Pointer<Float> Function(Pointer<MathEngineOpaque>, Uint16, Pointer<Size>);

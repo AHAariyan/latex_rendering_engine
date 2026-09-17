@@ -4,7 +4,7 @@ Swift package over the mathcore C ABI. Drawing is Core Graphics: glyph
 outlines are cached as `CGPath` per glyph and filled with a translate+scale.
 
 ```swift
-// SwiftUI
+// SwiftUI. Wraps to the offered width unless you pass wrap: false.
 MathText(#"\frac{a}{b} + \sqrt{x^2 + y^2}"#, fontSize: 24)
 
 // UIKit

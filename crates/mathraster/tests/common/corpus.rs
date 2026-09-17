@@ -125,3 +125,25 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
     ),
     ("unicode", "α + β ≤ γ, ∑_{i} x_i, x → ∞", true),
 ];
+
+/// Formulas rendered with line breaking: (name, tex, available width in px at 32 px/em).
+pub const LINEBREAK: &[(&str, &str, f32)] = &[
+    (
+        "poly",
+        r"f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6",
+        400.0,
+    ),
+    (
+        "chain",
+        r"\int_0^1 f(x)\,dx = \lim_{n\to\infty} \sum_{i=1}^{n} f(x_i)\Delta x = F(1) - F(0)",
+        420.0,
+    ),
+    (
+        "fracs",
+        r"x = \frac{-b \pm \sqrt{b^2-4ac}}{2a} + \frac{c}{d} - \frac{e}{f} + \frac{g}{h}",
+        300.0,
+    ),
+    ("narrow", r"a + b + c + d + e + f + g + h + i + j + k + l", 150.0),
+    ("fits", r"E = mc^2", 400.0),
+    ("unbreakable", r"\frac{a+b+c+d+e+f+g+h}{i+j+k+l+m+n+o+p}", 120.0),
+];

@@ -83,6 +83,22 @@ the target, else build an assembly: repeat extender parts until the maximum
 length with minimum connector overlap reaches the target, then solve for the
 overlap that hits the target exactly, clamped to the connector lengths.
 
+### Line breaking
+
+`RenderOptions::line_break` gives the engine an available width. Candidates are
+the positions before a Rel or Bin atom at the top level of the formula, carrying
+TeX's own penalties (`\relpenalty` 500, `\binoppenalty` 700). A Knuth-Plass
+style dynamic program over total demerits picks the split, so a formula breaks
+into lines of similar length rather than one full line and a stub; a greedy
+first fit would do the latter. The space at a break is discarded exactly as TeX
+discards glue at a line break, the operator starts the continuation line as in
+`multline` and `split`, and continuation lines are indented. Lines are stacked
+with TeX's interline glue rule plus amsmath's `\jot`.
+
+Nothing inside a `\left ... \right` group, a fraction or a radical is ever
+broken, so a single wide fraction still overflows. That matches what an author
+would do by hand.
+
 ### Display list (`display.rs`)
 
 ```

@@ -4,7 +4,7 @@
 //! on. They deliberately expose only plain data: a flat item array and a
 //! glyph-outline command stream. See `include/mathcore.h` for the contract.
 
-use mathcore::{Color, Item, Macros, MathFont, RenderOptions};
+use mathcore::{Color, Item, LineBreak, Macros, MathFont, RenderOptions};
 use std::cell::RefCell;
 use std::ffi::{c_char, CStr, CString};
 use ttf_parser::OutlineBuilder;
@@ -131,7 +131,8 @@ pub unsafe extern "C" fn math_engine_units_per_em(engine: *const MathEngine) -> 
 
 /// # Safety
 /// `engine` must be a live engine; `tex` must be a NUL-terminated UTF-8 string;
-/// `macros` is either null or a NUL-terminated UTF-8 string.
+/// `macros` is either null or a NUL-terminated UTF-8 string. `max_width` of 0
+/// or less renders one line of any width.
 #[no_mangle]
 pub unsafe extern "C" fn math_engine_render(
     engine: *const MathEngine,
@@ -140,6 +141,7 @@ pub unsafe extern "C" fn math_engine_render(
     display_mode: bool,
     color: u32,
     macros: *const c_char,
+    max_width: f32,
 ) -> *mut MathResult {
     clear_error();
     if engine.is_null() || tex.is_null() {
@@ -168,6 +170,7 @@ pub unsafe extern "C" fn math_engine_render(
         display_mode,
         color: unpack(color),
         macros: defs,
+        line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
     };
     let dl = match mathcore::render(&(*engine).font, tex, &opts) {
         Ok(dl) => dl,
@@ -319,7 +322,7 @@ mod tests {
             assert_eq!(math_engine_units_per_em(engine), 1000.0);
             let tex = CString::new(r"\half + \frac{a}{b}").unwrap();
             let macros = CString::new("\\half=\\frac{1}{2}").unwrap();
-            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr());
+            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0);
             assert!(!r.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
             let items = std::slice::from_raw_parts((*r).items, (*r).count);
             assert!(items.iter().filter(|i| i.kind == 1).count() == 2, "two fraction rules");
@@ -333,8 +336,18 @@ mod tests {
             math_buffer_free(outline, len);
             math_result_free(r);
 
+            // Line breaking: the same formula gets taller and no wider than asked.
+            let long = CString::new(r"a + b + c + d + e + f + g + h + i + j").unwrap();
+            let wide = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0);
+            let narrow = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 150.0);
+            assert!(!wide.is_null() && !narrow.is_null());
+            assert!((*narrow).width <= 150.0 && (*narrow).width < (*wide).width);
+            assert!((*narrow).ascent + (*narrow).descent > (*wide).ascent + (*wide).descent);
+            math_result_free(wide);
+            math_result_free(narrow);
+
             let bad = CString::new(r"\frac{a").unwrap();
-            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null());
+            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0);
             assert!(r.is_null());
             let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
             assert!(msg.contains("parse error"), "{msg}");

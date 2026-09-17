@@ -48,7 +48,9 @@ CLI, golden-image tests, CI.
 
 ## Phase 3: product features
 
-- [ ] Display-math line breaking for long equations on narrow screens.
+- [x] Display-math line breaking for long equations on narrow screens, wired
+      through every binding; the Compose, SwiftUI, Flutter and View widgets wrap
+      to the width their parent offers.
 - [ ] Accessibility: MathML and spoken-text output from the AST.
 - [ ] Editing model: cursor, selection and incremental relayout for a math input control.
 - [ ] Chemistry (`mhchem`), physics package macros, `siunitx` subset.

@@ -8,6 +8,8 @@ public final class MathView: UIView {
     public var fontSize: CGFloat = 17 { didSet { relayout() } }
     public var textColor: UIColor = .label { didSet { relayout() } }
     public var displayMode: Bool = true { didSet { relayout() } }
+    /// Break the formula to fit this width. Zero renders one line of any width.
+    public var maxWidth: CGFloat = 0 { didSet { relayout() } }
     /// Non-nil when the current `latex` failed to parse.
     public private(set) var error: String?
 
@@ -28,7 +30,10 @@ public final class MathView: UIView {
     private func relayout() {
         do {
             error = nil
-            layoutResult = latex.isEmpty ? nil : try engine.render(latex, fontSize: fontSize, displayMode: displayMode, color: textColor.argb)
+            layoutResult = latex.isEmpty
+                ? nil
+                : try engine.render(latex, fontSize: fontSize, displayMode: displayMode, color: textColor.argb,
+                                    maxWidth: maxWidth > 0 ? maxWidth : nil)
         } catch {
             self.error = "\(error)"
             layoutResult = nil
@@ -38,6 +43,15 @@ public final class MathView: UIView {
     }
 
     public override var intrinsicContentSize: CGSize { layoutResult?.size ?? .zero }
+
+    /// Re-breaks the formula when the width the superview offers changes.
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        let available = bounds.width
+        if available > 0, abs(available - maxWidth) > 0.5 {
+            maxWidth = available
+        }
+    }
 
     public override func draw(_ rect: CGRect) {
         guard let l = layoutResult, let ctx = UIGraphicsGetCurrentContext() else { return }

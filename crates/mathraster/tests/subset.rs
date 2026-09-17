@@ -7,6 +7,7 @@ const FULL: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf")
 const SUBSET: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
 
 #[path = "common/corpus.rs"]
+#[allow(dead_code)] // this test only uses CORPUS
 mod corpus;
 
 /// Subsetting must keep every MATH record the engine reads, including those of
