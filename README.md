@@ -9,9 +9,12 @@ draws that list with its own canvas in a few hundred lines. Layout follows the
 TeXbook Appendix G rules with every dimension read from the font's OpenType
 `MATH` table, which is the same approach as XeTeX, LuaTeX and Microsoft Word.
 
+Starting a session: read `RESUME_TOMORROW.md` for the current state, how to set
+the machine up again, and what is next.
+
 ## Status
 
-Early, but rendering real formulas end to end. See `tests/golden/` for the
+Rendering real formulas end to end on Android, the web and desktop. See `tests/golden/` for the
 current output of the 30-formula regression corpus.
 
 Working today:
