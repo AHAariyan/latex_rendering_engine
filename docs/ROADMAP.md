@@ -21,8 +21,13 @@ CLI, golden-image tests, CI.
       amsmath `cases`/`smallmatrix`/`\substack` dimensions, TeX rule 15e fraction
       delimiters, `\big` sizes via rule 19, absolute `\nulldelimiterspace`.
 - [x] Array extras: `|` column rules, `\hline`, row spacing `\\[2pt]`.
-- [ ] `\hdashline`, `\colorbox`, `\fcolorbox`, `\rule`, `\raisebox`, `\tag` display.
-- [ ] Wide accents `\overrightarrow` `\overleftarrow` using horizontal assemblies.
+- [x] `\colorbox`, `\fcolorbox`, `\rule`, `\raisebox`, `\llap`/`\rlap`/`\clap`,
+      `\sout`, `\underbar`, `\vcenter`, `\mathchoice`, `\verb`, `\above`,
+      `subarray`, and KaTeX symbol parity (585 symbols).
+- [ ] `\hdashline`, `\tag` display, `mhchem`, `\let`/`\expandafter`/`\csname`.
+- [x] Wide accents above and below, including `\overleftrightarrow`,
+      `\underrightarrow`, `\overgroup` and `\overlinesegment`.
+- [ ] Font fallback, so a glyph missing from the primary font comes from another.
 - [x] STIX Two Math and Libertinus Math in the golden corpus.
 - [x] Font subsetting (`scripts/subset-font.sh` + `tools/subset/repair_math.py`,
       equivalence test over corpus geometry and every MATH record). Bindings ship

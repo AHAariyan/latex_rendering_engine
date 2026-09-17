@@ -356,9 +356,26 @@ impl<'f, 'a> Layouter<'f, 'a> {
     fn char_box(&self, ch: char, variant: Variant, sty: Sty) -> BBox {
         match self.resolve_glyph(ch, variant) {
             Some(g) => self.glyph_box(self.font.script_variant(g, Self::ssty_level(sty)), sty),
-            // Missing glyph: a visible placeholder rule so the gap is noticed.
-            None => BBox::rule(0.5 * self.em(sty), 0.6 * self.em(sty), 0.0),
+            None => self.missing_glyph(sty),
         }
+    }
+
+    /// The box drawn for a character the font has no glyph for: a hollow
+    /// rectangle, the convention every text stack uses, so the gap is obvious
+    /// without swamping the formula in ink.
+    fn missing_glyph(&self, sty: Sty) -> BBox {
+        let em = self.em(sty);
+        let (w, h, t) = (0.5 * em, 0.62 * em, 0.04 * em);
+        let children = vec![
+            BBox::rule(w, t, 0.0).at(0.0, h - t),
+            BBox::rule(w, t, 0.0).at(0.0, 0.0),
+            BBox::rule(t, h, 0.0).at(0.0, 0.0),
+            BBox::rule(t, h, 0.0).at(w - t, 0.0),
+        ];
+        let mut b = BBox::list(children);
+        b.w = w;
+        b.h = h;
+        b
     }
 
     /// Smallest pre-drawn variant (or an assembly) of `gid` whose extent
@@ -738,7 +755,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
                     None => BBox::empty().with_atom(*atom),
                 }
             }
-            Node::Accent { ch, base, stretchy } => self.accent(*ch, base, *stretchy, sty),
+            Node::Accent { ch, base, stretchy, under } => self.accent(*ch, base, *stretchy, *under, sty),
             Node::Overline(inner) => self.overline(inner, sty),
             Node::Underline(inner) => self.underline(inner, sty),
             Node::Style { style, body } => self.layout_list(body, sty.with(*style)),
@@ -784,6 +801,55 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Cancel { body, kind } => self.cancel(body, *kind, sty),
             Node::HBrace { base, over } => self.hbrace(base, *over, sty),
             Node::XArrow { ch, over, under } => self.xarrow(*ch, over.as_deref(), under.as_deref(), sty),
+            Node::Rule { width, height, raise } => {
+                let em = self.em(sty);
+                let mut b = BBox::rule(width * em, height * em, 0.0);
+                if *raise != 0.0 {
+                    let r = raise * em;
+                    b = BBox::list(vec![b.at(0.0, r)]);
+                    b.w = width * em;
+                }
+                b
+            }
+            Node::Raise { by, body } => {
+                let inner = self.layout_node(body, sty);
+                let (w, italic, atom) = (inner.w, inner.italic, inner.atom);
+                let mut out = BBox::list(vec![inner.at(0.0, by * self.em(sty))]);
+                out.w = w;
+                out.italic = italic;
+                out.atom = atom;
+                out
+            }
+            Node::ColorBox { background, frame, body } => self.color_box(body, *background, *frame, sty),
+            Node::Lap { align, body } => {
+                let inner = self.layout_node(body, sty);
+                let w = inner.w;
+                let dx = match align {
+                    crate::ast::Lap::Left => -w,
+                    crate::ast::Lap::Right => 0.0,
+                    crate::ast::Lap::Center => -w / 2.0,
+                };
+                let mut out = BBox::list(vec![inner.at(dx, 0.0)]);
+                out.w = 0.0;
+                out.ink_left = dx;
+                out.ink_right = dx + w;
+                out
+            }
+            Node::Choice(branches) => {
+                let pick = match sty.style {
+                    MathStyle::Display => 0,
+                    MathStyle::Text => 1,
+                    MathStyle::Script => 2,
+                    MathStyle::ScriptScript => 3,
+                };
+                self.layout_node(&branches[pick], sty)
+            }
+            Node::VCenter(body) => {
+                let inner = self.layout_node(body, sty);
+                let mut out = self.center_on_axis(inner, sty);
+                out.glyph = None;
+                out
+            }
             Node::Spanned { span, body } => {
                 let mut b = self.layout_node(body, sty);
                 if self.hit_testing {
@@ -1195,7 +1261,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
     }
 
     /// Rule 12: accents.
-    fn accent(&self, ch: char, base: &Node, stretchy: bool, sty: Sty) -> BBox {
+    fn accent(&self, ch: char, base: &Node, stretchy: bool, under: bool, sty: Sty) -> BBox {
         let c = self.font.constants();
         let s = self.scale(sty);
         let base_box = self.layout_node(base, sty.cramp());
@@ -1221,9 +1287,12 @@ impl<'f, 'a> Layouter<'f, 'a> {
             None => acc.w / 2.0,
         };
         let acc_x = base_skew - acc_skew;
-        // Vertical placement.
-        let delta = base_box.h.min(c.accent_base_height * s);
-        let acc_y = base_box.h - delta;
+        // Vertical placement: above the base, or hanging below it.
+        let acc_y = if under {
+            -(base_box.d + acc.h + 0.05 * self.em(sty))
+        } else {
+            base_box.h - base_box.h.min(c.accent_base_height * s)
+        };
         // TeX keeps the nucleus width: an accent may overhang on either side.
         let atom = base_box.atom.unwrap_or(AtomType::Ord);
         let bw = base_box.w;
@@ -1284,6 +1353,32 @@ impl<'f, 'a> Layouter<'f, 'a> {
         out
     }
 
+    /// `\colorbox` and `\fcolorbox`: the fill is emitted before the content so
+    /// the display list draws it behind.
+    fn color_box(&self, inner: &Node, background: Color, frame: Option<Color>, sty: Sty) -> BBox {
+        let em = self.em(sty);
+        let b = self.layout_node(inner, sty);
+        let pad = 0.3 * em;
+        let t = if frame.is_some() { 0.04 * em } else { 0.0 };
+        let (w, h, d) = (b.w + 2.0 * (pad + t), b.h + pad + t, b.d + pad + t);
+        let paint = |c: Color, w: f32, h: f32, d: f32| {
+            let mut r = BBox::rule(w, h, d);
+            r.color = Some(c);
+            r
+        };
+        let mut children = vec![paint(background, w, h, d).at(0.0, 0.0)];
+        if let Some(fc) = frame {
+            children.push(paint(fc, w, t, 0.0).at(0.0, h - t));
+            children.push(paint(fc, w, t, 0.0).at(0.0, -d));
+            children.push(paint(fc, t, h, d).at(0.0, 0.0));
+            children.push(paint(fc, t, h, d).at(w - t, 0.0));
+        }
+        children.push(b.at(pad + t, 0.0));
+        let mut out = BBox::list(children);
+        out.w = w;
+        out
+    }
+
     fn cancel(&self, inner: &Node, kind: CancelKind, sty: Sty) -> BBox {
         let b = self.layout_node(inner, sty);
         let t = 0.04 * self.em(sty);
@@ -1304,6 +1399,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
             CancelKind::Cross => {
                 children.push(line(true).at(0.0, 0.0));
                 children.push(line(false).at(0.0, 0.0));
+            }
+            CancelKind::Through => {
+                let axis = self.font.constants().axis_height * self.scale(sty);
+                children.push(BBox::rule(w, t, 0.0).at(0.0, axis));
             }
         }
         let mut out = BBox::list(children);

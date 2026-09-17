@@ -21,7 +21,7 @@ fn main() {
     for (_, c, _) in BIG_OPS {
         set.insert(*c);
     }
-    for (_, c, _) in ACCENTS {
+    for (_, c, ..) in ACCENTS {
         set.insert(*c);
     }
     // Greek and every math alphabet reachable through \mathbf & co.

@@ -93,6 +93,19 @@ pub enum CancelKind {
     Down,
     /// Both (`\xcancel`).
     Cross,
+    /// Struck through horizontally (`\sout`).
+    Through,
+}
+
+/// Which edge of a zero-width box the content hangs from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lap {
+    /// `\llap`: content sticks out to the left.
+    Left,
+    /// `\rlap`: content sticks out to the right.
+    Right,
+    /// `\clap`: centred on the zero-width point.
+    Center,
 }
 
 /// Byte range of the source that produced a node, for hit testing. Offsets are
@@ -195,6 +208,8 @@ pub enum Node {
         ch: char,
         base: Box<Node>,
         stretchy: bool,
+        /// Placed below the base (`\underrightarrow`, `\undergroup`).
+        under: bool,
     },
     Overline(Box<Node>),
     Underline(Box<Node>),
@@ -252,6 +267,32 @@ pub enum Node {
         body: Box<Node>,
         limits: Limits,
     },
+    /// `\rule[raise]{width}{height}`: a bare filled rectangle, in em.
+    Rule {
+        width: f32,
+        height: f32,
+        raise: f32,
+    },
+    /// `\raisebox{by}{...}`, in em.
+    Raise {
+        by: f32,
+        body: Box<Node>,
+    },
+    /// `\colorbox` and `\fcolorbox`: content on a filled, optionally framed box.
+    ColorBox {
+        background: Color,
+        frame: Option<Color>,
+        body: Box<Node>,
+    },
+    /// `\llap`, `\rlap`, `\clap`: content that takes no width.
+    Lap {
+        align: Lap,
+        body: Box<Node>,
+    },
+    /// `\mathchoice`: one branch per style, display first.
+    Choice(Box<[Node; 4]>),
+    /// `\vcenter`: centred on the math axis.
+    VCenter(Box<Node>),
     /// Records where in the source an atom came from. The parser wraps every
     /// element of a list, so the wrappers nest with the formula's structure and
     /// a point in the drawing maps back to a range of source.

@@ -16,7 +16,15 @@ assert.ok(svg.includes("<rect "), "fraction rule");
 const flat = engine.render("\\sum_{i=1}^n i^2", 32, true, 0xffff0000, null, 0);
 assert.ok(flat instanceof Float32Array);
 const count = flat[3];
-assert.ok(count === 7 && flat.length === 4 + count * 8, "flat layout shape");
+assert.ok(count === 7, "item count");
+// items, then the region block: [regionCount, ...] with nothing in it here
+assert.equal(flat.length, 4 + count * 8 + 1, "flat layout shape");
+assert.equal(flat[4 + count * 8], 0, "no regions unless hit testing is on");
+
+const hit = engine.render("\\frac{a}{b}", 32, true, 0xff000000, null, 0, true);
+const hitBase = 4 + hit[3] * 8;
+assert.ok(hit[hitBase] >= 3, "regions present with hit testing");
+assert.equal(hit.length, hitBase + 1 + hit[hitBase] * 7, "region block shape");
 const bits = new Uint32Array(new Float32Array([flat[4 + 7]]).buffer)[0];
 assert.equal(bits, 0xffff0000, "color round-trips");
 

@@ -435,6 +435,156 @@ mod tests {
     }
 
     #[test]
+    fn extended_command_set_renders() {
+        let f = font();
+        let opts = RenderOptions::default();
+        for tex in [
+            // Symbols brought to parity with KaTeX.
+            r"\Cap \Cup \Subset \Supset \Vvdash \barwedge \veebar \curlyvee \curlywedge \leftthreetimes",
+            r"\lneqq \gneqq \precapprox \succnsim \subseteqq \supsetneqq \lessapprox \gtrdot \lessdot",
+            r"\leftleftarrows \rightrightarrows \upharpoonright \downharpoonleft \looparrowleft \multimap",
+            r"\digamma \maltese \sphericalangle \vartriangle \triangledown \bigcirc \blacktriangleleft",
+            r"\nprec \nsucc \ntriangleleft \nvDash \nVdash \nleftrightarrow \dashrightarrow \Lsh \Rsh",
+            // Aliases.
+            r"\lparen x \rparen \lang y \rang \R \N \Z \Complex \empty \infin \isin \sdot \plusmn",
+            r"a \larr b \rArr c \harr d \hearts \spades \clubs \diamonds \alefsym \weierp",
+            // Function names from other traditions.
+            r"\tg x + \ctg y + \arctg z + \sh a + \ch b + \th c + \cosec d",
+            r"\argmax_x f(x) + \argmin_y g(y) + \projlim_n A_n + \varliminf_k b_k",
+            // Structure.
+            r"\rule{2em}{0.4pt} \rule[0.5em]{1em}{1pt}",
+            r"\raisebox{0.5em}{high} \raisebox{-0.5em}{low}",
+            r"\colorbox{yellow}{x^2} \fcolorbox{red}{white}{y}",
+            r"a\llap{/}b \rlap{-}c \clap{.}d",
+            r"\sout{wrong} \underbar{x} \vcenter{\frac{a}{b}}",
+            r"\mathchoice{D}{T}{S}{SS} \text{ and } x^{\mathchoice{D}{T}{S}{SS}}",
+            r"\verb|a_b^c| \verb+\frac{x}{y}+",
+            r"{a \above 1pt b} \quad {c \above 0pt d}",
+            r"\sum_{\begin{subarray}{l} i < n \\ j < m \end{subarray}} a_{ij}",
+            // Wide accents, above and below.
+            r"\overleftrightarrow{AB} \underrightarrow{CD} \underleftarrow{EF} \widecheck{gh}",
+            r"\utilde{x} \overgroup{yz} \undergroup{wv} \overlinesegment{PQ} \overrightharpoon{u}",
+            // Extra stretchy arrows.
+            r"A \xrightleftharpoons{k_1} B \xleftharpoondown{k_2} C \xtofrom{d} D",
+        ] {
+            let dl = render(&f, tex, &opts).unwrap_or_else(|e| panic!("{tex}\n  {e}"));
+            assert!(dl.width > 0.0, "{tex} produced nothing");
+        }
+    }
+
+    #[test]
+    fn colorbox_paints_behind_the_content() {
+        let f = font();
+        let dl = render(&f, r"\colorbox{yellow}{x}", &RenderOptions::default()).unwrap();
+        // The fill comes first so it lands behind, and the glyph keeps its own color.
+        assert!(matches!(
+            dl.items[0],
+            Item::Rule {
+                color: Color(255, 255, 0, 255),
+                ..
+            }
+        ));
+        assert!(dl.items.iter().any(|i| matches!(i, Item::Glyph { color: Color::BLACK, .. })));
+    }
+
+    #[test]
+    fn lap_commands_take_no_width() {
+        let f = font();
+        let opts = RenderOptions::default();
+        let plain = render(&f, "ab", &opts).unwrap();
+        let lapped = render(&f, r"a\rlap{XYZ}b", &opts).unwrap();
+        // The lapped material does not advance the pen, so the `b` sits where
+        // it would without it, even though the ink widens the bounding box.
+        let last = |dl: &DisplayList| *glyphs(dl).last().unwrap();
+        assert!((last(&lapped).0 - last(&plain).0).abs() < 0.01, "\\rlap must not advance");
+        assert!(lapped.width > plain.width, "the overhang still counts as ink");
+        assert!(glyphs(&lapped).len() == glyphs(&plain).len() + 3);
+    }
+
+    #[test]
+    fn mathchoice_follows_the_style() {
+        let f = font();
+        let opts = RenderOptions::default();
+        let tex = r"\mathchoice{a}{bb}{ccc}{dddd}";
+        let display = render(&f, tex, &opts).unwrap();
+        let script = render(&f, &format!("x^{{{tex}}}"), &opts).unwrap();
+        assert_eq!(display.items.len(), 1, "display branch");
+        assert_eq!(script.items.len(), 1 + 3, "script branch has three glyphs");
+    }
+
+    /// Every symbol the parser accepts should have a glyph. Latin Modern Math
+    /// predates some AMS additions, so a short list is known missing and draws
+    /// a hollow box; STIX Two covers everything. The list is pinned here so it
+    /// can only shrink on purpose, and so that adding a symbol the bundled font
+    /// lacks is a decision rather than an accident.
+    #[test]
+    fn bundled_fonts_cover_the_symbol_table() {
+        use crate::symbols::{ACCENTS, BIG_OPS, SYMBOLS};
+        const KNOWN_MISSING_IN_LATIN_MODERN: &[&str] = &[
+            "Diamond",
+            "bigstar",
+            "blacktriangle",
+            "blacktriangledown",
+            "blacklozenge",
+            "circledS",
+            "Finv",
+            "Game",
+            "diagup",
+            "diagdown",
+            "pitchfork",
+            "lmoustache",
+            "rmoustache",
+            "dashleftarrow",
+            "dashrightarrow",
+            "digamma",
+            "doublebarwedge",
+            "precapprox",
+            "precnapprox",
+            "precneqq",
+            "subseteqq",
+            "subsetneqq",
+            "succapprox",
+            "succnapprox",
+            "succneqq",
+            "supseteqq",
+            "supsetneqq",
+        ];
+        let named: Vec<(&str, char)> = SYMBOLS
+            .iter()
+            .map(|(n, c, _)| (*n, *c))
+            .chain(BIG_OPS.iter().map(|(n, c, _)| (*n, *c)))
+            .chain(ACCENTS.iter().map(|(n, c, ..)| (*n, *c)))
+            .collect();
+
+        let lm = font();
+        let missing: Vec<&str> = named
+            .iter()
+            .filter(|(_, c)| lm.glyph_index(*c).is_none())
+            .map(|(n, _)| *n)
+            .collect();
+        assert_eq!(missing, KNOWN_MISSING_IN_LATIN_MODERN, "the gap in Latin Modern Math changed");
+
+        const STIX: &[u8] = include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf");
+        let stix = MathFont::from_bytes(STIX).unwrap();
+        let missing: Vec<&str> = named
+            .iter()
+            .filter(|(_, c)| stix.glyph_index(*c).is_none())
+            .map(|(n, _)| *n)
+            .collect();
+        assert!(missing.is_empty(), "STIX Two should cover everything, missing {missing:?}");
+    }
+
+    #[test]
+    fn a_missing_glyph_draws_a_hollow_box() {
+        let f = font();
+        // \digamma has no glyph in Latin Modern Math.
+        let dl = render(&f, r"\digamma", &RenderOptions::default()).unwrap();
+        assert!(glyphs(&dl).is_empty());
+        assert_eq!(dl.items.len(), 4, "four rules make the box outline");
+        assert!(dl.width > 0.0 && dl.ascent > 0.0);
+    }
+
+    #[test]
     fn parse_error_is_reported() {
         let f = font();
         let e = render(&f, r"\frac{a", &RenderOptions::default()).unwrap_err();

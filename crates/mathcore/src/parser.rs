@@ -4,6 +4,7 @@
 //! are hard errors rather than silently dropped, because a formula that
 //! renders with a missing piece is worse than one that fails loudly.
 
+use crate::ast::Lap as LapAlign;
 use crate::ast::*;
 use crate::display::Color;
 use crate::error::{Error, Result};
@@ -83,7 +84,7 @@ fn is_stop(tok: &Tok<'_>) -> bool {
 fn is_infix(tok: &Tok<'_>) -> bool {
     matches!(
         tok,
-        Tok::Cmd("over") | Tok::Cmd("choose") | Tok::Cmd("atop") | Tok::Cmd("brace") | Tok::Cmd("brack")
+        Tok::Cmd("over") | Tok::Cmd("choose") | Tok::Cmd("atop") | Tok::Cmd("brace") | Tok::Cmd("brack") | Tok::Cmd("above")
     )
 }
 
@@ -132,6 +133,19 @@ impl<'a> Parser<'a> {
             if is_infix(tok) {
                 let pos = self.lx.pos();
                 let Tok::Cmd(name) = self.lx.advance()? else { unreachable!() };
+                // `\above` carries the rule thickness: `{a \above 1pt b}`.
+                let rule = if name == "above" {
+                    let t = self.parse_dimen_arg(pos)?;
+                    if t > 0.0 {
+                        FracRule::Custom(t)
+                    } else {
+                        FracRule::None
+                    }
+                } else if name == "over" {
+                    FracRule::Default
+                } else {
+                    FracRule::None
+                };
                 let den = self.parse_list()?;
                 let delims = match name {
                     "choose" => Some((Some('('), Some(')'))),
@@ -142,7 +156,7 @@ impl<'a> Parser<'a> {
                 let node = Node::Frac {
                     num: Box::new(Node::Row(out)),
                     den: Box::new(Node::Row(den)),
-                    rule: if name == "over" { FracRule::Default } else { FracRule::None },
+                    rule,
                     style: None,
                     delims,
                 };
@@ -384,12 +398,13 @@ impl<'a> Parser<'a> {
                 limits,
             });
         }
-        if let Some((_, ch, stretchy)) = symbols::ACCENTS.iter().find(|(n, _, _)| *n == name) {
+        if let Some((_, ch, stretchy, under)) = symbols::ACCENTS.iter().find(|(n, ..)| *n == name) {
             let base = self.parse_arg()?;
             return Ok(Node::Accent {
                 ch: *ch,
                 base: Box::new(base),
                 stretchy: *stretchy,
+                under: *under,
             });
         }
         // `\varGamma` etc.: italic uppercase Greek.
@@ -734,6 +749,91 @@ impl<'a> Parser<'a> {
                 Ok(Node::Color { color, body: vec![body] })
             }
             "boxed" | "fbox" => Ok(Node::Boxed(Box::new(self.parse_arg()?))),
+            "rule" => {
+                // \rule[raise]{width}{height}
+                let raise = if matches!(self.lx.peek()?, Tok::Char('[')) {
+                    self.lx.advance()?;
+                    let mut t = String::new();
+                    loop {
+                        match self.lx.advance()? {
+                            Tok::Char(']') => break,
+                            Tok::Char(c) => t.push(c),
+                            Tok::Eof => return Err(Error::parse(pos, "missing `]` in \\rule")),
+                            _ => {}
+                        }
+                    }
+                    parse_dimen(&t).ok_or_else(|| Error::parse(pos, format!("bad dimension `{t}`")))?
+                } else {
+                    0.0
+                };
+                let width = self.parse_dimen_arg(pos)?;
+                let height = self.parse_dimen_arg(pos)?;
+                Ok(Node::Rule { width, height, raise })
+            }
+            "raisebox" => {
+                let by = self.parse_dimen_arg(pos)?;
+                Ok(Node::Raise {
+                    by,
+                    body: Box::new(self.parse_arg()?),
+                })
+            }
+            "colorbox" | "fcolorbox" => {
+                let first = self.parse_color_arg(pos)?;
+                let (background, frame) = if name == "colorbox" {
+                    (first, None)
+                } else {
+                    (self.parse_color_arg(pos)?, Some(first))
+                };
+                Ok(Node::ColorBox {
+                    background,
+                    frame,
+                    body: Box::new(self.parse_arg()?),
+                })
+            }
+            "llap" | "rlap" | "clap" | "mathllap" | "mathrlap" | "mathclap" => {
+                let align = match name.trim_start_matches("math") {
+                    "llap" => LapAlign::Left,
+                    "rlap" => LapAlign::Right,
+                    _ => LapAlign::Center,
+                };
+                Ok(Node::Lap {
+                    align,
+                    body: Box::new(self.parse_arg()?),
+                })
+            }
+            "sout" => Ok(Node::Cancel {
+                body: Box::new(self.parse_arg()?),
+                kind: CancelKind::Through,
+            }),
+            "underbar" => Ok(Node::Underline(Box::new(self.parse_arg()?))),
+            "vcenter" => Ok(Node::VCenter(Box::new(self.parse_arg()?))),
+            "mathchoice" => {
+                let d = self.parse_arg()?;
+                let t = self.parse_arg()?;
+                let sc = self.parse_arg()?;
+                let ss = self.parse_arg()?;
+                Ok(Node::Choice(Box::new([d, t, sc, ss])))
+            }
+            "verb" => {
+                // \verb<delim>text<delim>, any character as the delimiter.
+                let raw = self.lx.verbatim().ok_or_else(|| Error::parse(pos, "\\verb needs a delimiter"))?;
+                Ok(Node::Text {
+                    text: raw.to_string(),
+                    variant: Variant::Monospace,
+                })
+            }
+            "emph" | "textup" | "textmd" => Ok(Node::Text {
+                text: self.lx.raw_group()?.to_string(),
+                variant: Variant::Italic,
+            }),
+            "sf" | "tt" | "frak" => {
+                self.variant = match name {
+                    "sf" => Variant::SansSerif,
+                    "tt" => Variant::Monospace,
+                    _ => Variant::Fraktur,
+                };
+                Ok(Node::Row(self.parse_list()?))
+            }
             "cancel" | "bcancel" | "xcancel" => {
                 let kind = match name {
                     "bcancel" => CancelKind::Down,
@@ -754,7 +854,7 @@ impl<'a> Parser<'a> {
             }
             "xrightarrow" | "xleftarrow" | "xleftrightarrow" | "xRightarrow" | "xLeftarrow" | "xLeftrightarrow" | "xmapsto"
             | "xhookrightarrow" | "xhookleftarrow" | "xtwoheadrightarrow" | "xtwoheadleftarrow" | "xrightharpoonup" | "xleftharpoonup"
-            | "xlongequal" => {
+            | "xlongequal" | "xrightharpoondown" | "xleftharpoondown" | "xrightleftharpoons" | "xleftrightharpoons" | "xtofrom" => {
                 let ch = match name {
                     "xrightarrow" => '→',
                     "xleftarrow" => '←',
@@ -769,6 +869,11 @@ impl<'a> Parser<'a> {
                     "xtwoheadleftarrow" => '↞',
                     "xrightharpoonup" => '⇀',
                     "xleftharpoonup" => '↼',
+                    "xrightharpoondown" => '⇁',
+                    "xleftharpoondown" => '↽',
+                    "xrightleftharpoons" => '⇌',
+                    "xleftrightharpoons" => '⇋',
+                    "xtofrom" => '⇄',
                     _ => '=',
                 };
                 let under = if matches!(self.lx.peek()?, Tok::Char('[')) {
@@ -981,6 +1086,15 @@ impl<'a> Parser<'a> {
                 (vec![], MathStyle::Display, None, None)
             }
             "gathered" | "gather" | "gather*" | "multline" | "multline*" => (vec![ColAlign::Center], MathStyle::Display, None, None),
+            "subarray" => {
+                let spec = self.lx.raw_group()?;
+                let align = match spec.trim() {
+                    "l" => ColAlign::Left,
+                    "r" => ColAlign::Right,
+                    _ => ColAlign::Center,
+                };
+                (vec![align], MathStyle::Script, None, None)
+            }
             "equation" | "equation*" | "displaymath" | "math" => {
                 let body = self.parse_list()?;
                 self.expect_end(env, pos)?;

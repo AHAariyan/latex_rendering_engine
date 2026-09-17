@@ -114,6 +114,20 @@ impl<'a> Lexer<'a> {
         Err(Error::parse(start, "unbalanced group"))
     }
 
+    /// Reads `\verb<delim>text<delim>`, returning the text between the
+    /// delimiters. Any character may be the delimiter, as TeX allows.
+    pub fn verbatim(&mut self) -> Option<&'a str> {
+        self.peeked = None;
+        let rest = &self.src[self.pos..];
+        let mut chars = rest.char_indices();
+        let (_, delim) = chars.next()?;
+        let start = self.pos + delim.len_utf8();
+        let end = self.src[start..].find(delim)? + start;
+        self.pos = end + delim.len_utf8();
+        self.last_end = self.pos;
+        Some(&self.src[start..end])
+    }
+
     fn skip_ws(&mut self) -> usize {
         let bytes = self.src.as_bytes();
         loop {

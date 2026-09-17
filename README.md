@@ -16,18 +16,21 @@ current output of the 30-formula regression corpus.
 
 Working today:
 
-- Parser for the KaTeX-style command set: symbols, Greek, operators, relations,
-  arrows, delimiters, `\frac` `\dfrac` `\tfrac` `\cfrac` `\binom` `\genfrac`
-  and the infix `\over` `\choose` `\atop`, `\sqrt[n]`, scripts and primes,
-  `\left` `\middle` `\right`, `\big` sizes, accents including stretchy
-  `\widehat`, `\overline` `\underline`, `\underbrace` `\overbrace`,
-  `\xrightarrow` and the other extensible arrows, `\boxed`, `\cancel`,
-  `\mathbf` and the other math alphabets, `\text`, `\operatorname`,
-  `\mathop` `\mathrel` and the other class overrides, spacing commands and
-  `\hspace` `\kern` with dimensions, style commands, `\phantom` `\vphantom`
-  `\hphantom` `\smash`, `\not`, `\overset` `\underset`, `\substack`,
-  `\pmod` `\bmod`, `\color` `\textcolor`, and the `matrix` family,
-  `cases`, `array` with `|` and `\hline`, `aligned`, `gathered` environments.
+- Parser covering KaTeX's command set: 585 symbols including the AMS
+  relations, operators and arrows, every math alphabet, `\frac` and its family,
+  `\genfrac` and the infix `\over` `\above` `\choose` `\atop`, `\sqrt[n]`,
+  scripts and primes, `\left` `\middle` `\right`, `\big` sizes, accents
+  above and below including the stretchy `\widehat` `\overleftrightarrow`
+  `\underrightarrow` `\overgroup` family, `\underbrace` `\overbrace`, the
+  `\xrightarrow` arrows, `\boxed` `\colorbox` `\fcolorbox` `\cancel`
+  `\sout`, `\rule` `\raisebox` `\llap` `\rlap` `\clap` `\vcenter`
+  `\mathchoice`, `\verb`, `\text` and the font switches, `\operatorname`,
+  the class overrides, spacing commands with real dimensions, `\phantom` and
+  `\smash`, `\not`, `\overset` `\underset`, `\substack`, `\pmod`,
+  `\color` `\textcolor`, function names from several languages, and the
+  `matrix` family, `cases`, `array` with rules, `aligned`, `gathered` and
+  `subarray` environments.
+
 - Macros: `\newcommand`, `\renewcommand`, `\providecommand`, `\def` in the
   source, plus host-supplied definitions through `RenderOptions::macros`.
 - Unicode input: `α ≤ ∑` typed directly.
@@ -69,7 +72,14 @@ Working today:
   | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
   | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
-Not yet: `mhchem`, React Native, an editing model. See `docs/ROADMAP.md`.
+A note on fonts: Latin Modern Math predates some AMS symbols, so 27 of the 585
+(`\subseteqq`, `\precapprox`, `\bigstar` and friends) draw a hollow box with
+the bundled font. STIX Two Math covers all of them; pass it to
+`MathEngine.fromFont` if you need them. A test pins that list so it can only
+shrink on purpose.
+
+Not yet: `mhchem`, font fallback, React Native, an editing model. See
+`docs/ROADMAP.md`.
 
 ## Try it
 
@@ -121,6 +131,7 @@ for item in &list.items {
 | `platforms/android` | `mathview` Android library (Kotlin: `MathEngine`, `MathView`, Compose `MathText`) and demo app. |
 | `scripts/build-android.sh` | Cross-compiles the JNI library for arm64, armv7 and x86_64. |
 | `assets/fonts` | Latin Modern Math (GUST Font License, full + subset), STIX Two Math and Libertinus Math (OFL) for tests. |
+
 | `tools/texcompare` | Side-by-side comparison against LuaLaTeX. |
 | `tools/subset` | MATH-table repair pass for subset fonts. |
 | `tests/golden` | Golden images for the regression corpus. |
@@ -128,7 +139,7 @@ for item in &list.items {
 
 ## Quality gates
 
-- **Golden images** for 43 formulas in three fonts (Latin Modern Math, STIX Two
+- **Golden images** for 54 formulas in three fonts (Latin Modern Math, STIX Two
   Math, Libertinus Math): `tests/golden/`.
 - **Fuzzing**: `crates/mathcore/tests/robustness.rs` throws 20,000 random
   token soups and a set of pathological inputs at the engine on a small-stack

@@ -124,6 +124,56 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
         true,
     ),
     ("unicode", "α + β ≤ γ, ∑_{i} x_i, x → ∞", true),
+    (
+        "ams_relations",
+        r"a \lneqq b \gneqq c \lessapprox d \gtrdot e \preccurlyeq f \succcurlyeq g \Subset h \Supset i",
+        true,
+    ),
+    (
+        "ams_operators",
+        r"\Cap \Cup \barwedge \veebar \curlyvee \curlywedge \leftthreetimes \rightthreetimes \divideontimes",
+        true,
+    ),
+    (
+        "ams_arrows",
+        r"\leftleftarrows \rightrightarrows \upharpoonright \downharpoonleft \looparrowleft \multimap \Lsh \Rsh",
+        true,
+    ),
+    (
+        "boxes_and_rules",
+        r"\colorbox{yellow}{x^2} \fcolorbox{red}{white}{y+1} \sout{no} \underbar{ok} \rule{1em}{2pt}",
+        true,
+    ),
+    (
+        "laps_and_choice",
+        r"a\llap{/}b \rlap{-}c \clap{.}d \mathchoice{D}{T}{S}{SS} \vcenter{\frac{a}{b}}",
+        true,
+    ),
+    (
+        "wide_accents",
+        r"\overleftrightarrow{AB} \underrightarrow{CD} \widecheck{gh} \utilde{x} \overgroup{yz} \undergroup{wv}",
+        true,
+    ),
+    (
+        "verb_and_above",
+        r"\verb|a_b| \quad {a \above 1pt b} \quad \raisebox{0.4em}{up}",
+        true,
+    ),
+    (
+        "subarray",
+        r"\sum_{\begin{subarray}{l} i<n \\ j<m \end{subarray}} a_{ij} \quad A \xrightleftharpoons[k_{-1}]{k_1} B",
+        true,
+    ),
+    (
+        "aliases",
+        r"\R \N \Z \Complex \empty \infin \isin \sdot \plusmn \hearts \alefsym \weierp \lang x \rang",
+        true,
+    ),
+    (
+        "intl_functions",
+        r"\tg x + \ctg y + \sh a + \ch b + \argmax_z f(z) + \projlim_n A_n",
+        true,
+    ),
 ];
 
 /// Formulas rendered with line breaking: (name, tex, available width in px at 32 px/em).

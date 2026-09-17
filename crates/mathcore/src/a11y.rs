@@ -178,11 +178,12 @@ fn node(out: &mut String, n: &Node) {
             out.push_str("</mrow>");
         }
         Node::Middle(ch) | Node::SizedDelim { ch, .. } => token(out, "mo", &ch.to_string()),
-        Node::Accent { ch, base, .. } => {
-            out.push_str(r#"<mover accent="true">"#);
+        Node::Accent { ch, base, under, .. } => {
+            let tag = if *under { ("munder", "accentunder") } else { ("mover", "accent") };
+            let _ = write!(out, r#"<{} {}="true">"#, tag.0, tag.1);
             one(out, base);
             token(out, "mo", &ch.to_string());
-            out.push_str("</mover>");
+            let _ = write!(out, "</{}>", tag.0);
         }
         Node::Overline(inner) => {
             out.push_str(r#"<mover accent="true">"#);
@@ -285,6 +286,24 @@ fn node(out: &mut String, n: &Node) {
             let _ = write!(out, "</{tag}>");
         }
         Node::Class { body, .. } => one(out, body),
+        Node::Raise { body, .. } | Node::VCenter(body) => one(out, body),
+        Node::ColorBox { body, .. } => {
+            out.push_str(r#"<menclose notation="box">"#);
+            one(out, body);
+            out.push_str("</menclose>");
+        }
+        Node::Lap { body, .. } => {
+            out.push_str("<mpadded width=\"0\">");
+            one(out, body);
+            out.push_str("</mpadded>");
+        }
+        Node::Choice(b) => one(out, &b[0]),
+        Node::Rule { width, height, .. } => {
+            let _ = write!(
+                out,
+                r#"<mspace width="{width}em" height="{height}em" mathbackground="currentColor"/>"#
+            );
+        }
         Node::Spanned { body, .. } => one(out, body),
     }
 }
@@ -491,6 +510,9 @@ fn say(out: &mut String, n: &Node) {
             }
         }
         Node::Class { body, .. } => say_one(out, body),
+        Node::Raise { body, .. } | Node::VCenter(body) | Node::ColorBox { body, .. } | Node::Lap { body, .. } => say_one(out, body),
+        Node::Choice(b) => say_one(out, &b[0]),
+        Node::Rule { .. } => {}
         Node::Spanned { body, .. } => say_one(out, body),
     }
 }
