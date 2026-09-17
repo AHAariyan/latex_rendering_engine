@@ -41,6 +41,8 @@ typedef struct MathResult {
 
 /* Creates an engine from an OpenType math font (the bytes are copied). Returns NULL on failure. */
 MathEngine* math_engine_new(const uint8_t* font_data, size_t font_len);
+/* Engine with the bundled Latin Modern Math font (NULL if built without it). */
+MathEngine* math_engine_new_bundled(void);
 void math_engine_free(MathEngine* engine);
 
 /* Font units per em, needed to scale glyph outlines: px = units * (item.w / upem). */

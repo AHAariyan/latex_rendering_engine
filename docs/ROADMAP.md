@@ -32,10 +32,12 @@ CLI, golden-image tests, CI.
       FFI-friendly encoding; glyph outlines on demand for backends without the font.
 - [x] Android: JNI bridge (`crates/mathjni`) + `MathEngine`/`MathView`/`MathText` in
       `platforms/android/mathview`, demo app. AAR publishing to Maven still open.
-- [ ] iOS: UniFFI Swift bindings + Core Text renderer + SwiftPM package.
-- [ ] Flutter: `dart:ffi` + `CustomPainter` renderer + pub.dev package.
+- [~] iOS: Swift package over the C ABI with Core Graphics drawing, UIKit and SwiftUI views
+      (`platforms/ios/MathCore`). Written on Linux; needs a first Xcode build.
+- [~] Flutter: `mathcore_dart` (pure `dart:ffi`, tested on host) + `mathcore_flutter`
+      widget plugin (written; needs a first build with the Flutter SDK). pub.dev publishing open.
 - [ ] React Native: Nitro/JSI module reusing the native renderers.
-- [ ] Web: wasm-bindgen + canvas/SVG renderer + npm package (fallback and parity testing).
+- [x] Web: wasm-bindgen + SVG/canvas renderer (`crates/mathwasm`, `platforms/web`), Node smoke test. npm publishing open.
 - [ ] Demo apps and benchmarks (target: < 1 ms layout for a typical equation on a mid-range phone).
 
 ## Phase 3: product features

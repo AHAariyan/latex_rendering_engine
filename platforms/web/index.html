@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mathcore web demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+  textarea { width: 100%; font-family: monospace; font-size: 15px; }
+  .out { margin: 1rem 0; min-height: 60px; }
+  .err { color: #b00020; font-size: 14px; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<h1>mathcore web demo</h1>
+<p>Same Rust engine as Android and iOS, compiled to WebAssembly. No MathJax, no KaTeX.</p>
+<textarea id="src" rows="3">x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}, \quad \sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}</textarea>
+<div class="err" id="err"></div>
+<h3>SVG</h3>
+<div class="out" id="svg"></div>
+<h3>Canvas</h3>
+<canvas id="cv"></canvas>
+<script type="module">
+  import init, { MathEngine } from "./pkg/mathwasm.js";
+  import { CanvasRenderer } from "./mathcore.js";
+  await init();
+  const engine = new MathEngine();
+  const renderer = new CanvasRenderer(engine);
+  const src = document.getElementById("src"), err = document.getElementById("err");
+  const svgOut = document.getElementById("svg"), cv = document.getElementById("cv");
+  function update() {
+    try {
+      const t0 = performance.now();
+      svgOut.innerHTML = engine.renderSvg(src.value, 36, true, 0xff000000);
+      const layout = engine.render(src.value, 36, true, 0xff1a237e);
+      const dpr = window.devicePixelRatio || 1, s = CanvasRenderer.size(layout);
+      cv.width = Math.ceil((s.width + 16) * dpr); cv.height = Math.ceil((s.height + 16) * dpr);
+      cv.style.width = (s.width + 16) + "px"; cv.style.height = (s.height + 16) + "px";
+      const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+      renderer.draw(layout, ctx, 8, 8);
+      err.textContent = `${(performance.now() - t0).toFixed(2)} ms`;
+    } catch (e) { err.textContent = String(e.message || e); }
+  }
+  src.addEventListener("input", update);
+  update();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+name: mathcore_dart
+description: Pure Dart FFI binding for the mathcore native TeX math engine. No Flutter dependency; the Flutter widget lives in mathcore_flutter.
+version: 0.1.0
+repository: https://github.com/AHAariyan/latex_rendering_engine
+environment:
+  sdk: ^3.5.0
+dependencies:
+  ffi: ^2.1.0
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^5.0.0

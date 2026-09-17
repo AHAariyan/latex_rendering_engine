@@ -24,7 +24,8 @@ fn clear_error() {
 
 pub struct MathEngine {
     /// Leaked font bytes; reclaimed in `math_engine_free` after the font is dropped.
-    data: *mut [u8],
+    /// `None` for the bundled font.
+    data: Option<*mut [u8]>,
     font: MathFont<'static>,
 }
 
@@ -77,11 +78,34 @@ pub unsafe extern "C" fn math_engine_new(font_data: *const u8, font_len: usize) 
             return std::ptr::null_mut();
         }
     };
-    Box::into_raw(Box::new(MathEngine { data, font }))
+    Box::into_raw(Box::new(MathEngine { data: Some(data), font }))
+}
+
+/// Creates an engine with the bundled Latin Modern Math font. Returns NULL when
+/// the library was built without `bundled-font`.
+#[no_mangle]
+pub extern "C" fn math_engine_new_bundled() -> *mut MathEngine {
+    clear_error();
+    #[cfg(feature = "bundled-font")]
+    {
+        const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+        match MathFont::from_bytes(FONT) {
+            Ok(font) => Box::into_raw(Box::new(MathEngine { data: None, font })),
+            Err(e) => {
+                set_error(e.to_string());
+                std::ptr::null_mut()
+            }
+        }
+    }
+    #[cfg(not(feature = "bundled-font"))]
+    {
+        set_error("built without the bundled font");
+        std::ptr::null_mut()
+    }
 }
 
 /// # Safety
-/// `engine` must come from `math_engine_new` and not be used afterwards.
+/// `engine` must come from `math_engine_new` or `math_engine_new_bundled` and not be used afterwards.
 #[no_mangle]
 pub unsafe extern "C" fn math_engine_free(engine: *mut MathEngine) {
     if engine.is_null() {
@@ -90,7 +114,9 @@ pub unsafe extern "C" fn math_engine_free(engine: *mut MathEngine) {
     let engine = Box::from_raw(engine);
     let data = engine.data;
     drop(engine);
-    drop(Box::from_raw(data));
+    if let Some(data) = data {
+        drop(Box::from_raw(data));
+    }
 }
 
 /// # Safety
@@ -313,6 +339,16 @@ mod tests {
             let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
             assert!(msg.contains("parse error"), "{msg}");
             math_engine_free(engine);
+        }
+    }
+
+    #[test]
+    fn bundled_engine_works() {
+        unsafe {
+            let e = math_engine_new_bundled();
+            assert!(!e.is_null());
+            assert_eq!(math_engine_units_per_em(e), 1000.0);
+            math_engine_free(e);
         }
     }
 

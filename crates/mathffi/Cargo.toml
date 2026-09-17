@@ -10,6 +10,11 @@ repository.workspace = true
 name = "mathcore_ffi"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[features]
+default = ["bundled-font"]
+# Embed Latin Modern Math so callers need no font file.
+bundled-font = []
+
 [dependencies]
 mathcore = { path = "../mathcore" }
 ttf-parser = { workspace = true }

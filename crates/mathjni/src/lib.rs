@@ -16,7 +16,7 @@
 use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jboolean, jfloat, jfloatArray, jint, jlong, jstring};
 use jni::JNIEnv;
-use mathcore::{Color, Item, Macros, MathFont, RenderOptions};
+use mathcore::{Color, Macros, MathFont, RenderOptions};
 use std::cell::RefCell;
 use ttf_parser::OutlineBuilder;
 
@@ -63,33 +63,7 @@ fn engine_from_bytes(bytes: Vec<u8>) -> Result<Box<Engine>, String> {
 
 /// Packs a display list into the flat float layout documented at the top.
 pub fn pack(dl: &mathcore::DisplayList) -> Vec<f32> {
-    let mut out = Vec::with_capacity(4 + dl.items.len() * 8);
-    out.extend([dl.width, dl.ascent, dl.descent, dl.items.len() as f32]);
-    for it in &dl.items {
-        match *it {
-            Item::Glyph { id, x, y, size, color } => out.extend([0.0, id as f32, x, y, size, 0.0, 0.0, argb_bits(color)]),
-            Item::Rule {
-                x,
-                y,
-                width,
-                height,
-                color,
-            } => out.extend([1.0, 0.0, x, y, width, height, 0.0, argb_bits(color)]),
-            Item::Line {
-                x1,
-                y1,
-                x2,
-                y2,
-                thickness,
-                color,
-            } => out.extend([2.0, 0.0, x1, y1, x2, y2, thickness, argb_bits(color)]),
-        }
-    }
-    out
-}
-
-fn argb_bits(c: Color) -> f32 {
-    f32::from_bits(((c.3 as u32) << 24) | ((c.0 as u32) << 16) | ((c.1 as u32) << 8) | c.2 as u32)
+    dl.to_flat()
 }
 
 fn color_from_argb(argb: jint) -> Color {

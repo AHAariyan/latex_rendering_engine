@@ -41,11 +41,18 @@ Working today:
   array, glyph outlines as a command stream. This is what the Kotlin, Swift,
   Dart and JS bindings will wrap.
 
-- Android: `platforms/android/mathview` with a Compose `MathText`, a classic
-  `MathView`, and `MathEngine` for custom drawing. See `platforms/android/README.md`.
+- Platforms, all over the same engine and display list:
+
+  | Platform | Package | Status |
+  | --- | --- | --- |
+  | Android | `platforms/android/mathview` (Compose `MathText`, `MathView`, `MathEngine`) | Built and verified on an emulator |
+  | Web | `crates/mathwasm` + `platforms/web` (SVG or canvas) | Built and tested in Node |
+  | Dart | `platforms/dart/mathcore_dart` (pure `dart:ffi`) | Tested on the host |
+  | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
+  | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
 Not yet: line breaking, `mhchem`, accessibility output, real text shaping in
-`\text{}`, and the iOS, Flutter, React Native and web bindings. See `docs/ROADMAP.md`.
+`\text{}`, React Native. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -79,6 +86,11 @@ for item in &list.items {
 | `crates/mathcli` | Command line renderer. |
 | `crates/mathffi` | C ABI (`cdylib` + `staticlib`) and `include/mathcore.h`. |
 | `crates/mathjni` | JNI bridge for Android (`libmathcore_android.so`). |
+| `crates/mathwasm` | wasm-bindgen binding for the web. |
+| `platforms/web` | Canvas renderer, demo page, Node smoke test. |
+| `platforms/dart`, `platforms/flutter` | Pure Dart FFI package and the Flutter widget plugin. |
+| `platforms/ios` | Swift package with UIKit and SwiftUI views. |
+| `scripts/build-android-ffi.sh`, `scripts/build-ios.sh` | Cross-compiles the C ABI for Flutter on Android and for iOS. |
 | `platforms/android` | `mathview` Android library (Kotlin: `MathEngine`, `MathView`, Compose `MathText`) and demo app. |
 | `scripts/build-android.sh` | Cross-compiles the JNI library for arm64, armv7 and x86_64. |
 | `assets/fonts` | Latin Modern Math (GUST Font License). |

@@ -58,3 +58,45 @@ impl DisplayList {
         self.ascent + self.descent
     }
 }
+
+impl DisplayList {
+    /// Packs the list into one flat `f32` buffer for FFI boundaries that
+    /// cannot cheaply cross structured data (JNI, wasm-bindgen, dart:ffi):
+    ///
+    /// ```text
+    /// [width, ascent, descent, count,
+    ///  kind, glyph, x, y, w, h, thickness, colorBits,   <- item 0
+    ///  ...]
+    /// ```
+    ///
+    /// `kind` is 0 glyph (`w` = em size), 1 rule (`w`,`h` = size), 2 line
+    /// (`w`,`h` = x2,y2). `colorBits` is 0xAARRGGBB reinterpreted as a float.
+    pub fn to_flat(&self) -> Vec<f32> {
+        fn argb_bits(c: Color) -> f32 {
+            f32::from_bits(((c.3 as u32) << 24) | ((c.0 as u32) << 16) | ((c.1 as u32) << 8) | c.2 as u32)
+        }
+        let mut out = Vec::with_capacity(4 + self.items.len() * 8);
+        out.extend([self.width, self.ascent, self.descent, self.items.len() as f32]);
+        for it in &self.items {
+            match *it {
+                Item::Glyph { id, x, y, size, color } => out.extend([0.0, id as f32, x, y, size, 0.0, 0.0, argb_bits(color)]),
+                Item::Rule {
+                    x,
+                    y,
+                    width,
+                    height,
+                    color,
+                } => out.extend([1.0, 0.0, x, y, width, height, 0.0, argb_bits(color)]),
+                Item::Line {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    thickness,
+                    color,
+                } => out.extend([2.0, 0.0, x1, y1, x2, y2, thickness, argb_bits(color)]),
+            }
+        }
+        out
+    }
+}

@@ -1,0 +1,4 @@
+module MathCoreFFI {
+    header "mathcore.h"
+    export *
+}

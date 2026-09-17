@@ -9,3 +9,12 @@ platforms/android/*/build/
 platforms/android/local.properties
 platforms/android/.kotlin/
 platforms/android/mathview/src/main/jniLibs/
+# Web / Dart / Flutter
+platforms/web/pkg/
+platforms/web/pkg-node/
+.dart_tool/
+pubspec.lock
+platforms/flutter/*/android/src/main/jniLibs/
+platforms/flutter/*/ios/*.xcframework
+platforms/ios/*/*.xcframework
+platforms/ios/*/.build/
