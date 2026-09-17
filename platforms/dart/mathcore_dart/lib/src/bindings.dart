@@ -60,6 +60,8 @@ final class MathEngineOpaque extends Opaque {}
 
 typedef NewC = Pointer<MathEngineOpaque> Function(Pointer<Uint8>, Size);
 typedef NewD = Pointer<MathEngineOpaque> Function(Pointer<Uint8>, int);
+typedef NewTextC = Pointer<MathEngineOpaque> Function(Pointer<Uint8>, Size, Pointer<Uint8>, Size);
+typedef NewTextD = Pointer<MathEngineOpaque> Function(Pointer<Uint8>, int, Pointer<Uint8>, int);
 typedef NewBundledC = Pointer<MathEngineOpaque> Function();
 typedef FreeC = Void Function(Pointer<MathEngineOpaque>);
 typedef FreeD = void Function(Pointer<MathEngineOpaque>);
@@ -87,6 +89,7 @@ class MathBindings {
   MathBindings(DynamicLibrary lib)
       : engineNew = lib.lookupFunction<NewC, NewD>('math_engine_new'),
         engineNewBundled = lib.lookupFunction<NewBundledC, NewBundledC>('math_engine_new_bundled'),
+        engineNewWithText = lib.lookupFunction<NewTextC, NewTextD>('math_engine_new_with_text_font'),
         engineFree = lib.lookupFunction<FreeC, FreeD>('math_engine_free'),
         unitsPerEm = lib.lookupFunction<UpemC, UpemD>('math_engine_units_per_em'),
         render = lib.lookupFunction<RenderC, RenderD>('math_engine_render'),
@@ -101,6 +104,7 @@ class MathBindings {
 
   final NewD engineNew;
   final NewBundledC engineNewBundled;
+  final NewTextD engineNewWithText;
   final FreeD engineFree;
   final UpemD unitsPerEm;
   final RenderD render;

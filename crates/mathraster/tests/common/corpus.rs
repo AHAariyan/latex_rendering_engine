@@ -187,6 +187,15 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
     ),
 ];
 
+/// Formulas rendered with a text font for `\text{}`: (name, tex).
+pub const TEXT_FONT: &[(&str, &str)] = &[
+    (
+        "text_font",
+        r"f(x) = \begin{cases} x^2 & \text{if } x \ge 0 \\ -x & \text{otherwise} \end{cases}",
+    ),
+    ("text_rtl", r"\text{שלום} + \text{Ж} = \text{hello}"),
+];
+
 /// Formulas rendered with line breaking: (name, tex, available width in px at 32 px/em).
 pub const LINEBREAK: &[(&str, &str, f32)] = &[
     (

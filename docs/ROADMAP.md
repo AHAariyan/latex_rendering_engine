@@ -15,8 +15,8 @@ CLI, golden-image tests, CI.
 - [x] User macros: `\newcommand`, `\def`, `\renewcommand`, `\providecommand`,
       and a host macro table (`RenderOptions::macros`).
 - [x] Unicode input: `α`, `≤`, `∑` typed directly.
-- [x] `\text{}` shaping: built-in GPOS `kern` + GSUB `liga` over ttf-parser
-      (rustybuzz was tried and dropped: +560 KB per binary for Unicode tables).
+- [x] `\text{}` shaping: built-in GPOS `kern` + GSUB `liga` over ttf-parser by
+      default (measured: rustybuzz costs 630 KB), with rustybuzz behind a feature.
 - [x] `ssty` script-style alternates, LaTeX array struts and interline glue,
       amsmath `cases`/`smallmatrix`/`\substack` dimensions, TeX rule 15e fraction
       delimiters, `\big` sizes via rule 19, absolute `\nulldelimiterspace`.

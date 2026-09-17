@@ -49,16 +49,27 @@ class MathEngine {
   }
 
   /// Engine for any OpenType font with a MATH table.
-  factory MathEngine.fromFont(Uint8List font) {
+  factory MathEngine.fromFont(Uint8List font) => MathEngine.withFonts(math: font);
+
+  /// Engine with a math font and a font for `\text{}`. Leave [math] out to keep
+  /// the bundled one; [text] sets prose in the application's own face.
+  factory MathEngine.withFonts({Uint8List? math, Uint8List? text}) {
     final b = bindings;
-    final buf = malloc<Uint8>(font.length);
+    Pointer<Uint8> copy(Uint8List? src) {
+      if (src == null) return nullptr;
+      final p = malloc<Uint8>(src.length);
+      p.asTypedList(src.length).setAll(0, src);
+      return p;
+    }
+
+    final mp = copy(math), tp = copy(text);
     try {
-      buf.asTypedList(font.length).setAll(0, font);
-      final h = b.engineNew(buf, font.length);
+      final h = b.engineNewWithText(mp, math?.length ?? 0, tp, text?.length ?? 0);
       if (h == nullptr) throw StateError(_lastError(b));
       return MathEngine._(b, h);
     } finally {
-      malloc.free(buf);
+      if (mp != nullptr) malloc.free(mp);
+      if (tp != nullptr) malloc.free(tp);
     }
   }
 

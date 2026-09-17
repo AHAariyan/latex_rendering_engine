@@ -24,8 +24,8 @@ fn clear_error() {
 
 pub struct MathEngine {
     /// Leaked font bytes; reclaimed in `math_engine_free` after the font is
-    /// dropped. `None` for the bundled fonts, which are static.
-    data: Option<*mut [u8]>,
+    /// dropped. Empty when every font is one of the static bundled ones.
+    data: Vec<*mut [u8]>,
     font: MathFont<'static>,
 }
 
@@ -86,20 +86,77 @@ pub unsafe extern "C" fn math_engine_new(font_data: *const u8, font_len: usize) 
         set_error("font_data is null");
         return std::ptr::null_mut();
     }
-    let bytes = std::slice::from_raw_parts(font_data, font_len).to_vec().into_boxed_slice();
-    let data: *mut [u8] = Box::into_raw(bytes);
-    let font = match MathFont::from_bytes(&*data).map(|f| match MathFont::from_bytes(mathcore::bundled::FALLBACK) {
-        Ok(fb) => f.with_fallback(fb),
-        Err(_) => f,
-    }) {
-        Ok(f) => f,
-        Err(e) => {
-            drop(Box::from_raw(data));
-            set_error(e.to_string());
-            return std::ptr::null_mut();
+    math_engine_new_with_text_font(font_data, font_len, std::ptr::null(), 0)
+}
+
+/// Leaks a copy of `len` bytes, or returns None for a null pointer.
+unsafe fn owned(data: *const u8, len: usize) -> Option<*mut [u8]> {
+    if data.is_null() || len == 0 {
+        return None;
+    }
+    Some(Box::into_raw(std::slice::from_raw_parts(data, len).to_vec().into_boxed_slice()))
+}
+
+/// Creates an engine from a math font and a font for `\text{}`. Either may be
+/// null: a null math font means the bundled one, and a null text font means
+/// prose is set in the math font's own upright letters. The bundled fallback
+/// slice is kept behind both, so the whole symbol table still renders.
+///
+/// # Safety
+/// Each pointer must either be null or point to that many readable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_new_with_text_font(
+    math_data: *const u8,
+    math_len: usize,
+    text_data: *const u8,
+    text_len: usize,
+) -> *mut MathEngine {
+    clear_error();
+    let mut owned_buffers = Vec::new();
+    let mut load = |data: *const u8, len: usize| -> Option<MathFont<'static>> {
+        let buf = owned(data, len)?;
+        match MathFont::from_bytes(&*buf) {
+            Ok(f) => {
+                owned_buffers.push(buf);
+                Some(f)
+            }
+            Err(e) => {
+                drop(Box::from_raw(buf));
+                set_error(e.to_string());
+                None
+            }
         }
     };
-    Box::into_raw(Box::new(MathEngine { data: Some(data), font }))
+    let primary = if math_data.is_null() {
+        match MathFont::from_bytes(mathcore::bundled::PRIMARY) {
+            Ok(f) => f,
+            Err(e) => {
+                set_error(e.to_string());
+                return std::ptr::null_mut();
+            }
+        }
+    } else {
+        match load(math_data, math_len) {
+            Some(f) => f,
+            None => return std::ptr::null_mut(),
+        }
+    };
+    let mut font = match MathFont::from_bytes(mathcore::bundled::FALLBACK) {
+        Ok(fb) => primary.with_fallback(fb),
+        Err(_) => primary,
+    };
+    if !text_data.is_null() {
+        match load(text_data, text_len) {
+            Some(t) => font = font.with_text_font(t),
+            None => {
+                for b in owned_buffers {
+                    drop(Box::from_raw(b));
+                }
+                return std::ptr::null_mut();
+            }
+        }
+    }
+    Box::into_raw(Box::new(MathEngine { data: owned_buffers, font }))
 }
 
 /// Creates an engine with the bundled Latin Modern Math font. Returns NULL when
@@ -110,7 +167,7 @@ pub extern "C" fn math_engine_new_bundled() -> *mut MathEngine {
     #[cfg(feature = "bundled-font")]
     {
         match mathcore::bundled::font() {
-            Ok(font) => Box::into_raw(Box::new(MathEngine { data: None, font })),
+            Ok(font) => Box::into_raw(Box::new(MathEngine { data: Vec::new(), font })),
             Err(e) => {
                 set_error(e.to_string());
                 std::ptr::null_mut()
@@ -131,11 +188,11 @@ pub unsafe extern "C" fn math_engine_free(engine: *mut MathEngine) {
     if engine.is_null() {
         return;
     }
-    let engine = Box::from_raw(engine);
-    let data = engine.data;
-    drop(engine);
-    if let Some(data) = data {
-        drop(Box::from_raw(data));
+    let mut engine = Box::from_raw(engine);
+    let data = std::mem::take(&mut engine.data);
+    drop(engine); // the fonts borrow the buffers, so they go first
+    for buf in data {
+        drop(Box::from_raw(buf));
     }
 }
 
@@ -528,6 +585,24 @@ mod tests {
             let e = math_engine_new_bundled();
             assert!(!e.is_null());
             assert_eq!(math_engine_units_per_em(e, 0), 1000.0);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn a_text_font_can_be_supplied() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        unsafe {
+            let e = math_engine_new_with_text_font(std::ptr::null(), 0, LIB.as_ptr(), LIB.len());
+            assert!(!e.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
+            let tex = CString::new(r"x + \text{if}").unwrap();
+            let r = math_engine_render(e, tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
+            assert!(!r.is_null());
+            let items = std::slice::from_raw_parts((*r).items, (*r).count);
+            let glyphs: Vec<&MathItem> = items.iter().filter(|i| i.kind == 0).collect();
+            assert_eq!(glyphs[0].font, 0, "maths from the math font");
+            assert_eq!(glyphs.last().unwrap().font, 2, "prose from the text font");
+            math_result_free(r);
             math_engine_free(e);
         }
     }

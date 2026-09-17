@@ -72,6 +72,13 @@ Working today:
   | Flutter | `platforms/flutter/mathcore_flutter` (`MathText` widget) | Written, not yet compiled with the Flutter SDK |
   | iOS | `platforms/ios/MathCore` (SwiftUI `MathText`, `MathView`) | Written, not yet compiled with Xcode |
 
+- **Prose in your own font**: `\text{}` can be set in a font you supply while
+  the maths stays in the math font, which is what makes a formula look like it
+  belongs in the app. Text is shaped by whichever font sets it, so it gets that
+  font's kerning and ligatures, and a right-to-left run such as Hebrew comes out
+  in the right visual order. Arabic and the Indic scripts need joining forms and
+  reordering: turn on the `complex-text` feature for those, which brings in a
+  full shaper at a cost of about 600 KB.
 - **Font fallback**: a font can carry a chain, and a character the primary
   lacks comes from the next one. Latin Modern Math predates 27 of the AMS
   symbols, so every binding ships a 5 KB slice of STIX Two alongside it and the
@@ -138,7 +145,7 @@ for item in &list.items {
 
 ## Quality gates
 
-- **Golden images** for 56 formulas in three fonts (Latin Modern Math, STIX Two
+- **Golden images** for 58 formulas in three fonts (Latin Modern Math, STIX Two
   Math, Libertinus Math): `tests/golden/`.
 - **Fuzzing**: `crates/mathcore/tests/robustness.rs` throws 20,000 random
   token soups and a set of pathological inputs at the engine on a small-stack

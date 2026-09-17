@@ -317,10 +317,6 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
     // ---- glyph boxes -------------------------------------------------------
 
-    fn glyph_box(&self, gid: GlyphId, sty: Sty) -> BBox {
-        self.glyph_box_in(0, gid, sty)
-    }
-
     /// A box for one glyph of the font at `font_index`. A fallback font may
     /// have a different unit size, so the scale is taken from that font.
     fn glyph_box_in(&self, font_index: usize, gid: GlyphId, sty: Sty) -> BBox {
@@ -889,38 +885,46 @@ impl<'f, 'a> Layouter<'f, 'a> {
     /// kerning and ligatures; other variants map char by char through the
     /// math alphabets, which have no shaping data.
     fn text_box(&self, text: &str, variant: Variant, sty: Sty) -> BBox {
-        let s = self.scale(sty);
         let variant = if variant == Variant::Normal { Variant::Roman } else { variant };
         let mut children = Vec::new();
         let mut x = 0.0;
-        if variant == Variant::Roman {
-            for (i, word) in text.split(' ').enumerate() {
-                if i > 0 {
-                    x += 0.33 * self.em(sty);
-                }
-                for g in self.font.shape(word) {
-                    if g.glyph.0 != 0 {
-                        let b = self.glyph_box(g.glyph, sty);
-                        children.push(b.at(x + g.x_offset * s, g.y_offset * s));
-                    }
-                    x += g.x_advance * s;
-                }
+        for (i, word) in text.split(' ').enumerate() {
+            if i > 0 {
+                x += 0.33 * self.em(sty);
             }
-        } else {
-            for ch in text.chars() {
-                if ch == ' ' {
-                    x += 0.33 * self.em(sty);
-                    continue;
-                }
-                let b = self.char_box(ch, variant, sty);
-                let w = b.w;
-                children.push(b.at(x, 0.0));
-                x += w;
-            }
+            self.text_run(word, variant, sty, &mut x, &mut children);
         }
         let mut b = BBox::list(children);
         b.w = x;
         b
+    }
+
+    /// Lays out one word. Upright prose is shaped by the font it is set in, so
+    /// it gets that font's kerning and ligatures and, for a right-to-left
+    /// script, its visual order. The other variants map character by character
+    /// through the math alphabets, which carry no shaping data.
+    fn text_run(&self, word: &str, variant: Variant, sty: Sty, x: &mut f32, out: &mut Vec<Placed>) {
+        if variant != Variant::Roman {
+            for ch in word.chars() {
+                let b = self.char_box(ch, variant, sty);
+                let w = b.w;
+                out.push(b.at(*x, 0.0));
+                *x += w;
+            }
+            return;
+        }
+        // Which font sets this word: the text font if it can, else whichever
+        // one has its first character.
+        let fi = word.chars().find_map(|c| self.font.resolve_text(c)).map(|(i, _)| i).unwrap_or(0);
+        let font = self.font.font_at(fi);
+        let s = self.em(sty) / font.units_per_em();
+        for g in font.shape(word) {
+            if g.glyph.0 != 0 {
+                let b = self.glyph_box_in(fi, g.glyph, sty);
+                out.push(b.at(*x + g.x_offset * s, g.y_offset * s));
+            }
+            *x += g.x_advance * s;
+        }
     }
 
     fn big_op(&self, ch: char, sty: Sty) -> BBox {

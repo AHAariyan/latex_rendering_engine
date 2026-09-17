@@ -21,7 +21,7 @@ const FONTS: &[(&str, &[u8])] = &[
 
 #[path = "common/corpus.rs"]
 mod corpus;
-use corpus::{CORPUS, LINEBREAK};
+use corpus::{CORPUS, LINEBREAK, TEXT_FONT};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden")
@@ -128,5 +128,14 @@ fn golden_images() {
         };
         s.render(&font, &format!("lb_{base}"), tex, &opts);
     }
+    // Prose set in a text font, including a right-to-left script.
+    let with_text = MathFont::from_bytes(FONTS[0].1)
+        .unwrap()
+        .with_fallback(MathFont::from_bytes(mathcore::bundled::FALLBACK).unwrap())
+        .with_text_font(MathFont::from_bytes(FONTS[2].1).unwrap());
+    for (name, tex) in TEXT_FONT {
+        s.render(&with_text, name, tex, &RenderOptions::default());
+    }
+
     assert!(s.failures.is_empty(), "golden mismatches:\n{}", s.failures.join("\n"));
 }

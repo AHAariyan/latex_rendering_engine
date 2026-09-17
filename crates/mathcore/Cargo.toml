@@ -6,8 +6,17 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+# Full text shaping for `\text{}`: joining forms and reordering, which Arabic
+# and the Indic scripts need. Costs about 560 KB of Unicode tables, so it is
+# off unless a host asks for it. Latin, Greek, Cyrillic and Hebrew are handled
+# without it.
+complex-text = ["dep:rustybuzz"]
+
 [dependencies]
 ttf-parser = { workspace = true }
+rustybuzz = { version = "0.20", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

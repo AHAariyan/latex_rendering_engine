@@ -600,6 +600,68 @@ mod tests {
     }
 
     #[test]
+    fn text_uses_the_text_font_when_one_is_given() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let plain = font();
+        let with_text = MathFont::from_bytes(FONT)
+            .unwrap()
+            .with_text_font(MathFont::from_bytes(LIB).unwrap());
+        let opts = RenderOptions::default();
+
+        // Prose is set in the text font, the maths around it is not.
+        let dl = render(&with_text, r"x + \text{if}", &opts).unwrap();
+        let fonts: Vec<u16> = dl
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Glyph { font, .. } => Some(*font),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fonts[0], 0, "the variable comes from the math font");
+        assert!(fonts[2..].iter().all(|f| *f == 1), "the word comes from the text font");
+
+        // And it changes the measurements, so it really is a different face.
+        let a = render(&plain, r"\text{if}", &opts).unwrap();
+        let b = render(&with_text, r"\text{if}", &opts).unwrap();
+        assert!((a.width - b.width).abs() > 0.01);
+    }
+
+    #[test]
+    fn right_to_left_prose_reads_in_visual_order() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let f = MathFont::from_bytes(FONT)
+            .unwrap()
+            .with_text_font(MathFont::from_bytes(LIB).unwrap());
+        let lib = MathFont::from_bytes(LIB).unwrap();
+        let dl = render(&f, r"\text{שלום}", &RenderOptions::default()).unwrap();
+        let ids: Vec<u16> = dl
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Glyph { id, .. } => Some(*id),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ids.len(), 4);
+        // The word's last letter is drawn leftmost.
+        assert_eq!(ids[0], lib.glyph_index('ם').unwrap().0);
+        assert_eq!(ids[3], lib.glyph_index('ש').unwrap().0);
+    }
+
+    #[test]
+    fn text_falls_back_for_characters_the_math_font_lacks() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let plain = font();
+        assert!(plain.glyph_index('Ж').is_none(), "Latin Modern has no Cyrillic");
+        let chained = MathFont::from_bytes(FONT)
+            .unwrap()
+            .with_fallback(MathFont::from_bytes(LIB).unwrap());
+        let dl = render(&chained, r"\text{Ж}", &RenderOptions::default()).unwrap();
+        assert!(matches!(dl.items[0], Item::Glyph { font: 1, .. }), "should come from the fallback");
+    }
+
+    #[test]
     fn parse_error_is_reported() {
         let f = font();
         let e = render(&f, r"\frac{a", &RenderOptions::default()).unwrap_err();

@@ -32,36 +32,50 @@ fn set_error(msg: impl Into<String>) {
 }
 
 pub struct Engine {
-    /// Owned font bytes when loaded at runtime; `None` for the bundled font.
-    data: Option<*mut [u8]>,
+    /// Owned font bytes when loaded at runtime; empty for the bundled fonts.
+    data: Vec<*mut [u8]>,
     font: MathFont<'static>,
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        if let Some(data) = self.data.take() {
-            // The font borrows `data`; it is gone by the time this runs only if
-            // the field order drops `font` first, so drop it explicitly.
-            // SAFETY: `data` came from Box::into_raw in `engine_from_bytes`.
-            unsafe { drop(Box::from_raw(data)) };
+        // SAFETY: every buffer came from Box::into_raw in `engine_from_bytes`,
+        // and the fonts that borrow them are dropped with this struct's fields.
+        for buf in std::mem::take(&mut self.data) {
+            unsafe { drop(Box::from_raw(buf)) };
         }
     }
 }
 
-fn engine_from_bytes(bytes: Vec<u8>) -> Result<Box<Engine>, String> {
-    let data: *mut [u8] = Box::into_raw(bytes.into_boxed_slice());
-    // SAFETY: `data` stays alive until Engine::drop, which runs after `font` is dropped.
-    let font = match MathFont::from_bytes(unsafe { &*data }).map(|f| match MathFont::from_bytes(bundled::FALLBACK) {
-        Ok(fb) => f.with_fallback(fb),
-        Err(_) => f,
-    }) {
-        Ok(f) => f,
-        Err(e) => {
-            unsafe { drop(Box::from_raw(data)) };
-            return Err(e.to_string());
+fn engine_from_bytes(math: Option<Vec<u8>>, text: Option<Vec<u8>>) -> Result<Box<Engine>, String> {
+    let mut owned: Vec<*mut [u8]> = Vec::new();
+    // SAFETY: each buffer stays alive until Engine::drop, which runs after the
+    // fonts that borrow it.
+    let mut load = |bytes: Vec<u8>| -> Result<MathFont<'static>, String> {
+        let data: *mut [u8] = Box::into_raw(bytes.into_boxed_slice());
+        match MathFont::from_bytes(unsafe { &*data }) {
+            Ok(f) => {
+                owned.push(data);
+                Ok(f)
+            }
+            Err(e) => {
+                unsafe { drop(Box::from_raw(data)) };
+                Err(e.to_string())
+            }
         }
     };
-    Ok(Box::new(Engine { data: Some(data), font }))
+    let primary = match math {
+        Some(b) => load(b)?,
+        None => MathFont::from_bytes(bundled::PRIMARY).map_err(|e| e.to_string())?,
+    };
+    let mut font = match MathFont::from_bytes(bundled::FALLBACK) {
+        Ok(fb) => primary.with_fallback(fb),
+        Err(_) => primary,
+    };
+    if let Some(b) = text {
+        font = font.with_text_font(load(b)?);
+    }
+    Ok(Box::new(Engine { data: owned, font }))
 }
 
 /// Packs a display list into the flat float layout documented at the top.
@@ -100,15 +114,25 @@ fn float_array(env: &JNIEnv, data: &[f32]) -> jfloatArray {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_dev_mathcore_NativeBridge_create(env: JNIEnv, _class: JClass, font: JByteArray) -> jlong {
-    let bytes = match env.convert_byte_array(&font) {
-        Ok(b) => b,
-        Err(_) => {
-            set_error("cannot read font bytes");
-            return 0;
+pub extern "system" fn Java_dev_mathcore_NativeBridge_create(
+    env: JNIEnv,
+    _class: JClass,
+    font: JByteArray,
+    text_font: JByteArray,
+) -> jlong {
+    let read = |a: &JByteArray| -> Option<Vec<u8>> {
+        if a.is_null() {
+            None
+        } else {
+            env.convert_byte_array(a).ok()
         }
     };
-    match engine_from_bytes(bytes) {
+    let bytes = read(&font);
+    if bytes.is_none() && !font.is_null() {
+        set_error("cannot read font bytes");
+        return 0;
+    }
+    match engine_from_bytes(bytes, read(&text_font)) {
         Ok(e) => Box::into_raw(e) as jlong,
         Err(msg) => {
             set_error(msg);
@@ -122,7 +146,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_createBundled(_env: JNIEnv
     #[cfg(feature = "bundled-font")]
     {
         match bundled::font() {
-            Ok(font) => Box::into_raw(Box::new(Engine { data: None, font })) as jlong,
+            Ok(font) => Box::into_raw(Box::new(Engine { data: Vec::new(), font })) as jlong,
             Err(e) => {
                 set_error(e.to_string());
                 0
@@ -315,8 +339,13 @@ mod tests {
 
     #[test]
     fn runtime_font_engine_round_trips() {
-        let e = engine_from_bytes(bundled::PRIMARY.to_vec()).unwrap();
+        let e = engine_from_bytes(Some(bundled::PRIMARY.to_vec()), None).unwrap();
         assert_eq!(e.font.units_per_em(), 1000.0);
-        assert!(engine_from_bytes(b"junk".to_vec()).is_err());
+        assert!(engine_from_bytes(Some(b"junk".to_vec()), None).is_err());
+
+        // A text font joins the chain after the bundled fallback.
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let e = engine_from_bytes(None, Some(LIB.to_vec())).unwrap();
+        assert_eq!(e.font.text_font(), Some(2));
     }
 }

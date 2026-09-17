@@ -6,7 +6,7 @@ internal object NativeBridge {
         System.loadLibrary("mathcore_android")
     }
 
-    external fun create(font: ByteArray): Long
+    external fun create(font: ByteArray?, textFont: ByteArray?): Long
     external fun createBundled(): Long
     external fun destroy(handle: Long)
     external fun unitsPerEm(handle: Long, font: Int): Float

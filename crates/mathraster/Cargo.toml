@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# Passes through to mathcore: full shaping for Arabic and the Indic scripts.
+complex-text = ["mathcore/complex-text"]
+
 [dependencies]
 mathcore = { path = "../mathcore" }
 tiny-skia = { workspace = true }

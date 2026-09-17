@@ -69,6 +69,11 @@ typedef struct MathResult {
 MathEngine* math_engine_new(const uint8_t* font_data, size_t font_len);
 /* Engine with the bundled Latin Modern Math font (NULL if built without it). */
 MathEngine* math_engine_new_bundled(void);
+/* Engine with a math font and a font for \text{}. Either may be NULL: a null
+ * math font means the bundled one, a null text font means prose is set in the
+ * math font's own upright letters. The bundled fallback slice sits behind both. */
+MathEngine* math_engine_new_with_text_font(const uint8_t* math_data, size_t math_len,
+                                           const uint8_t* text_data, size_t text_len);
 void math_engine_free(MathEngine* engine);
 
 /* Font units per em of one font of the chain, needed to scale its outlines:

@@ -26,7 +26,15 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         fun bundled(): MathEngine = MathEngine(check(NativeBridge.createBundled()))
 
         /** Engine for any OpenType font with a MATH table. */
-        fun fromFont(fontBytes: ByteArray): MathEngine = MathEngine(check(NativeBridge.create(fontBytes)))
+        fun fromFont(fontBytes: ByteArray): MathEngine = MathEngine(check(NativeBridge.create(fontBytes, null)))
+
+        /**
+         * Engine with a math font and a font for `\text{}`. Pass null for the
+         * math font to keep the bundled one. Use this to set prose in the
+         * application's own face while the maths stays in the math font.
+         */
+        fun withFonts(mathFont: ByteArray? = null, textFont: ByteArray? = null): MathEngine =
+            MathEngine(check(NativeBridge.create(mathFont, textFont)))
 
         private fun check(handle: Long): Long {
             if (handle == 0L) throw IllegalStateException(NativeBridge.lastError() ?: "cannot create math engine")

@@ -99,9 +99,21 @@ public final class MathEngine {
     }
 
     /// Engine for any OpenType font with a MATH table.
-    public init(fontData: Data) throws {
-        let h = fontData.withUnsafeBytes { buf -> OpaquePointer? in
-            math_engine_new(buf.bindMemory(to: UInt8.self).baseAddress, buf.count)
+    public convenience init(fontData: Data) throws {
+        try self.init(mathFont: fontData, textFont: nil)
+    }
+
+    /// Engine with a math font and a font for `\text{}`. Pass nil for the math
+    /// font to keep the bundled one; a text font sets prose in your own face.
+    public init(mathFont: Data?, textFont: Data?) throws {
+        func withBytes<R>(_ d: Data?, _ body: (UnsafePointer<UInt8>?, Int) -> R) -> R {
+            guard let d else { return body(nil, 0) }
+            return d.withUnsafeBytes { body($0.bindMemory(to: UInt8.self).baseAddress, $0.count) }
+        }
+        let h = withBytes(mathFont) { mp, ml in
+            withBytes(textFont) { tp, tl in
+                math_engine_new_with_text_font(mp, ml, tp, tl)
+            }
         }
         guard let h else { throw MathEngine.lastError() }
         handle = h

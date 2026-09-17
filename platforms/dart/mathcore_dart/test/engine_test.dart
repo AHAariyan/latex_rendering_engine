@@ -54,6 +54,15 @@ void main() {
     e.dispose();
   });
 
+  test('a text font sets prose while maths stays in the math font', () {
+    final lib = File('../../../assets/fonts/LibertinusMath-Regular.otf').readAsBytesSync();
+    final e = MathEngine.withFonts(text: lib);
+    final glyphs = e.render(r'x + \text{if}', 32).items.whereType<MathGlyph>().toList();
+    expect(glyphs.first.font, 0);
+    expect(glyphs.last.font, 2);
+    e.dispose();
+  });
+
   test('accessibility output', () {
     expect(MathEngine.speech(r'x^2 + \frac{1}{2}'), 'x squared plus 1 over 2');
     final ml = MathEngine.mathml(r'x^2');

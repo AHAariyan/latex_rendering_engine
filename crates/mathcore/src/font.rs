@@ -75,6 +75,11 @@ pub struct GlyphMetrics {
     pub italic_correction: f32,
 }
 
+/// True for a character written right to left.
+fn is_rtl(c: char) -> bool {
+    matches!(c as u32, 0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF | 0x1E800..=0x1EFFF)
+}
+
 /// Corner of a glyph for math kerning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KernCorner {
@@ -103,6 +108,11 @@ pub struct MathFont<'a> {
     /// always uses the primary font's MATH constants, so adding a fallback
     /// cannot change the shape of a formula it was not needed for.
     fallbacks: Vec<MathFont<'a>>,
+    /// Index into the chain of the font `\text{}` should prefer, so prose can
+    /// be set in the application's own face rather than the math font's Latin.
+    text_font: Option<usize>,
+    #[cfg(feature = "complex-text")]
+    shaper: rustybuzz::Face<'a>,
 }
 
 /// One shaped glyph of a text run, in font units.
@@ -175,11 +185,14 @@ impl<'a> MathFont<'a> {
         let upem = face.units_per_em() as f32;
         let x_height = face.x_height().map(|x| x as f32).unwrap_or(upem * 0.45);
         Ok(MathFont {
+            #[cfg(feature = "complex-text")]
+            shaper: rustybuzz::Face::from_face(face.clone()),
             face,
             upem,
             consts,
             x_height,
             fallbacks: Vec::new(),
+            text_font: None,
         })
     }
 
@@ -187,6 +200,29 @@ impl<'a> MathFont<'a> {
     pub fn with_fallback(mut self, next: MathFont<'a>) -> Self {
         self.fallbacks.push(next);
         self
+    }
+
+    /// Adds a font and marks it as the one `\text{}` should use. Math still
+    /// comes from the primary; only prose changes.
+    pub fn with_text_font(mut self, next: MathFont<'a>) -> Self {
+        self.fallbacks.push(next);
+        self.text_font = Some(self.fallbacks.len());
+        self
+    }
+
+    /// Which font of the chain `\text{}` prefers, if one was named.
+    pub fn text_font(&self) -> Option<usize> {
+        self.text_font
+    }
+
+    /// Finds `ch` for prose: the text font first, then the usual chain.
+    pub fn resolve_text(&self, ch: char) -> Option<(usize, GlyphId)> {
+        if let Some(i) = self.text_font {
+            if let Some(g) = self.font_at(i).glyph_index(ch) {
+                return Some((i, g));
+            }
+        }
+        self.resolve(ch)
     }
 
     /// The font at an index: 0 is this one, 1 and up are its fallbacks.
@@ -364,12 +400,45 @@ impl<'a> MathFont<'a> {
         kern.kern(i).map(|v| v.value as f32).unwrap_or(0.0)
     }
 
-    /// Shapes a run of text left to right with the font's `liga` ligatures and
-    /// `kern` pair adjustments. This is a deliberately small shaper: the math
-    /// fonts in scope are Latin and these two features are what `\text{}`
-    /// needs. Characters the font lacks come back as glyph 0.
+    /// Shapes a run of text with the font's `liga` ligatures and `kern` pair
+    /// adjustments. This is a deliberately small shaper: the math fonts in
+    /// scope are alphabetic and these two features are what `\text{}` needs.
+    /// Characters the font lacks come back as glyph 0.
+    ///
+    /// A run written right to left is returned in visual order, which is right
+    /// for a non-joining script such as Hebrew. Arabic and the Indic scripts
+    /// need joining forms and reordering, which a real shaper does; see the
+    /// `complex-text` feature.
+    #[cfg(feature = "complex-text")]
     pub fn shape(&self, text: &str) -> Vec<ShapedGlyph> {
+        let mut buf = rustybuzz::UnicodeBuffer::new();
+        buf.push_str(text);
+        buf.set_direction(if text.chars().any(is_rtl) {
+            rustybuzz::Direction::RightToLeft
+        } else {
+            rustybuzz::Direction::LeftToRight
+        });
+        buf.guess_segment_properties();
+        let out = rustybuzz::shape(&self.shaper, &[], buf);
+        out.glyph_infos()
+            .iter()
+            .zip(out.glyph_positions())
+            .map(|(i, p)| ShapedGlyph {
+                glyph: GlyphId(i.glyph_id as u16),
+                x_advance: p.x_advance as f32,
+                x_offset: p.x_offset as f32,
+                y_offset: p.y_offset as f32,
+            })
+            .collect()
+    }
+
+    #[cfg(not(feature = "complex-text"))]
+    pub fn shape(&self, text: &str) -> Vec<ShapedGlyph> {
+        let rtl = text.chars().any(is_rtl);
         let mut glyphs: Vec<GlyphId> = text.chars().map(|c| self.face.glyph_index(c).unwrap_or(GlyphId(0))).collect();
+        if rtl {
+            glyphs.reverse();
+        }
         self.apply_ligatures(&mut glyphs);
         let mut out = Vec::with_capacity(glyphs.len());
         for (i, &g) in glyphs.iter().enumerate() {
@@ -404,6 +473,7 @@ impl<'a> MathFont<'a> {
     }
 
     /// GPOS `kern` adjustment to the advance of `first` when followed by `second`.
+    #[cfg(not(feature = "complex-text"))]
     fn pair_kern(&self, first: GlyphId, second: GlyphId) -> f32 {
         use ttf_parser::gpos::{PairAdjustment, PositioningSubtable};
         let Some(gpos) = self.face.tables().gpos else { return 0.0 };
@@ -476,6 +546,7 @@ impl<'a> MathFont<'a> {
     }
 
     /// Applies GSUB `liga` substitutions in place.
+    #[cfg(not(feature = "complex-text"))]
     fn apply_ligatures(&self, glyphs: &mut Vec<GlyphId>) {
         use ttf_parser::gsub::SubstitutionSubtable;
         let Some(gsub) = self.face.tables().gsub else { return };
@@ -521,6 +592,20 @@ mod tests {
     use super::*;
 
     pub(crate) const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math.otf");
+
+    #[test]
+    fn a_text_font_takes_precedence_for_prose_only() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let chained = MathFont::from_bytes(FONT)
+            .unwrap()
+            .with_text_font(MathFont::from_bytes(LIB).unwrap());
+        assert_eq!(chained.text_font(), Some(1));
+        // Prose comes from the text font, maths from the primary.
+        assert_eq!(chained.resolve_text('A').map(|(i, _)| i), Some(1));
+        assert_eq!(chained.resolve('A').map(|(i, _)| i), Some(0));
+        // A character neither has is still nobody's.
+        assert!(chained.resolve_text('\u{1F600}').is_none());
+    }
 
     #[test]
     fn a_fallback_supplies_what_the_primary_lacks() {
@@ -607,6 +692,21 @@ mod tests {
         assert_eq!(f.script_variant(i, 0), i);
         let x = f.glyph_index('x').unwrap();
         let _ = f.script_variant(x, 2); // must not panic for glyphs without alternates
+    }
+
+    #[test]
+    fn a_right_to_left_run_comes_back_in_visual_order() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let f = MathFont::from_bytes(LIB).unwrap();
+        let word = "שלום";
+        let shaped = f.shape(word);
+        assert_eq!(shaped.len(), word.chars().count());
+        // The last letter of the word is drawn first.
+        let last = f.glyph_index(word.chars().next_back().unwrap()).unwrap();
+        assert_eq!(shaped[0].glyph, last);
+        // Latin is untouched.
+        let latin = f.shape("abc");
+        assert_eq!(latin[0].glyph, f.glyph_index('a').unwrap());
     }
 
     #[test]
