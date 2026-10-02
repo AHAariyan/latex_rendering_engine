@@ -92,7 +92,26 @@ Working today:
   whole table renders out of the box. Layout constants always come from the
   primary, so adding a fallback cannot change a formula that did not need it.
 
-Not yet: `mhchem`, React Native, an editing model. See `docs/ROADMAP.md`.
+- **Text mode** in `\text`/`\mbox`: `$...$` math islands, font switches,
+  `\small`...`\Huge` (in math too), accents (`\'e`), escapes, dash and quote
+  ligatures. `\tag` equation numbers set flush right.
+- **Chemistry**: mhchem `\ce{...}` and `\pu{...}`.
+- **AsciiMath input**: `asciimath_to_tex("sum_(i=1)^n i^2")`.
+- **Layout cache** in every binding; **budgets** for untrusted input.
+
+Coverage: 98.2% of 103,559 real arXiv formulas (KaTeX 94.1%) and 94% of
+KaTeX's command surface (the rest is KaTeX-internal or `CD` diagrams).
+
+## SDKs
+
+`cargo xtask sdk <platform>` builds, verifies and packages an SDK; see
+[docs/SDK.md](docs/SDK.md). C (Linux, macOS, Windows), Swift (iOS, macOS),
+Android (AAR), Flutter (Android, iOS, macOS), web (`mathcore` npm package
+with a `<math-tex>` element) and React Native (`react-native-mathcore`), all
+at one version, released by one workflow.
+
+Not yet: an editing model, more speech languages, Nemeth braille, `CD`
+diagrams. See `docs/ROADMAP.md`.
 
 ## Try it
 
