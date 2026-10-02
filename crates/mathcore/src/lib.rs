@@ -453,6 +453,41 @@ mod tests {
         }
     }
 
+    #[test]
+    fn tag_sits_at_the_right_edge() {
+        let f = font();
+        let glyph_xs = |dl: &DisplayList| -> Vec<f32> {
+            dl.items
+                .iter()
+                .filter_map(|i| match i {
+                    Item::Glyph { x, .. } => Some(*x),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Without a width the tag follows the formula at a \qquad.
+        let plain = render(&f, "E = mc^2", &RenderOptions::default()).unwrap();
+        let tagged = render(&f, r"E = mc^2 \tag{1}", &RenderOptions::default()).unwrap();
+        assert!(tagged.width > plain.width + 2.0 * 32.0);
+        // With one, it is flush right.
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(600.0)),
+            ..Default::default()
+        };
+        let dl = render(&f, r"E = mc^2 \tag{1.2}", &opts).unwrap();
+        assert!((dl.width - 600.0).abs() < 1.0, "{}", dl.width);
+        assert!(glyph_xs(&dl).iter().any(|x| *x > 500.0));
+        // \tag* drops the parentheses; a second \tag is an error.
+        let starred = render(&f, r"x \tag*{A}", &RenderOptions::default()).unwrap();
+        let plain = render(&f, r"x \tag{A}", &RenderOptions::default()).unwrap();
+        assert!(starred.width < plain.width);
+        assert!(render(&f, r"x \tag{1} \tag{2}", &RenderOptions::default()).is_err());
+        assert_eq!(
+            render_speech(r"E = mc^2 \tag{3}", &Macros::new()).unwrap(),
+            "E equals m c squared, equation 3"
+        );
+    }
+
     /// Recording regions must never move ink. Each case is a construct whose
     /// layout looks at a neighbour or a child's kind, which the region
     /// wrapper used to hide (found by the arXiv corpus check).

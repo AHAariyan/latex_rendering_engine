@@ -225,6 +225,12 @@ pub enum Node {
         factor: f32,
         body: Vec<Node>,
     },
+    /// A display formula with an equation number from `\tag`: the tag is set
+    /// at the right edge of the available width.
+    Tagged {
+        body: Vec<Node>,
+        tag: Box<Node>,
+    },
     /// Verbatim text from `\text{}`; spaces are preserved.
     Text {
         text: String,

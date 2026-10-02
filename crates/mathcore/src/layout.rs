@@ -275,9 +275,9 @@ impl<'f, 'a> Layouter<'f, 'a> {
             cramped: false,
             size: 1000,
         };
-        let root = match self.line_break {
-            Some(lb) if lb.max_width > 0.0 => self.layout_broken(nodes, sty, lb),
-            _ => self.layout_list(nodes, sty),
+        let root = match nodes {
+            [Node::Tagged { body, tag }] => self.tagged(body, tag, sty),
+            _ => self.layout_body(nodes, sty, self.line_break),
         };
         let mut items = Vec::new();
         let mut regions = Vec::new();
@@ -295,6 +295,36 @@ impl<'f, 'a> Layouter<'f, 'a> {
             items,
             regions,
         }
+    }
+
+    fn layout_body(&self, nodes: &[Node], sty: Sty, line_break: Option<LineBreak>) -> BBox {
+        match line_break {
+            Some(lb) if lb.max_width > 0.0 => self.layout_broken(nodes, sty, lb),
+            _ => self.layout_list(nodes, sty),
+        }
+    }
+
+    /// An equation number, as amsmath sets it: flush right at the available
+    /// width, at least a `\qquad` from the formula. Without a width the tag
+    /// simply follows the formula at that distance. The formula breaks to
+    /// the width that is left beside the tag.
+    fn tagged(&self, body: &[Node], tag: &Node, sty: Sty) -> BBox {
+        let tag_box = self.layout_node(tag, sty.with(MathStyle::Text));
+        let gap = 2.0 * self.em(sty);
+        let width = self.line_break.map(|lb| lb.max_width).filter(|w| *w > 0.0);
+        let lb = self.line_break.zip(width).map(|(lb, w)| LineBreak {
+            max_width: (w - tag_box.w - gap).max(w / 2.0),
+            ..lb
+        });
+        let body_box = self.layout_body(body, sty, lb);
+        let x = match width {
+            Some(w) => (w - tag_box.w).max(body_box.w + gap),
+            None => body_box.w + gap,
+        };
+        let total = x + tag_box.w;
+        let mut out = BBox::list(vec![body_box.at(0.0, 0.0), tag_box.at(x, 0.0)]);
+        out.w = total;
+        out
     }
 
     // ---- units -------------------------------------------------------------
@@ -782,6 +812,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Underline(inner) => self.underline(inner, sty),
             Node::Style { style, body } => self.layout_list(body, sty.with(*style)),
             Node::Size { factor, body } => self.layout_list(body, sty.sized(*factor)),
+            Node::Tagged { body, tag } => self.tagged(body, tag, sty),
             Node::Color { color, body } => {
                 let mut b = self.layout_list(body, sty);
                 b.color = Some(*color);

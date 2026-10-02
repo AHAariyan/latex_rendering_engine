@@ -211,6 +211,13 @@ fn node(out: &mut String, n: &Node) {
             row(out, body);
             out.push_str("</mstyle>");
         }
+        Node::Tagged { body, tag } => {
+            out.push_str("<mtable><mlabeledtr><mtd>");
+            one(out, tag);
+            out.push_str("</mtd><mtd>");
+            row(out, body);
+            out.push_str("</mtd></mlabeledtr></mtable>");
+        }
         Node::Text { text, .. } => token(out, "mtext", text),
         Node::Space { mu } => {
             let _ = write!(out, r#"<mspace width="{:.3}em"/>"#, mu / 18.0);
@@ -631,6 +638,11 @@ impl Speaker {
                 word(out, "underlined");
             }
             Node::Style { body, .. } | Node::Size { body, .. } => self.say_list(out, body),
+            Node::Tagged { body, tag } => {
+                self.say_list(out, body);
+                word(out, ", equation");
+                word(out, self.text_of(tag).trim_matches(['(', ')', ' ']));
+            }
             Node::Color { body, .. } => self.say_list(out, body),
             Node::Text { text, .. } => word(out, text.trim()),
             Node::Space { .. } => {}
@@ -776,6 +788,30 @@ impl Speaker {
             }
             Node::Row(v) => self.tree_list(v, label),
             Node::Style { body, .. } | Node::Color { body, .. } | Node::Size { body, .. } => self.tree_list(body, label),
+            Node::Tagged { body, tag } => {
+                let mut formula = self.tree_list(body, String::new());
+                let mut number = self.tree(tag, "equation number".to_string());
+                number.text = number.text.trim_matches(['(', ')', ' ']).to_string();
+                let text = tidy(&format!("{}, equation {}", formula.text, number.text));
+                if formula.role == "row" {
+                    formula.children.push(number);
+                    formula.text = text;
+                    formula.label = label;
+                    formula
+                } else {
+                    with_children(
+                        SpeechNode {
+                            role: "row",
+                            label,
+                            text,
+                            start: 0,
+                            end: 0,
+                            children: Vec::new(),
+                        },
+                        vec![formula, number],
+                    )
+                }
+            }
             Node::Class { body, .. }
             | Node::Raise { body, .. }
             | Node::VCenter(body)

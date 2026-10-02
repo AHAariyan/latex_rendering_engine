@@ -13,6 +13,7 @@ use crate::macros::{self, Macros};
 use crate::symbols;
 use crate::Budget;
 
+mod mhchem;
 mod text;
 
 /// Parses a formula with no host-supplied macros.
@@ -48,18 +49,27 @@ fn parse_inner(src: &str, macros: &Macros, budget: Budget, spans: bool) -> Resul
         max_nodes: budget.max_nodes,
         spans,
         text_math_close: None,
+        tag: None,
     };
     let nodes = p.parse_list()?;
-    if matches!(p.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline")) {
-        return p.top_level_lines(nodes);
-    }
-    match p.lx.advance()? {
-        Tok::Eof => Ok(nodes),
-        Tok::RBrace => Err(Error::parse(p.lx.pos(), "unexpected `}`")),
-        Tok::Amp => Err(Error::parse(p.lx.pos(), "`&` outside of an array")),
-        Tok::Cmd(c) => Err(Error::parse(p.lx.pos(), format!("unexpected \\{c}"))),
-        t => Err(Error::parse(p.lx.pos(), format!("unexpected token {t:?}"))),
-    }
+    let nodes = if matches!(p.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline")) {
+        p.top_level_lines(nodes)?
+    } else {
+        match p.lx.advance()? {
+            Tok::Eof => nodes,
+            Tok::RBrace => return Err(Error::parse(p.lx.pos(), "unexpected `}`")),
+            Tok::Amp => return Err(Error::parse(p.lx.pos(), "`&` outside of an array")),
+            Tok::Cmd(c) => return Err(Error::parse(p.lx.pos(), format!("unexpected \\{c}"))),
+            t => return Err(Error::parse(p.lx.pos(), format!("unexpected token {t:?}"))),
+        }
+    };
+    Ok(match p.tag.take() {
+        Some(tag) => vec![Node::Tagged {
+            body: nodes,
+            tag: Box::new(tag),
+        }],
+        None => nodes,
+    })
 }
 
 struct Parser<'a> {
@@ -75,6 +85,8 @@ struct Parser<'a> {
     spans: bool,
     /// Inside `$...$` in text: the token that closes the math.
     text_math_close: Option<Tok<'static>>,
+    /// The formula's `\tag`, set wherever in the source it appears.
+    tag: Option<Node>,
 }
 
 /// Deeper nesting than this is rejected. The layout engine recurses once per
@@ -762,7 +774,29 @@ impl<'a> Parser<'a> {
             "limits" | "nolimits" | "displaylimits" | "relax" | "nonumber" | "notag" | "allowbreak" | "noindent" | "ignorespaces" => {
                 Ok(Node::Row(vec![]))
             }
-            "label" | "tag" | "ref" | "eqref" => {
+            "tag" => {
+                let starred = matches!(self.lx.peek()?, Tok::Char('*'));
+                if starred {
+                    self.lx.advance()?;
+                }
+                if self.tag.is_some() {
+                    return Err(Error::parse(pos, "a formula takes one \\tag"));
+                }
+                let body = self.parse_text_arg(Variant::Roman, pos)?;
+                let paren = |c: &str| Node::Text {
+                    text: c.to_string(),
+                    variant: Variant::Roman,
+                };
+                self.tag = Some(if starred {
+                    body
+                } else {
+                    Node::Row(vec![paren("("), body, paren(")")])
+                });
+                Ok(Node::Row(vec![]))
+            }
+            // A label or cross-reference points into the surrounding document,
+            // which a formula renderer cannot see.
+            "label" | "ref" | "eqref" => {
                 let _ = self.lx.raw_group()?;
                 Ok(Node::Row(vec![]))
             }
@@ -1093,6 +1127,26 @@ impl<'a> Parser<'a> {
                 self.parse_arg()
             }
             "DOTSB" | "DOTSI" | "DOTSX" => Ok(Node::Row(vec![])),
+            "ce" | "pu" => {
+                let raw = self.lx.raw_group()?;
+                // The inner parse starts its own depth count, so it must not
+                // be able to start another one.
+                if raw.contains("\\ce") || raw.contains("\\pu") {
+                    return Err(Error::parse(pos, format!("\\{name} inside \\ce or \\pu")));
+                }
+                let tex = if name == "ce" {
+                    mhchem::ce_to_tex(raw).map_err(|m| Error::parse(pos, m))?
+                } else {
+                    mhchem::pu_to_tex(raw)
+                };
+                let budget = Budget {
+                    max_nodes: self.max_nodes.saturating_sub(self.nodes),
+                    ..Budget::default()
+                };
+                let nodes = parse_inner(&tex, &Macros::new(), budget, false).map_err(|e| Error::parse(pos, format!("in \\{name}: {e}")))?;
+                self.nodes += nodes.len();
+                Ok(Node::Row(nodes))
+            }
             // Text-mode letters and accents used in math: `\AA`, `\c{C}`.
             _ if text::text_symbol(name).is_some()
                 || matches!(
