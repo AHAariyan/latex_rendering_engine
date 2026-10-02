@@ -20,3 +20,4 @@ platforms/ios/*/*.xcframework
 platforms/ios/*/.build/
 # Comparison harness output
 texcompare.png
+/dist/

@@ -45,6 +45,19 @@ public struct MathLayout {
             .sorted { $0.frame.width * $0.frame.height > $1.frame.width * $1.frame.height }
     }
 
+    /// Rectangles covering a range of source, for highlighting the part a
+    /// screen reader is reading. Only the outermost regions inside the range
+    /// are returned, so they do not overlap. Needs a `hitTesting` layout.
+    public func highlight(start: Int, end: Int) -> [CGRect] {
+        var out: [MathSourceRegion] = []
+        for r in regions where r.start >= start && r.end <= end {
+            if out.contains(where: { $0.start <= r.start && $0.end >= r.end }) { continue }
+            out.removeAll { r.start <= $0.start && r.end >= $0.end }
+            out.append(r)
+        }
+        return out.map(\.frame)
+    }
+
     /// The smallest piece of source under the point.
     public func hitTest(_ point: CGPoint) -> MathSourceRegion? { hit(point).last }
 
@@ -63,6 +76,29 @@ public struct MathLayout {
             return a == b ? $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height : a < b
         }
     }
+}
+
+/// How much scaffolding spoken math carries.
+public enum SpeechVerbosity: Int32 {
+    /// Every structure is opened and closed: "the fraction 1 over 2, end fraction".
+    case verbose = 0
+    /// Scaffolding only where needed: "1 over 2". The default.
+    case brief = 1
+    /// Content words only.
+    case superbrief = 2
+}
+
+/// One part of a formula for a screen reader to step through.
+public struct MathSpeechNode: Decodable, Equatable {
+    /// "fraction", "root", "scripts", "matrix", "symbol", ...
+    public let role: String
+    /// Place in the parent: "numerator", "superscript", "row 2", or empty.
+    public let label: String
+    public let text: String
+    /// Byte range of the source, for `MathLayout.highlight`.
+    public let start: Int
+    public let end: Int
+    public let children: [MathSpeechNode]
 }
 
 public struct MathParseError: Error, CustomStringConvertible {
@@ -92,6 +128,7 @@ public final class MathEngine {
 
     /// Font units per em of one font of the chain; a fallback may differ.
     public func unitsPerEm(_ font: UInt16 = 0) -> CGFloat {
+        lock.lock(); defer { lock.unlock() }
         if let v = upem[font] { return v }
         let v = CGFloat(math_engine_units_per_em(handle, font))
         upem[font] = v
@@ -183,6 +220,37 @@ public final class MathEngine {
     /// A spoken sentence for a formula, for `accessibilityLabel`. Needs no engine.
     public static func speech(_ tex: String) throws -> String {
         try string { tex.withCString { math_speech($0, nil) } }
+    }
+
+    /// `speech` at a chosen verbosity.
+    public static func speech(_ tex: String, verbosity: SpeechVerbosity) throws -> String {
+        try string { tex.withCString { math_speech_ex($0, nil, verbosity.rawValue) } }
+    }
+
+    /// The formula as a tree a screen reader can walk part by part. Each
+    /// node's `start..<end` is the source range to pass to
+    /// `MathLayout.highlight` while that part is read.
+    public static func speechTree(_ tex: String, verbosity: SpeechVerbosity = .brief) throws -> MathSpeechNode {
+        let json = try string { tex.withCString { math_speech_tree($0, nil, verbosity.rawValue) } }
+        return try JSONDecoder().decode(MathSpeechNode.self, from: Data(json.utf8))
+    }
+
+    /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `render`.
+    public static func asciimathToTex(_ source: String) throws -> String {
+        try string { source.withCString { math_asciimath_to_tex($0) } }
+    }
+
+    /// Caps the work one formula may cost, for input from strangers. Nil keeps
+    /// a limit's default.
+    public func setBudget(maxExpandedBytes: Int? = nil, maxNodes: Int? = nil, maxItems: Int? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        math_engine_set_budget(handle, maxExpandedBytes ?? 0, maxNodes ?? 0, maxItems ?? 0)
+    }
+
+    /// Layouts kept for repeated requests (default 256); 0 turns caching off.
+    public func setCacheCapacity(_ capacity: Int) {
+        lock.lock(); defer { lock.unlock() }
+        math_engine_set_cache_capacity(handle, capacity)
     }
 
     private static func string(_ call: () -> UnsafeMutablePointer<CChar>?) throws -> String {

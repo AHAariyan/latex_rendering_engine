@@ -193,6 +193,12 @@ pub fn speech_tree(tex: &str, verbosity: u8, macros: Option<String>) -> Result<S
         .map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for the other calls.
+#[wasm_bindgen(js_name = asciimathToTex)]
+pub fn asciimath_to_tex(src: &str) -> Result<String, JsError> {
+    mathcore::asciimath_to_tex(src).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[wasm_bindgen]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()

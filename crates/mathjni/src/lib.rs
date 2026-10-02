@@ -18,6 +18,7 @@ use jni::sys::{jboolean, jfloat, jfloatArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use mathcore::{Color, LineBreak, Macros, MathFont, RenderOptions};
 use std::cell::RefCell;
+use std::sync::Mutex;
 use ttf_parser::OutlineBuilder;
 
 #[cfg(feature = "bundled-font")]
@@ -37,6 +38,31 @@ pub struct Engine {
     font: MathFont<'static>,
     /// Recomposing widgets ask for the same formula again and again.
     cache: mathcore::LayoutCache,
+    budget: Mutex<mathcore::Budget>,
+}
+
+impl Engine {
+    fn new(data: Vec<*mut [u8]>, font: MathFont<'static>) -> Self {
+        Engine {
+            data,
+            font,
+            cache: mathcore::LayoutCache::default(),
+            budget: Mutex::new(mathcore::Budget::default()),
+        }
+    }
+}
+
+/// A panic inside the engine must not unwind into the JVM: it becomes an
+/// error return. (Effective in builds with `panic = "unwind"`, which the SDK
+/// profile uses.)
+fn guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(v) => v,
+        Err(_) => {
+            set_error("internal error in the math engine; please report the formula");
+            fallback
+        }
+    }
 }
 
 impl Drop for Engine {
@@ -77,11 +103,7 @@ fn engine_from_bytes(math: Option<Vec<u8>>, text: Option<Vec<u8>>) -> Result<Box
     if let Some(b) = text {
         font = font.with_text_font(load(b)?);
     }
-    Ok(Box::new(Engine {
-        data: owned,
-        font,
-        cache: mathcore::LayoutCache::default(),
-    }))
+    Ok(Box::new(Engine::new(owned, font)))
 }
 
 /// Packs a display list into the flat float layout documented at the top.
@@ -152,11 +174,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_createBundled(_env: JNIEnv
     #[cfg(feature = "bundled-font")]
     {
         match bundled::font() {
-            Ok(font) => Box::into_raw(Box::new(Engine {
-                data: Vec::new(),
-                font,
-                cache: mathcore::LayoutCache::default(),
-            })) as jlong,
+            Ok(font) => Box::into_raw(Box::new(Engine::new(Vec::new(), font))) as jlong,
             Err(e) => {
                 set_error(e.to_string());
                 0
@@ -202,6 +220,23 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
     max_width: jfloat,
     hit_testing: jboolean,
 ) -> jfloatArray {
+    guard(std::ptr::null_mut(), || {
+        render_impl(&mut env, handle, tex, font_size, display, color, macros, max_width, hit_testing)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_impl(
+    env: &mut JNIEnv,
+    handle: jlong,
+    tex: JString,
+    font_size: jfloat,
+    display: jboolean,
+    color: jint,
+    macros: JString,
+    max_width: jfloat,
+    hit_testing: jboolean,
+) -> jfloatArray {
     let Some(eng) = engine(handle) else { return std::ptr::null_mut() };
     let tex: String = match env.get_string(&tex) {
         Ok(s) => s.into(),
@@ -228,10 +263,10 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
         hit_testing: hit_testing != 0,
-        budget: mathcore::Budget::default(),
+        budget: *eng.budget.lock().unwrap_or_else(|p| p.into_inner()),
     };
     match eng.cache.render(&eng.font, &tex, &opts) {
-        Ok(dl) => float_array(&env, &pack(&dl)),
+        Ok(dl) => float_array(env, &pack(&dl)),
         Err(e) => {
             set_error(e.to_string());
             std::ptr::null_mut()
@@ -267,6 +302,86 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_speech(mut env: JNIEnv, _c
     };
     let tex: String = tex.into();
     string_result(&env, mathcore::render_speech(&tex, &Macros::new()))
+}
+
+fn get(env: &mut JNIEnv, s: &JString) -> Option<String> {
+    match env.get_string(s) {
+        Ok(s) => Some(s.into()),
+        Err(_) => {
+            set_error("not a string");
+            None
+        }
+    }
+}
+
+fn verbosity(v: jint) -> mathcore::SpeechOptions {
+    mathcore::SpeechOptions {
+        verbosity: match v {
+            0 => mathcore::Verbosity::Verbose,
+            2 => mathcore::Verbosity::Superbrief,
+            _ => mathcore::Verbosity::Brief,
+        },
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speechWith(mut env: JNIEnv, _class: JClass, tex: JString, level: jint) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(tex) = get(&mut env, &tex) else {
+            return std::ptr::null_mut();
+        };
+        string_result(&env, mathcore::render_speech_with(&tex, &Macros::new(), &verbosity(level)))
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speechTree(mut env: JNIEnv, _class: JClass, tex: JString, level: jint) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(tex) = get(&mut env, &tex) else {
+            return std::ptr::null_mut();
+        };
+        string_result(
+            &env,
+            mathcore::render_speech_tree(&tex, &Macros::new(), &verbosity(level)).map(|t| t.to_json()),
+        )
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_asciimathToTex(mut env: JNIEnv, _class: JClass, src: JString) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(src) = get(&mut env, &src) else {
+            return std::ptr::null_mut();
+        };
+        string_result(&env, mathcore::asciimath_to_tex(&src))
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_setBudget(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    max_expanded_bytes: jlong,
+    max_nodes: jlong,
+    max_items: jlong,
+) {
+    let Some(eng) = engine(handle) else { return };
+    let d = mathcore::Budget::default();
+    let pick = |v: jlong, default: usize| if v <= 0 { default } else { v as usize };
+    *eng.budget.lock().unwrap_or_else(|p| p.into_inner()) = mathcore::Budget {
+        max_expanded_bytes: pick(max_expanded_bytes, d.max_expanded_bytes),
+        max_nodes: pick(max_nodes, d.max_nodes),
+        max_items: pick(max_items, d.max_items),
+    };
+    eng.cache.clear();
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_setCacheCapacity(_env: JNIEnv, _class: JClass, handle: jlong, capacity: jint) {
+    if let Some(eng) = engine(handle) {
+        eng.cache.set_capacity(capacity.max(0) as usize);
+    }
 }
 
 #[no_mangle]

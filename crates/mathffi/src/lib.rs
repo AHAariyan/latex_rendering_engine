@@ -555,6 +555,16 @@ pub unsafe extern "C" fn math_speech_tree(tex: *const c_char, macros: *const c_c
     string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
 }
 
+/// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `math_engine_render`.
+/// Ownership and errors as `math_mathml`.
+///
+/// # Safety
+/// `src` must be a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_asciimath_to_tex(src: *const c_char) -> *mut c_char {
+    string_out(src, std::ptr::null(), |t, _| mathcore::asciimath_to_tex(t))
+}
+
 unsafe fn string_out(tex: *const c_char, macros: *const c_char, f: impl Fn(&str, &Macros) -> mathcore::Result<String>) -> *mut c_char {
     clear_error();
     guard(std::ptr::null_mut(), || string_out_impl(tex, macros, f))

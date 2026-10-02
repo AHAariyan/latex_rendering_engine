@@ -115,6 +115,8 @@ char* math_speech_ex(const char* tex, const char* macros, int32_t verbosity);
  * {"role","label","text","start","end","children":[...]}. start..end is the
  * source byte range to pass to the highlight call while that part is read. */
 char* math_speech_tree(const char* tex, const char* macros, int32_t verbosity);
+/* AsciiMath input ("sum_(i=1)^n i^2") translated to TeX for the calls above. */
+char* math_asciimath_to_tex(const char* src);
 void math_string_free(char* s);
 
 /* Message for the last failed call on this thread, or NULL. Valid until the next call. */
