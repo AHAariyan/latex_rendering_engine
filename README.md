@@ -46,7 +46,11 @@ Working today:
   the same tree the engine draws from, so `x^2 + y^2 = z^2` is announced as
   "x squared plus y squared equals z squared". The Compose, SwiftUI, Flutter
   and Android View widgets carry it automatically, so TalkBack and VoiceOver
-  read the formula instead of skipping it.
+  read the formula instead of skipping it. Speech comes at three verbosity
+  levels (verbose closes every structure: "..., end fraction"), and
+  `render_speech_tree` gives a tree a reader can walk into numerator,
+  denominator, scripts and matrix cells, each part carrying the source range
+  to `highlight` while it is spoken.
 - **Line breaking**: a formula too wide for the space available is broken into
   lines before relations and binary operators, the way an author breaks a long
   equation by hand, with the split chosen by a Knuth-Plass style dynamic
@@ -176,6 +180,13 @@ for item in &list.items {
   parsed nodes and drawable items. A formula from a stranger that would cost
   real memory is an error, not an out-of-memory kill. Defaults are far above
   anything a person writes; `Budget::unlimited()` opts out.
+- **Real-world corpus**: `tools/corpus/run.sh` runs the 103,559 arXiv
+  formulas of im2latex-100k through mathcore and KaTeX. mathcore accepts
+  97.6% (KaTeX 94.1%); every accepted formula is checked for determinism,
+  finite geometry, hit testing that never moves ink, line breaking, a
+  well-nested speech tree and balanced MathML; then 100,000 mutants of real
+  formulas are fuzzed on a 256 KB stack. Any violation, panic or a mutant
+  slower than 50 ms fails the run.
 - **Benchmarks**: `cargo bench -p mathcore`.
 
 ## Development

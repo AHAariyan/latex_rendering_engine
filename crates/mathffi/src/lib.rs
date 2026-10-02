@@ -447,6 +447,38 @@ pub unsafe extern "C" fn math_speech(tex: *const c_char, macros: *const c_char) 
     string_out(tex, macros, mathcore::render_speech)
 }
 
+fn verbosity_from_c(v: i32) -> mathcore::SpeechOptions {
+    let verbosity = match v {
+        0 => mathcore::Verbosity::Verbose,
+        2 => mathcore::Verbosity::Superbrief,
+        _ => mathcore::Verbosity::Brief,
+    };
+    mathcore::SpeechOptions { verbosity }
+}
+
+/// `math_speech` at a verbosity: 0 verbose, 1 brief (the default), 2 superbrief.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_ex(tex: *const c_char, macros: *const c_char, verbosity: i32) -> *mut c_char {
+    let opts = verbosity_from_c(verbosity);
+    string_out(tex, macros, |t, m| mathcore::render_speech_with(t, m, &opts))
+}
+
+/// The formula as a navigable speech tree, as JSON. Each node is
+/// `{"role","label","text","start","end","children"}`; `start..end` is the
+/// source byte range to highlight while that node is read. Ownership and
+/// errors as `math_mathml`.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_tree(tex: *const c_char, macros: *const c_char, verbosity: i32) -> *mut c_char {
+    let opts = verbosity_from_c(verbosity);
+    string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
+}
+
 unsafe fn string_out(tex: *const c_char, macros: *const c_char, f: impl Fn(&str, &Macros) -> mathcore::Result<String>) -> *mut c_char {
     clear_error();
     if tex.is_null() {

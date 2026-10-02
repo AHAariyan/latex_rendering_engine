@@ -18,6 +18,17 @@ pub enum Tok<'a> {
     Eof,
 }
 
+/// A token in text mode, where spaces are significant.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TextTok<'a> {
+    Char(char),
+    Cmd(&'a str),
+    LBrace,
+    RBrace,
+    Eof,
+}
+
+#[derive(Clone)]
 pub struct Lexer<'a> {
     src: &'a str,
     pos: usize,
@@ -112,6 +123,57 @@ impl<'a> Lexer<'a> {
             }
         }
         Err(Error::parse(start, "unbalanced group"))
+    }
+
+    /// The next token in text mode (inside `\text{}`): whitespace is a
+    /// character rather than skipped, `%` starts a comment, and a control word
+    /// swallows the spaces after it, as TeX does.
+    pub fn text_tok(&mut self) -> Result<TextTok<'a>> {
+        if let Some((p, _)) = self.peeked.take() {
+            self.pos = p;
+        }
+        loop {
+            let Some(c) = self.src[self.pos..].chars().next() else {
+                return Ok(TextTok::Eof);
+            };
+            let start = self.pos;
+            self.pos += c.len_utf8();
+            let t = match c {
+                '{' => TextTok::LBrace,
+                '}' => TextTok::RBrace,
+                '%' => {
+                    while self.pos < self.src.len() && self.src.as_bytes()[self.pos] != b'\n' {
+                        self.pos += 1;
+                    }
+                    continue;
+                }
+                '\\' => {
+                    let name_start = self.pos;
+                    let letters = self.src[name_start..]
+                        .find(|ch: char| !ch.is_ascii_alphabetic())
+                        .unwrap_or(self.src.len() - name_start);
+                    let end = if letters > 0 {
+                        name_start + letters
+                    } else {
+                        let ch = self.src[name_start..]
+                            .chars()
+                            .next()
+                            .ok_or_else(|| Error::parse(start, "dangling backslash"))?;
+                        name_start + ch.len_utf8()
+                    };
+                    self.pos = end;
+                    if letters > 0 {
+                        while self.pos < self.src.len() && self.src.as_bytes()[self.pos].is_ascii_whitespace() {
+                            self.pos += 1;
+                        }
+                    }
+                    TextTok::Cmd(&self.src[name_start..end])
+                }
+                _ => TextTok::Char(c),
+            };
+            self.last_end = self.pos;
+            return Ok(t);
+        }
     }
 
     /// Reads `\verb<delim>text<delim>`, returning the text between the

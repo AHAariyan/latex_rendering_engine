@@ -75,7 +75,9 @@ fn subset_font_keeps_every_math_record() {
 fn subset_font_is_geometrically_identical() {
     let full = MathFont::from_bytes(FULL).unwrap();
     let sub = MathFont::from_bytes(SUBSET).unwrap();
-    assert!(SUBSET.len() < FULL.len() * 2 / 3, "subset should be materially smaller");
+    // About 540 KB of 734 KB: the math repertoire plus the accented Latin
+    // letters text mode composes (`\'e`, `\v{s}`), about 50 KB on their own.
+    assert!(SUBSET.len() < FULL.len() * 3 / 4, "subset should be materially smaller");
     let extra = [
         r"\mathsf{Ab} \mathtt{xy} \mathfrak{Cd} \mathscr{EF} \mathbb{GH} \boldsymbol{\Gamma\delta}",
         r"\alpha\beta\gamma\delta\epsilon\zeta\eta\theta\iota\kappa\lambda\mu\nu\xi\pi\rho\sigma\tau\upsilon\phi\chi\psi\omega",

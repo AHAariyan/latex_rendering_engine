@@ -246,10 +246,19 @@ fn collect_definitions(src: &str, macros: &mut Macros) -> Result<String> {
     let b = src.as_bytes();
     while i < b.len() {
         let rest = &src[i..];
-        let keyword = ["\\newcommand", "\\renewcommand", "\\providecommand", "\\def"]
-            .iter()
-            .find(|k| rest.starts_with(*k))
-            .copied();
+        let keyword = [
+            "\\newcommand",
+            "\\renewcommand",
+            "\\providecommand",
+            "\\def",
+            "\\gdef",
+            "\\edef",
+            "\\xdef",
+            "\\let",
+        ]
+        .iter()
+        .find(|k| rest.starts_with(*k))
+        .copied();
         let Some(kw) = keyword else {
             let c = rest.chars().next().unwrap();
             out.push(c);
@@ -257,8 +266,8 @@ fn collect_definitions(src: &str, macros: &mut Macros) -> Result<String> {
             continue;
         };
         let after_kw = i + kw.len();
-        if kw != "\\def" && src[after_kw..].starts_with(|c: char| c.is_ascii_alphabetic()) {
-            // Longer control sequence such as `\newcommandx`; not a definition.
+        if src[after_kw..].starts_with(|c: char| c.is_ascii_alphabetic()) {
+            // Longer control sequence such as `\newcommandx` or `\left`; not a definition.
             out.push_str(kw);
             i = after_kw;
             continue;
@@ -267,8 +276,12 @@ fn collect_definitions(src: &str, macros: &mut Macros) -> Result<String> {
         if src[j..].starts_with('*') {
             j += 1;
         }
-        let (name, params, body, end) = if kw == "\\def" {
-            parse_def(src, j).ok_or_else(|| Error::parse(i, "malformed \\def"))?
+        let (name, params, body, end) = if kw == "\\let" {
+            parse_let(src, j).ok_or_else(|| Error::parse(i, "malformed \\let"))?
+        } else if kw.ends_with("def") {
+            // \gdef, \edef and \xdef differ from \def in scope and expansion
+            // time, neither of which a single formula can observe.
+            parse_def(src, j).ok_or_else(|| Error::parse(i, format!("malformed {kw}")))?
         } else {
             parse_newcommand(src, j).ok_or_else(|| Error::parse(i, format!("malformed {kw}")))?
         };
@@ -279,6 +292,23 @@ fn collect_definitions(src: &str, macros: &mut Macros) -> Result<String> {
         i = end;
     }
     Ok(out)
+}
+
+/// `\let\new\old` or `\let\new=\old`: `\new` becomes an alias of `\old`.
+fn parse_let(src: &str, i: usize) -> Option<(String, usize, String, usize)> {
+    let (name, mut i) = read_cs_name(src, skip_ws(src, i))?;
+    i = skip_ws(src, i);
+    if src[i..].starts_with('=') {
+        i = skip_ws(src, i + 1);
+    }
+    let target_end = if src[i..].starts_with('\\') {
+        read_cs_name(src, i)
+            .map(|(_, e)| e)
+            .unwrap_or(i + 1 + src[i + 1..].chars().next()?.len_utf8())
+    } else {
+        i + src[i..].chars().next()?.len_utf8()
+    };
+    Some((name, 0, src[i..target_end].to_string(), target_end))
 }
 
 fn skip_ws(src: &str, mut i: usize) -> usize {

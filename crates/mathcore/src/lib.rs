@@ -15,7 +15,7 @@ pub mod macros;
 pub mod parser;
 pub mod symbols;
 
-pub use a11y::{mathml, speech};
+pub use a11y::{mathml, speech, speech_tree, speech_with, SpeechNode, SpeechOptions, Verbosity};
 pub use ast::Node;
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
@@ -84,6 +84,19 @@ pub fn render_mathml(tex: &str, display_mode: bool, macros: &Macros) -> Result<S
 /// Parses a formula and writes a spoken sentence for a screen reader.
 pub fn render_speech(tex: &str, macros: &Macros) -> Result<String> {
     Ok(a11y::speech(&parse_with(tex, macros)?))
+}
+
+/// `render_speech` at a chosen verbosity.
+pub fn render_speech_with(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<String> {
+    Ok(a11y::speech_with(&parse_with(tex, macros)?, opts))
+}
+
+/// Parses a formula into a tree a screen reader can walk part by part. Each
+/// part's `start..end` is the source range to pass to `DisplayList::highlight`
+/// (on a list rendered with `hit_testing`) while that part is being read.
+pub fn render_speech_tree(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<SpeechNode> {
+    let nodes = parser::parse_with_spans(tex, macros, Budget::default())?;
+    Ok(a11y::speech_tree(&nodes, opts))
 }
 
 /// Parses and lays out a formula in one call.
@@ -424,6 +437,42 @@ mod tests {
         assert!(dl.hit_innermost(1.0, 1.0).is_none());
     }
 
+    /// Everything text mode can produce must exist in the fonts every binding
+    /// ships, or a name like Erdős would come out with a blank box in it.
+    #[test]
+    fn bundled_fonts_cover_text_mode() {
+        let f = bundled::font().unwrap();
+        let tex = r#"\text{Erd\H{o}s G\"odel na\"{\i}ve \c{c}a \v{S}koda \AA ngstr\"om \L\'od\'z \ae\oe\ss\o
+            \'a\'e\'i\'o\'u \`a\`e \^o \~n \=a \.z \u{g} \k{a} \r{u} 1--2---3 ``a'' \S\P\dag\ddag\copyright
+            \pounds\textdegree\textregistered\texttrademark\dots\textbullet}"#;
+        let dl = render(&f, tex, &RenderOptions::default()).unwrap();
+        for item in &dl.items {
+            if let Item::Glyph { id, .. } = item {
+                assert_ne!(*id, 0, "a text character fell back to .notdef");
+            }
+        }
+    }
+
+    /// Recording regions must never move ink. Each case is a construct whose
+    /// layout looks at a neighbour or a child's kind, which the region
+    /// wrapper used to hide (found by the arXiv corpus check).
+    #[test]
+    fn hit_testing_never_changes_the_drawing() {
+        let f = font();
+        for tex in [
+            r"0<\displaystyle\frac{\nu \pi }{p+1}<\pi /2",
+            r"a + \color{red} b + c",
+            r"1 \stackrel{\cal H}{\rightarrow} \theta(x)",
+            r"j(T)\stackrel{def}{=} 1728 J(T)",
+            r"\left\{ x \middle| \frac{x}{2} \in \mathbb{Z} \right\}",
+            r"D = -\textstyle{\frac{4}{9}} C",
+        ] {
+            let plain = render(&f, tex, &RenderOptions::default()).unwrap();
+            let hit = render(&f, tex, &hit_opts()).unwrap();
+            assert_eq!(plain.items, hit.items, "{tex}");
+        }
+    }
+
     #[test]
     fn highlight_covers_a_source_range_without_overlap() {
         let f = font();
@@ -536,6 +585,9 @@ mod tests {
     fn bundled_fonts_cover_the_symbol_table() {
         use crate::symbols::{ACCENTS, BIG_OPS, SYMBOLS};
         const KNOWN_MISSING_IN_LATIN_MODERN: &[&str] = &[
+            "minuso",
+            "varsubsetneqq",
+            "varsupsetneqq",
             "Diamond",
             "bigstar",
             "blacktriangle",

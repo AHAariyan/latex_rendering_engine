@@ -103,6 +103,12 @@ void math_buffer_free(float* buffer, size_t len);
  * or a font. `macros` is optional, as in math_engine_render. */
 char* math_mathml(const char* tex, bool display_mode, const char* macros);
 char* math_speech(const char* tex, const char* macros);
+/* Verbosity: 0 verbose ("..., end fraction"), 1 brief (math_speech), 2 superbrief. */
+char* math_speech_ex(const char* tex, const char* macros, int32_t verbosity);
+/* A tree a screen reader walks part by part, as JSON:
+ * {"role","label","text","start","end","children":[...]}. start..end is the
+ * source byte range to pass to the highlight call while that part is read. */
+char* math_speech_tree(const char* tex, const char* macros, int32_t verbosity);
 void math_string_free(char* s);
 
 /* Message for the last failed call on this thread, or NULL. Valid until the next call. */

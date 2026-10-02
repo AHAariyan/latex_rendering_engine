@@ -70,6 +70,9 @@ CLI, golden-image tests, CI.
 - [x] Accessibility: Presentation MathML and spoken text from the AST
       (`crates/mathcore/src/a11y.rs`), carried by every widget as a content
       description, semantics label or aria-label.
+- [~] Accessibility depth: verbosity levels and a navigable speech tree with
+      source ranges for synchronized highlighting (core, C ABI, wasm). Open:
+      JNI/Kotlin/Swift/Dart and widget navigation, more languages, Nemeth braille.
 - [x] Hit testing: source regions in the display list, exposed on every binding,
       with tap support in the Compose and Flutter widgets.
 - [ ] Selection UI: drag to extend, copy as LaTeX or MathML.

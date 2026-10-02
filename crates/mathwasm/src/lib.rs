@@ -158,6 +158,30 @@ pub fn speech(tex: &str, macros: Option<String>) -> Result<String, JsError> {
     mathcore::render_speech(tex, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))
 }
 
+fn speech_opts(verbosity: u8) -> mathcore::SpeechOptions {
+    let verbosity = match verbosity {
+        0 => mathcore::Verbosity::Verbose,
+        2 => mathcore::Verbosity::Superbrief,
+        _ => mathcore::Verbosity::Brief,
+    };
+    mathcore::SpeechOptions { verbosity }
+}
+
+/// `speech` at a verbosity: 0 verbose, 1 brief, 2 superbrief.
+#[wasm_bindgen(js_name = speechWith)]
+pub fn speech_with(tex: &str, verbosity: u8, macros: Option<String>) -> Result<String, JsError> {
+    mathcore::render_speech_with(tex, &macros_from(macros), &speech_opts(verbosity)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// The navigable speech tree as JSON; `JSON.parse` it. Each node's
+/// `start..end` is a source byte range for highlighting.
+#[wasm_bindgen(js_name = speechTree)]
+pub fn speech_tree(tex: &str, verbosity: u8, macros: Option<String>) -> Result<String, JsError> {
+    mathcore::render_speech_tree(tex, &macros_from(macros), &speech_opts(verbosity))
+        .map(|n| n.to_json())
+        .map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[wasm_bindgen]
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()

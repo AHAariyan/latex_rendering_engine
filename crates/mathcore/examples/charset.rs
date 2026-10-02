@@ -48,6 +48,16 @@ fn main() {
             set.insert(styled_char(b, v));
         }
     }
+    // Text mode: accented Latin letters, combining accents for the letters
+    // without a precomposed form, and typographic punctuation and symbols.
+    for c in (0x100u32..0x180).chain(0x300..0x332).chain([0x361, 0x1F5]).chain(0x2010..0x2027) {
+        if let Some(c) = char::from_u32(c) {
+            set.insert(c);
+        }
+    }
+    for c in ['™', '∷', '∶', 'ȷ', 'ı'] {
+        set.insert(c);
+    }
     // Negations produced by \not.
     for c in [
         '≠', '∉', '≮', '≯', '≢', '⊄', '⊅', '⊈', '⊉', '≁', '≉', '≰', '≱', '∄', '≄', '≇', '∤', '∦', '↛', '⇏', '∌',

@@ -1,0 +1,267 @@
+[
+ {
+  "name": "quadratic",
+  "tex": "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}",
+  "display": true
+ },
+ {
+  "name": "basel",
+  "tex": "\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}",
+  "display": true
+ },
+ {
+  "name": "gaussian",
+  "tex": "\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}",
+  "display": true
+ },
+ {
+  "name": "euler",
+  "tex": "e^{i\\pi} + 1 = 0",
+  "display": false
+ },
+ {
+  "name": "limit",
+  "tex": "\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1",
+  "display": true
+ },
+ {
+  "name": "limit_inline",
+  "tex": "\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1",
+  "display": false
+ },
+ {
+  "name": "binom",
+  "tex": "\\binom{n}{k} = \\frac{n!}{k!(n-k)!}",
+  "display": true
+ },
+ {
+  "name": "cases",
+  "tex": "f(x) = \\begin{cases} x^2 & \\text{if } x \\ge 0 \\\\ -x & \\text{otherwise} \\end{cases}",
+  "display": true
+ },
+ {
+  "name": "pmatrix",
+  "tex": "A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}",
+  "display": true
+ },
+ {
+  "name": "bmatrix3",
+  "tex": "\\begin{bmatrix} 1 & 0 & 0 \\\\ 0 & 1 & 0 \\\\ 0 & 0 & 1 \\end{bmatrix}",
+  "display": true
+ },
+ {
+  "name": "aligned",
+  "tex": "\\begin{aligned} a &= b + c \\\\ d + e &= f \\end{aligned}",
+  "display": true
+ },
+ {
+  "name": "left_right",
+  "tex": "\\left( \\frac{a}{b} + \\left[ \\frac{c}{d} \\right] \\right)^2",
+  "display": true
+ },
+ {
+  "name": "nested_frac",
+  "tex": "\\frac{1}{1 + \\frac{1}{1 + \\frac{1}{x}}}",
+  "display": true
+ },
+ {
+  "name": "sqrt_index",
+  "tex": "\\sqrt[3]{x^3 + y^3} + \\sqrt{\\frac{a}{b}}",
+  "display": true
+ },
+ {
+  "name": "accents",
+  "tex": "\\hat{x} \\tilde{y} \\bar{z} \\vec{v} \\dot{q} \\ddot{q} \\widehat{abc} \\widetilde{xyz} \\overline{AB} \\underline{CD}",
+  "display": true
+ },
+ {
+  "name": "alphabets",
+  "tex": "\\mathbf{Ab} \\mathbb{RZ} \\mathcal{FG} \\mathfrak{gh} \\mathsf{xy} \\mathtt{01} \\boldsymbol{\\alpha\\beta}",
+  "display": true
+ },
+ {
+  "name": "greek",
+  "tex": "\\alpha\\beta\\gamma\\delta\\epsilon\\varepsilon\\zeta\\eta\\theta\\vartheta\\iota\\kappa\\lambda\\mu\\nu\\xi\\pi\\rho\\sigma\\tau\\upsilon\\phi\\varphi\\chi\\psi\\omega \\Gamma\\Delta\\Theta\\Lambda\\Xi\\Pi\\Sigma\\Upsilon\\Phi\\Psi\\Omega",
+  "display": true
+ },
+ {
+  "name": "relations",
+  "tex": "a \\le b \\ge c \\ne d \\approx e \\equiv f \\subset g \\in h \\to i \\Rightarrow j \\iff k",
+  "display": true
+ },
+ {
+  "name": "spacing",
+  "tex": "a+b-c\\times d\\cdot e = f, g; h \\, i \\; j \\quad k \\qquad l",
+  "display": true
+ },
+ {
+  "name": "scripts",
+  "tex": "x_i^2 + y^{a^{b^c}} + z_{i_{j_k}} + f'(x) + g''(x) + T_{\\mathrm{max}}^{\\mathrm{ref}}",
+  "display": true
+ },
+ {
+  "name": "big_ops_display",
+  "tex": "\\sum_{i=1}^{n} \\prod_{j=1}^{m} \\int_0^1 \\oint_C \\bigcup_{k} \\bigcap_{k} x",
+  "display": true
+ },
+ {
+  "name": "big_ops_inline",
+  "tex": "\\sum_{i=1}^{n} \\prod_{j=1}^{m} \\int_0^1 \\oint_C x",
+  "display": false
+ },
+ {
+  "name": "maxwell",
+  "tex": "\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}, \\quad \\nabla \\times \\mathbf{B} - \\frac{1}{c^2}\\frac{\\partial \\mathbf{E}}{\\partial t} = \\mu_0 \\mathbf{J}",
+  "display": true
+ },
+ {
+  "name": "schrodinger",
+  "tex": "i\\hbar \\frac{\\partial}{\\partial t} \\Psi(\\mathbf{r},t) = \\left[ -\\frac{\\hbar^2}{2m} \\nabla^2 + V(\\mathbf{r},t) \\right] \\Psi(\\mathbf{r},t)",
+  "display": true
+ },
+ {
+  "name": "sized_delims",
+  "tex": "\\bigl( \\Bigl( \\biggl( \\Biggl( x \\Biggr) \\biggr) \\Bigr) \\bigr)",
+  "display": true
+ },
+ {
+  "name": "text_and_ops",
+  "tex": "\\sin^2\\theta + \\cos^2\\theta = 1, \\quad \\log_2 8 = 3, \\quad \\operatorname{argmax}_x f(x)",
+  "display": true
+ },
+ {
+  "name": "stack",
+  "tex": "\\overset{\\text{def}}{=} \\quad \\underset{x}{\\max} \\quad \\stackrel{?}{=}",
+  "display": true
+ },
+ {
+  "name": "not_and_neg",
+  "tex": "a \\not= b, \\quad x \\notin S, \\quad \\neg p \\lor q",
+  "display": true
+ },
+ {
+  "name": "phantom",
+  "tex": "\\frac{1}{\\phantom{-}2} + \\frac{1}{-2}",
+  "display": true
+ },
+ {
+  "name": "smallmatrix",
+  "tex": "\\left( \\begin{smallmatrix} a & b \\\\ c & d \\end{smallmatrix} \\right)",
+  "display": false
+ },
+ {
+  "name": "boxed_cancel",
+  "tex": "\\boxed{E = mc^2} \\quad \\cancel{x} + \\bcancel{y} + \\xcancel{z}",
+  "display": true
+ },
+ {
+  "name": "braces",
+  "tex": "\\underbrace{a + b + \\cdots + z}_{26} \\quad \\overbrace{1 + 2}^{3}",
+  "display": true
+ },
+ {
+  "name": "xarrows",
+  "tex": "A \\xrightarrow{f \\circ g} B \\xleftarrow[\\text{under}]{} C \\xLeftrightarrow{\\sim} D",
+  "display": true
+ },
+ {
+  "name": "middle",
+  "tex": "\\left\\{ \\frac{x}{2} \\middle| x \\in \\mathbb{Z} \\right\\}",
+  "display": true
+ },
+ {
+  "name": "substack",
+  "tex": "\\sum_{\\substack{i < n \\\\ j < m}} a_{ij}",
+  "display": true
+ },
+ {
+  "name": "mod_choose",
+  "tex": "a \\equiv b \\pmod{n}, \\quad a \\bmod b, \\quad {n \\choose k}, \\quad {a \\over b + c}",
+  "display": true
+ },
+ {
+  "name": "genfrac",
+  "tex": "\\genfrac(]{0pt}{0}{a}{b} \\quad \\genfrac{}{}{1pt}{}{x}{y}",
+  "display": true
+ },
+ {
+  "name": "array_rules",
+  "tex": "\\begin{array}{|c|r|} \\hline 1 & 22 \\\\[4pt] \\hline 333 & 4 \\\\ \\hline \\end{array}",
+  "display": true
+ },
+ {
+  "name": "colors",
+  "tex": "\\textcolor{red}{x} + \\color{blue} y = \\textcolor{#0a0}{z}",
+  "display": true
+ },
+ {
+  "name": "macros",
+  "tex": "\\newcommand{\\pd}[2]{\\frac{\\partial #1}{\\partial #2}} \\pd{f}{x} + \\pd{f}{y}",
+  "display": true
+ },
+ {
+  "name": "mathop_class",
+  "tex": "\\mathop{\\mathrm{argmin}}\\limits_{x} f(x), \\quad a \\mathrel{R} b, \\quad a \\mathbin{\\ast} b",
+  "display": true
+ },
+ {
+  "name": "ams_relations",
+  "tex": "a \\lneqq b \\gneqq c \\lessapprox d \\gtrdot e \\preccurlyeq f \\succcurlyeq g \\Subset h \\Supset i",
+  "display": true
+ },
+ {
+  "name": "ams_operators",
+  "tex": "\\Cap \\Cup \\barwedge \\veebar \\curlyvee \\curlywedge \\leftthreetimes \\rightthreetimes \\divideontimes",
+  "display": true
+ },
+ {
+  "name": "ams_arrows",
+  "tex": "\\leftleftarrows \\rightrightarrows \\upharpoonright \\downharpoonleft \\looparrowleft \\multimap \\Lsh \\Rsh",
+  "display": true
+ },
+ {
+  "name": "boxes_and_rules",
+  "tex": "\\colorbox{yellow}{x^2} \\fcolorbox{red}{white}{y+1} \\sout{no} \\underbar{ok} \\rule{1em}{2pt}",
+  "display": true
+ },
+ {
+  "name": "laps_and_choice",
+  "tex": "a\\llap{/}b \\rlap{-}c \\clap{.}d \\mathchoice{D}{T}{S}{SS} \\vcenter{\\frac{a}{b}}",
+  "display": true
+ },
+ {
+  "name": "wide_accents",
+  "tex": "\\overleftrightarrow{AB} \\underrightarrow{CD} \\widecheck{gh} \\utilde{x} \\overgroup{yz} \\undergroup{wv}",
+  "display": true
+ },
+ {
+  "name": "verb_and_above",
+  "tex": "\\verb|a_b| \\quad {a \\above 1pt b} \\quad \\raisebox{0.4em}{up}",
+  "display": true
+ },
+ {
+  "name": "subarray",
+  "tex": "\\sum_{\\begin{subarray}{l} i<n \\\\ j<m \\end{subarray}} a_{ij} \\quad A \\xrightleftharpoons[k_{-1}]{k_1} B",
+  "display": true
+ },
+ {
+  "name": "aliases",
+  "tex": "\\R \\N \\Z \\Complex \\empty \\infin \\isin \\sdot \\plusmn \\hearts \\alefsym \\weierp \\lang x \\rang",
+  "display": true
+ },
+ {
+  "name": "intl_functions",
+  "tex": "\\tg x + \\ctg y + \\sh a + \\ch b + \\argmax_z f(z) + \\projlim_n A_n",
+  "display": true
+ },
+ {
+  "name": "fallback_glyphs",
+  "tex": "a \\subseteqq b \\supseteqq c \\precapprox d \\succneqq e \\Diamond \\bigstar \\digamma \\pitchfork",
+  "display": true
+ },
+ {
+  "name": "fallback_more",
+  "tex": "\\blacktriangle \\blacktriangledown \\circledS \\Finv \\Game \\diagup \\dashrightarrow \\doublebarwedge",
+  "display": true
+ }
+]

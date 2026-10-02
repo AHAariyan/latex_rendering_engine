@@ -39,7 +39,10 @@ Quality gates, all green at the last commit:
 
 ## Getting the machine ready
 
-Installed and still there: Rust with the Android and wasm targets, `cargo-ndk`,
+On the Mac: Rust comes from Homebrew's rustup, so put
+`/opt/homebrew/opt/rustup/bin` on `PATH`. Node is under nvm.
+
+On Linux, installed and still there: Rust with the Android and wasm targets, `cargo-ndk`,
 `wasm-pack`, Android SDK and NDK 28 at `~/Android/Sdk`, JDK 21, TinyTeX at
 `~/.TinyTeX`, Node.
 
@@ -64,6 +67,8 @@ cargo test --release -p mathcore --test robustness       # fuzz and budgets, rel
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test -p mathcore --features complex-text           # the optional shaper
 scripts/parity.sh                                        # wasm and Dart against the core
+tools/corpus/run.sh                                      # 100k arXiv formulas, KaTeX diff, fuzzing (~2 min)
+scripts/bench.sh                                         # side-by-side bench page with KaTeX and MathJax
 UPDATE_GOLDEN=1 cargo test -p mathraster --test golden   # after an intended layout change
 PATH=$HOME/.TinyTeX/bin/x86_64-linux:$PATH python3 tools/texcompare/compare.py   # against real TeX
 scripts/build-android.sh && (cd platforms/android && ./gradlew :app:assembleDebug -PskipCargo)
@@ -81,12 +86,21 @@ done; work down from there.
 1. ~~Hit testing and selection~~ done.
 2. ~~Command coverage~~ done: 585 symbols, KaTeX parity where it matters.
 3. ~~Text handling~~ done: text font role, fallback, right-to-left, optional shaper.
-4. **Accessibility depth.** Ours emits MathML and one spoken sentence. The
-   benchmark is MathJax's Speech Rule Engine: verbosity levels, more languages,
-   sub-expression navigation, synchronized highlighting, Nemeth braille.
-5. **Test corpus size.** We validate 58 formulas. Real engines validate against
-   hundreds of thousands from arXiv and Wikipedia. Pulling a few thousand and
-   running them through the parser would find the real gaps fast.
+4. **Accessibility depth.** In progress. Done in core, C ABI
+   (`math_speech_ex`, `math_speech_tree`) and wasm (`speechWith`,
+   `speechTree`): three verbosity levels and a navigable speech tree whose
+   nodes carry source ranges for synchronized highlighting. Written on a Mac
+   without Rust, so not yet compiled: run `cargo test -p mathcore` first.
+   Still open: wiring the tree into JNI, Kotlin, Swift, Dart and the widgets'
+   navigation; more languages; Nemeth braille.
+5. ~~**Test corpus size.**~~ done: `tools/corpus/run.sh` (103,559 arXiv
+   formulas, KaTeX differential, invariants, mutation fuzzing). It found and
+   fixed: a stack overflow through `\sqrt[`/`\xrightarrow[` (nesting limit
+   bypassed), hit testing changing the drawing (`\displaystyle`, `\color`,
+   `\stackrel`, `\middle`), empty speech parts, and seven missing forms.
+   Left versus KaTeX: 137 formulas, mostly the size commands (`\small` etc.),
+   `\\` inside a brace group, `\c` and `\AA`. Wikipedia's formulas would
+   be the next corpus.
 6. **Input formats.** TeX only. No MathML in, no AsciiMath, no Word OMML.
 7. **Throughput at scale.** Every glyph is a path fill. A glyph atlas with
    batched draws would matter on a page with hundreds of formulas. No layout

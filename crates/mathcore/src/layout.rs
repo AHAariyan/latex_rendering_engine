@@ -70,6 +70,8 @@ impl Default for RenderOptions {
 struct Sty {
     style: MathStyle,
     cramped: bool,
+    /// Size command in effect, in thousandths of the formula's font size.
+    size: u16,
 }
 
 impl Sty {
@@ -81,10 +83,7 @@ impl Sty {
             MathStyle::Display | MathStyle::Text => MathStyle::Script,
             _ => MathStyle::ScriptScript,
         };
-        Sty {
-            style,
-            cramped: self.cramped,
-        }
+        Sty { style, ..self }
     }
     fn sub(self) -> Sty {
         Sty {
@@ -98,10 +97,7 @@ impl Sty {
             MathStyle::Text => MathStyle::Script,
             _ => MathStyle::ScriptScript,
         };
-        Sty {
-            style,
-            cramped: self.cramped,
-        }
+        Sty { style, ..self }
     }
     fn den(self) -> Sty {
         Sty {
@@ -114,6 +110,13 @@ impl Sty {
     }
     fn with(self, style: MathStyle) -> Sty {
         Sty { style, ..self }
+    }
+    /// A size command: absolute, not relative to an enclosing one.
+    fn sized(self, factor: f32) -> Sty {
+        Sty {
+            size: (factor * 1000.0).round().clamp(1.0, 10_000.0) as u16,
+            ..self
+        }
     }
 }
 
@@ -270,6 +273,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let sty = Sty {
             style: if display_mode { MathStyle::Display } else { MathStyle::Text },
             cramped: false,
+            size: 1000,
         };
         let root = match self.line_break {
             Some(lb) if lb.max_width > 0.0 => self.layout_broken(nodes, sty, lb),
@@ -308,7 +312,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             MathStyle::Script => c.script_percent_scale_down,
             MathStyle::ScriptScript => c.script_script_percent_scale_down,
         };
-        self.base_size * pct / 100.0
+        self.base_size * pct / 100.0 * sty.size as f32 / 1000.0
     }
 
     fn mu(&self, sty: Sty) -> f32 {
@@ -483,11 +487,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
     fn layout_atoms(&self, nodes: &[Node], sty: Sty, out: &mut Vec<(BBox, Sty)>) {
         let mut sty = sty;
         for n in nodes {
-            match n {
+            // Look through a hit-testing wrapper: a style or color change is
+            // spliced into the surrounding list either way, so spacing across
+            // it does not depend on whether regions are being recorded.
+            match n.bare() {
                 Node::Style { style, body } => {
                     sty = sty.with(*style);
                     self.layout_atoms(body, sty, out);
                 }
+                Node::Size { factor, body } => self.layout_atoms(body, sty.sized(*factor), out),
                 Node::Color { color, body } => {
                     let start = out.len();
                     self.layout_atoms(body, sty, out);
@@ -773,6 +781,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Overline(inner) => self.overline(inner, sty),
             Node::Underline(inner) => self.underline(inner, sty),
             Node::Style { style, body } => self.layout_list(body, sty.with(*style)),
+            Node::Size { factor, body } => self.layout_list(body, sty.sized(*factor)),
             Node::Color { color, body } => {
                 let mut b = self.layout_list(body, sty);
                 b.color = Some(*color);
@@ -1245,7 +1254,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let mut segments: Vec<Vec<(BBox, Sty)>> = vec![Vec::new()];
         let mut middles: Vec<char> = Vec::new();
         for n in body {
-            if let Node::Middle(ch) = n {
+            if let Node::Middle(ch) = n.bare() {
                 middles.push(*ch);
                 segments.push(Vec::new());
             } else {
@@ -1465,7 +1474,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
     fn array(&self, a: &Array, sty: Sty) -> BBox {
         let cell_sty = Sty {
             style: a.cell_style,
-            cramped: sty.cramped,
+            ..sty
         };
         let em = self.em(cell_sty);
         // Surrounding text size, for amsmath's absolute dimensions.
@@ -1683,6 +1692,7 @@ fn intrinsic_atom(node: &Node) -> Option<AtomType> {
         Node::Class { atom, .. } => Some(*atom),
         Node::BigOp { .. } | Node::FnName { .. } => Some(AtomType::Op),
         Node::Row(v) if v.len() == 1 => intrinsic_atom(&v[0]),
+        Node::Spanned { body, .. } => intrinsic_atom(body),
         _ => None,
     }
 }
