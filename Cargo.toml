@@ -20,3 +20,9 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Release speed with unwinding kept, so the corpus checker and the fuzzer can
+# catch a panic and report the input that caused it instead of aborting.
+[profile.fuzz]
+inherits = "release"
+panic = "unwind"

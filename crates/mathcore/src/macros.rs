@@ -206,7 +206,8 @@ fn read_argument(text: &str, pos: usize) -> Option<(String, usize)> {
             j += 1;
         }
         if j == i + 1 {
-            j += text[j..].chars().next().map_or(1, |c| c.len_utf8());
+            // A control symbol; a backslash at the very end has none.
+            j += text[j..].chars().next().map_or(0, |c| c.len_utf8());
         }
         return Some((text[i..j].to_string(), j));
     }

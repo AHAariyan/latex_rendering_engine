@@ -61,6 +61,28 @@ const HOSTILE: &[&str] = &[
     "é",
     "𝑥",
     "\u{202E}",
+    "\u{a0}",
+    "((",
+    "[[",
+    "),(",
+    "],[",
+    "|",
+    "||",
+    "sqrt",
+    "root(",
+    "frac",
+    "\"",
+    "text(",
+    "/",
+    "^^",
+    "color(",
+    "abs(",
+    "(:",
+    ":)",
+    "{:",
+    ":}",
+    "->",
+    "oo",
 ];
 
 struct Rng(u64);
@@ -145,6 +167,11 @@ fn run(lines: &[String], seed: u64, count: usize, log: Option<String>) -> i32 {
         let t0 = Instant::now();
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool, String> {
             let opts = RenderOptions::default();
+            // The same bytes read as AsciiMath must translate or fail cleanly,
+            // and a translation must be TeX the engine survives.
+            if let Ok(am) = mathcore::asciimath_to_tex(&tex) {
+                let _ = mathcore::render(&font, &am, &opts);
+            }
             let Ok(dl) = mathcore::render(&font, &tex, &opts) else {
                 return Ok(false);
             };

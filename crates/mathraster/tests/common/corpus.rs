@@ -187,7 +187,11 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
     ),
     ("chem_redox", r"\ce{MnO4- + 8H+ + 5e- -> Mn^2+ + 4H2O}", true),
     ("chem_equilibrium", r"\ce{Zn^2+ <=>[+ 2OH-][+ 2H+] Zn(OH)2 v}", true),
-    ("chem_marks", r"\ce{^{227}_{90}Th+} \quad \ce{CuSO4*5H2O} \quad \ce{CH2=CH2} \quad \ce{HC#CH} \quad \ce{CO2 ^}", true),
+    (
+        "chem_marks",
+        r"\ce{^{227}_{90}Th+} \quad \ce{CuSO4*5H2O} \quad \ce{CH2=CH2} \quad \ce{HC#CH} \quad \ce{CO2 ^}",
+        true,
+    ),
     ("units", r"\Delta H = \pu{-286 kJ/mol} \quad g = \pu{9.81 m/s^2}", true),
     (
         "text_mode",

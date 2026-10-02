@@ -5,6 +5,7 @@
 //! Nothing here touches a canvas; platform backends draw the display list.
 
 pub mod a11y;
+pub mod asciimath;
 pub mod ast;
 pub mod display;
 pub mod error;
@@ -97,6 +98,12 @@ pub fn render_speech_with(tex: &str, macros: &Macros, opts: &SpeechOptions) -> R
 pub fn render_speech_tree(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<SpeechNode> {
     let nodes = parser::parse_with_spans(tex, macros, Budget::default())?;
     Ok(a11y::speech_tree(&nodes, opts))
+}
+
+/// Translates AsciiMath (`sum_(i=1)^n i^2`) to TeX, which every other call
+/// accepts. Source ranges in hit testing then refer to the TeX.
+pub fn asciimath_to_tex(src: &str) -> Result<String> {
+    asciimath::to_tex(src)
 }
 
 /// Parses and lays out a formula in one call.
