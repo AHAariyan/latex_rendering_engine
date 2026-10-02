@@ -26,3 +26,9 @@ strip = true
 [profile.fuzz]
 inherits = "release"
 panic = "unwind"
+
+# What the SDK pipeline ships: release speed, but a panic unwinds to the C ABI
+# boundary, where it becomes an error return instead of killing the host app.
+[profile.sdk]
+inherits = "release"
+panic = "unwind"

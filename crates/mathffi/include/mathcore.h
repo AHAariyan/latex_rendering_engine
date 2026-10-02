@@ -98,6 +98,12 @@ void math_result_free(MathResult* result);
 float* math_engine_glyph_outline(const MathEngine* engine, uint16_t font, uint16_t glyph, size_t* out_len);
 void math_buffer_free(float* buffer, size_t len);
 
+/* Caps the work one formula may cost (for input from strangers); 0 keeps a
+ * limit's default: 256 KB expanded source, 50,000 nodes, 200,000 items. */
+void math_engine_set_budget(MathEngine* engine, size_t max_expanded_bytes, size_t max_nodes, size_t max_items);
+/* Layouts kept for repeated requests (default 256); 0 turns the cache off. */
+void math_engine_set_cache_capacity(MathEngine* engine, size_t capacity);
+
 /* Accessibility. Both parse `tex` and return a string the caller owns and must
  * release with math_string_free; NULL on a parse error. Neither needs an engine
  * or a font. `macros` is optional, as in math_engine_render. */

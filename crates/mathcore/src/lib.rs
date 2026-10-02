@@ -7,6 +7,7 @@
 pub mod a11y;
 pub mod asciimath;
 pub mod ast;
+pub mod cache;
 pub mod display;
 pub mod error;
 pub mod font;
@@ -18,6 +19,7 @@ pub mod symbols;
 
 pub use a11y::{mathml, speech, speech_tree, speech_with, SpeechNode, SpeechOptions, Verbosity};
 pub use ast::Node;
+pub use cache::{CacheStats, LayoutCache};
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
 pub use font::MathFont;

@@ -35,6 +35,8 @@ pub struct Engine {
     /// Owned font bytes when loaded at runtime; empty for the bundled fonts.
     data: Vec<*mut [u8]>,
     font: MathFont<'static>,
+    /// Recomposing widgets ask for the same formula again and again.
+    cache: mathcore::LayoutCache,
 }
 
 impl Drop for Engine {
@@ -75,7 +77,11 @@ fn engine_from_bytes(math: Option<Vec<u8>>, text: Option<Vec<u8>>) -> Result<Box
     if let Some(b) = text {
         font = font.with_text_font(load(b)?);
     }
-    Ok(Box::new(Engine { data: owned, font }))
+    Ok(Box::new(Engine {
+        data: owned,
+        font,
+        cache: mathcore::LayoutCache::default(),
+    }))
 }
 
 /// Packs a display list into the flat float layout documented at the top.
@@ -146,7 +152,11 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_createBundled(_env: JNIEnv
     #[cfg(feature = "bundled-font")]
     {
         match bundled::font() {
-            Ok(font) => Box::into_raw(Box::new(Engine { data: Vec::new(), font })) as jlong,
+            Ok(font) => Box::into_raw(Box::new(Engine {
+                data: Vec::new(),
+                font,
+                cache: mathcore::LayoutCache::default(),
+            })) as jlong,
             Err(e) => {
                 set_error(e.to_string());
                 0
@@ -220,7 +230,7 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_render(
         hit_testing: hit_testing != 0,
         budget: mathcore::Budget::default(),
     };
-    match mathcore::render(&eng.font, &tex, &opts) {
+    match eng.cache.render(&eng.font, &tex, &opts) {
         Ok(dl) => float_array(&env, &pack(&dl)),
         Err(e) => {
             set_error(e.to_string());

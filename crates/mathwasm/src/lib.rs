@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct MathEngine {
     font: MathFont<'static>,
+    cache: mathcore::LayoutCache,
 }
 
 fn color_from_argb(argb: u32) -> Color {
@@ -36,7 +37,10 @@ impl MathEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MathEngine, JsError> {
         let font = mathcore::bundled::font().map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(MathEngine { font })
+        Ok(MathEngine {
+            font,
+            cache: mathcore::LayoutCache::default(),
+        })
     }
 
     /// Engine for any OpenType font with a MATH table. The bytes are copied and kept for the page lifetime.
@@ -47,6 +51,7 @@ impl MathEngine {
         let fallback = MathFont::from_bytes(mathcore::bundled::FALLBACK).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(MathEngine {
             font: font.with_fallback(fallback),
+            cache: mathcore::LayoutCache::default(),
         })
     }
 
@@ -82,7 +87,10 @@ impl MathEngine {
             budget: mathcore::Budget::default(),
             hit_testing: false,
         };
-        let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
+        let dl = self
+            .cache
+            .render(&self.font, tex, &opts)
+            .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(mathraster::to_svg(&self.font, &dl, 0.0))
     }
 
@@ -109,7 +117,10 @@ impl MathEngine {
             budget: mathcore::Budget::default(),
             hit_testing: hit_testing.unwrap_or(false),
         };
-        let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
+        let dl = self
+            .cache
+            .render(&self.font, tex, &opts)
+            .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(dl.to_flat())
     }
 
