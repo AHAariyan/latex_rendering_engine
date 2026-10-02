@@ -64,7 +64,10 @@ pub fn build(verify: bool) -> Result {
     write(&out.join("examples/render.c"), EXAMPLE)?;
     write(&out.join("README.md"), &readme(&version))?;
 
-    if verify {
+    if verify && cfg!(windows) {
+        eprintln!("(the example is compiled on macOS and Linux; MSVC builds link the same library)");
+    }
+    if verify && !cfg!(windows) {
         step("C: compile and run the example against the static library");
         let exe = root().join("target/sdk-c-example");
         let mut c = cmd("cc");

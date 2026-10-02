@@ -1,0 +1,39 @@
+# Publishes mathcore_dart and then mathcore_flutter to pub.dev when a release
+# tag is pushed, using pub.dev's automated publishing (GitHub OIDC). Enable it
+# for both packages on pub.dev (Admin -> Automated publishing, tag pattern
+# v{{version}}). A tag pushed by the default GITHUB_TOKEN does not trigger
+# workflows, so release.yml pushes with RELEASE_TOKEN when it is set.
+name: Publish to pub.dev
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: dart-lang/setup-dart@v1
+      - run: cargo install cargo-ndk --locked
+      - run: cargo xtask sdk flutter --no-verify
+      - name: mathcore_dart
+        run: cd dist/flutter/mathcore_dart && dart pub publish --force
+      - name: mathcore_flutter
+        run: |
+          # pub.dev needs a moment to index the mathcore_dart just published.
+          for _ in 1 2 3 4 5 6; do
+            (cd dist/flutter/mathcore_flutter && flutter pub publish --force) && exit 0
+            sleep 30
+          done
+          exit 1

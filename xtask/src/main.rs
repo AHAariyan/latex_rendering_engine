@@ -13,6 +13,7 @@ mod apple;
 mod c;
 mod flutter;
 mod util;
+mod version;
 mod web;
 
 use util::*;
@@ -24,6 +25,7 @@ fn main() {
     let result = match args.first().map(String::as_str) {
         Some("sdk") => sdk(&args[1..]),
         Some("ci") => ci(),
+        Some("version") => version::command(&args[1..]),
         Some("-h" | "--help") | None => {
             eprintln!("{}", HELP);
             Ok(())
@@ -91,6 +93,8 @@ fn ci() -> Result {
     run(cmd("cargo").args(["fmt", "--all", "--check"]))?;
     step("lints");
     run(cmd("cargo").args(["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]))?;
+    step("versions");
+    version::command(&["--check".to_string()])?;
     step("tests");
     run(cmd("cargo").args(["test", "--workspace"]))?;
     run(cmd("cargo").args(["test", "--release", "-p", "mathcore", "--test", "robustness"]))?;
