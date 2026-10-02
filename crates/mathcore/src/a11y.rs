@@ -707,13 +707,16 @@ impl Speaker {
             }
             Node::XArrow { ch, over, under } => {
                 word(out, &symbol_name(*ch));
-                if let Some(o) = over {
+                // An empty label (`\xrightarrow{}`, a bare `->` in \ce) says nothing.
+                if let Some(o) = over.as_deref().filter(|o| !self.said(o).is_empty()) {
                     word(out, "with");
                     self.say_one(out, o);
+                    word(out, "above,");
                 }
-                if let Some(u) = under {
-                    word(out, "under");
+                if let Some(u) = under.as_deref().filter(|u| !self.said(u).is_empty()) {
+                    word(out, "with");
                     self.say_one(out, u);
+                    word(out, "below,");
                 }
             }
             Node::Class { body, .. } => self.say_one(out, body),
@@ -1373,6 +1376,13 @@ mod tests {
         check(&tree(r"\left( \begin{array}{cc} & 1\\-1 & \end{array}\right)"));
         check(&tree(r"(m + n - 1)\left|\right>_i = 0"));
         check(&tree(r"\begin{array}{c} p_1 \\ \\ c_1 \end{array}"));
+    }
+
+    #[test]
+    fn empty_arrow_labels_are_silent() {
+        assert_eq!(sp(r"\ce{2H2 + O2 -> 2H2O}"), "2 H sub 2 plus O sub 2 goes to 2 H sub 2 O");
+        assert_eq!(sp(r"A \xrightarrow{f} B"), "A goes to with f above, B");
+        assert_eq!(sp(r"A \xrightarrow[g]{f} B"), "A goes to with f above, with g below, B");
     }
 
     #[test]
