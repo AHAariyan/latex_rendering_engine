@@ -25,7 +25,7 @@ import androidx.customview.widget.ExploreByTouchHelper
  * parts (each term, fraction, script or matrix row) with the part outlined, or
  * touch a part to hear it.
  */
-class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
+open class MathView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
     View(context, attrs, defStyleAttr) {
 
     var engine: MathEngine = MathEngine.shared

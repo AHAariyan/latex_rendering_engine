@@ -231,8 +231,12 @@ public final class MathEngine {
     /// node's `start..<end` is the source range to pass to
     /// `MathLayout.highlight` while that part is read.
     public static func speechTree(_ tex: String, verbosity: SpeechVerbosity = .brief) throws -> MathSpeechNode {
-        let json = try string { tex.withCString { math_speech_tree($0, nil, verbosity.rawValue) } }
-        return try JSONDecoder().decode(MathSpeechNode.self, from: Data(json.utf8))
+        try JSONDecoder().decode(MathSpeechNode.self, from: Data(speechTreeJson(tex, verbosity: verbosity).utf8))
+    }
+
+    /// `speechTree` as the engine's JSON, for hosts that pass it on (React Native, a web view).
+    public static func speechTreeJson(_ tex: String, verbosity: SpeechVerbosity = .brief) throws -> String {
+        try string { tex.withCString { math_speech_tree($0, nil, verbosity.rawValue) } }
     }
 
     /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `render`.

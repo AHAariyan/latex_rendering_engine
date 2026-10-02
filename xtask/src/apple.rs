@@ -163,3 +163,125 @@ end
 "#
     )
 }
+
+/// Wraps the engine's iOS and macOS dynamic libraries as frameworks in one
+/// xcframework, for hosts that load it by name (Flutter) or import it from
+/// Swift (React Native). A dynamic framework survives the symbol stripping of
+/// release builds, which a static library linked into the app does not. Returns its path under target/.
+pub fn dynamic_xcframework(version: &str, platform: ApplePlatform) -> Result<std::path::PathBuf> {
+    let targets = [
+        "aarch64-apple-ios",
+        "aarch64-apple-ios-sim",
+        "x86_64-apple-ios",
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+    ];
+    rustup_targets(&targets)?;
+    for t in targets {
+        cargo_sdk_build("mathffi", Some(t))?;
+    }
+    let work = root().join("target/sdk-dynamic-apple").join(platform.name());
+    reset_dir(&work)?;
+    let mut frameworks = Vec::new();
+    // One platform per xcframework: CocoaPods classifies a framework by all
+    // of its slices and refuses a mix it cannot tell apart.
+    let slices: Vec<(&str, Vec<&str>, bool)> = match platform {
+        ApplePlatform::Ios => vec![
+            ("ios", vec!["aarch64-apple-ios"], false),
+            ("ios-sim", vec!["aarch64-apple-ios-sim", "x86_64-apple-ios"], false),
+        ],
+        ApplePlatform::MacOs => vec![("macos", vec!["aarch64-apple-darwin", "x86_64-apple-darwin"], true)],
+    };
+    for (slice, parts, macos) in slices {
+        let fw = work.join(slice).join("MathCoreFFI.framework");
+        // macOS frameworks are versioned bundles; iOS ones are flat.
+        let (bin_dir, plist_dir, install) = if macos {
+            (
+                fw.join("Versions/A"),
+                fw.join("Versions/A/Resources"),
+                "@rpath/MathCoreFFI.framework/Versions/A/MathCoreFFI",
+            )
+        } else {
+            (fw.clone(), fw.clone(), "@rpath/MathCoreFFI.framework/MathCoreFFI")
+        };
+        std::fs::create_dir_all(&plist_dir).map_err(|e| e.to_string())?;
+        let mut c = cmd("lipo");
+        c.arg("-create");
+        for p in &parts {
+            c.arg(sdk_out(Some(p)).join("libmathcore_ffi.dylib"));
+        }
+        run(c.arg("-output").arg(bin_dir.join("MathCoreFFI")))?;
+        run(cmd("install_name_tool").args(["-id", install]).arg(bin_dir.join("MathCoreFFI")))?;
+        write(&plist_dir.join("Info.plist"), &info_plist(version, macos))?;
+        // Headers and a module map, so Swift can `import MathCoreFFI`.
+        let (headers, modules) = if macos {
+            (fw.join("Versions/A/Headers"), fw.join("Versions/A/Modules"))
+        } else {
+            (fw.join("Headers"), fw.join("Modules"))
+        };
+        copy(&root().join("crates/mathffi/include/mathcore.h"), &headers.join("mathcore.h"))?;
+        write(
+            &modules.join("module.modulemap"),
+            "framework module MathCoreFFI {\n  umbrella header \"mathcore.h\"\n  export *\n  module * { export * }\n}\n",
+        )?;
+        if macos {
+            run(cmd("ln").args(["-sfh", "A", "Versions/Current"]).current_dir(&fw))?;
+            run(cmd("ln")
+                .args(["-sfh", "Versions/Current/MathCoreFFI", "MathCoreFFI"])
+                .current_dir(&fw))?;
+            run(cmd("ln").args(["-sfh", "Versions/Current/Resources", "Resources"]).current_dir(&fw))?;
+            run(cmd("ln").args(["-sfh", "Versions/Current/Headers", "Headers"]).current_dir(&fw))?;
+            run(cmd("ln").args(["-sfh", "Versions/Current/Modules", "Modules"]).current_dir(&fw))?;
+        }
+        frameworks.push(fw);
+    }
+    let xcf = work.join("MathCoreFFI.xcframework");
+    let mut c = cmd("xcodebuild");
+    c.arg("-create-xcframework");
+    for fw in &frameworks {
+        c.arg("-framework").arg(fw);
+    }
+    run(c.arg("-output").arg(&xcf))?;
+    Ok(xcf)
+}
+
+fn info_plist(version: &str, macos: bool) -> String {
+    let min = if macos {
+        "<key>LSMinimumSystemVersion</key><string>10.14</string>"
+    } else {
+        "<key>MinimumOSVersion</key><string>13.0</string>"
+    };
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>MathCoreFFI</string>
+  <key>CFBundleIdentifier</key><string>dev.mathcore.MathCoreFFI</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>MathCoreFFI</string>
+  <key>CFBundlePackageType</key><string>FMWK</string>
+  <key>CFBundleShortVersionString</key><string>{version}</string>
+  <key>CFBundleVersion</key><string>{version}</string>
+  {min}
+</dict>
+</plist>
+"#
+    )
+}
+
+#[derive(Clone, Copy)]
+pub enum ApplePlatform {
+    Ios,
+    MacOs,
+}
+
+impl ApplePlatform {
+    fn name(self) -> &'static str {
+        match self {
+            ApplePlatform::Ios => "ios",
+            ApplePlatform::MacOs => "macos",
+        }
+    }
+}

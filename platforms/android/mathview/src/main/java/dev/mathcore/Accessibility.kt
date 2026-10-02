@@ -62,6 +62,11 @@ object MathAccessibility {
         return SpeechJson(json).node()
     }
 
+    /** [speechTree] as the engine's JSON, for hosts that pass it on (React Native, a WebView). */
+    fun speechTreeJson(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): String =
+        NativeBridge.speechTree(latex, verbosity.level)
+            ?: throw MathParseException(NativeBridge.lastError() ?: "speech failed")
+
     /** [speechTree] for a formula that may not parse. */
     fun speechTreeOrNull(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): SpeechNode? = try {
         speechTree(latex, verbosity)

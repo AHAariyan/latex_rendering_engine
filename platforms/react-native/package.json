@@ -1,0 +1,27 @@
+{
+  "name": "react-native-mathcore",
+  "version": "0.1.0",
+  "description": "Native TeX math for React Native: the mathcore engine as a Fabric view on iOS and Android, with VoiceOver and TalkBack navigation. TeX, AsciiMath and chemistry.",
+  "keywords": ["react-native", "math", "tex", "latex", "katex", "asciimath", "mhchem", "accessibility", "fabric"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/AHAariyan/latex_rendering_engine.git", "directory": "platforms/react-native" },
+  "main": "src/index.tsx",
+  "react-native": "src/index.tsx",
+  "source": "src/index.tsx",
+  "types": "src/index.tsx",
+  "files": ["src", "android/build.gradle", "android/proguard-rules.pro", "android/src", "ios", "react-native-mathcore.podspec", "README.md", "LICENSE"],
+  "peerDependencies": {
+    "react": "*",
+    "react-native": ">=0.80"
+  },
+  "codegenConfig": {
+    "name": "RNMathcoreSpec",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "android": { "javaPackageName": "dev.mathcore.reactnative" },
+    "ios": {
+      "componentProvider": { "MathCoreView": "RNMathCoreView" },
+      "modulesProvider": { "MathCore": "RNMathCoreModule" }
+    }
+  }
+}

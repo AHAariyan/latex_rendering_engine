@@ -82,7 +82,7 @@ pub fn build(verify: bool) -> Result {
 
 /// A JDK of version 17 or later for Gradle: `JAVA_HOME`, else the newest the
 /// system knows of.
-fn java_home() -> Result<PathBuf> {
+pub fn java_home() -> Result<PathBuf> {
     if let Ok(h) = std::env::var("JAVA_HOME") {
         return Ok(PathBuf::from(h));
     }

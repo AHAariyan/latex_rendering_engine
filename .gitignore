@@ -23,3 +23,9 @@ platforms/ios/*/.build/
 # Comparison harness output
 texcompare.png
 /dist/
+# React Native: sources and binaries vendored by cargo xtask sdk react-native
+platforms/react-native/android/src/main/jniLibs/
+platforms/react-native/android/src/main/java/dev/mathcore/*.kt
+platforms/react-native/ios/MathCore/
+platforms/react-native/ios/MathCoreFFI.xcframework
+platforms/react-native/node_modules/

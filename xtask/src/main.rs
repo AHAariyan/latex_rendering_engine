@@ -12,6 +12,7 @@ mod android;
 mod apple;
 mod c;
 mod flutter;
+mod react_native;
 mod util;
 mod version;
 mod web;
@@ -59,6 +60,7 @@ fn sdk(args: &[String]) -> Result {
             "web" => web::build(verify)?,
             "android" => android::build(verify)?,
             "flutter" => flutter::build(verify)?,
+            "react-native" | "rn" => react_native::build(verify)?,
             other => return Err(format!("unknown platform `{other}`; one of {}", PLATFORMS.join(", "))),
         }
     }
