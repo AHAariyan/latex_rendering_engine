@@ -13,6 +13,7 @@ use crate::macros::{self, Macros};
 use crate::symbols;
 use crate::Budget;
 
+mod cd;
 mod mhchem;
 mod text;
 
@@ -50,6 +51,7 @@ fn parse_inner(src: &str, macros: &Macros, budget: Budget, spans: bool) -> Resul
         spans,
         text_math_close: None,
         tag: None,
+        cd_stop: None,
     };
     let nodes = p.parse_list()?;
     let nodes = if matches!(p.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline")) {
@@ -87,6 +89,8 @@ struct Parser<'a> {
     text_math_close: Option<Tok<'static>>,
     /// The formula's `\tag`, set wherever in the source it appears.
     tag: Option<Node>,
+    /// Inside a CD diagram: the character that ends the current object or label.
+    cd_stop: Option<char>,
 }
 
 /// Deeper nesting than this is rejected. The layout engine recurses once per
@@ -153,22 +157,44 @@ impl<'a> Parser<'a> {
             Tok::Eof => {}
             t => return Err(Error::parse(self.lx.pos(), format!("unexpected {t:?}"))),
         }
-        if rows.len() > 1 && rows.last().is_some_and(|r| r[0].is_empty()) {
-            rows.pop();
-        }
-        let gaps = vec![0.0; rows.len().saturating_sub(1)];
-        Ok(vec![Node::Array(Box::new(Array {
-            rows,
-            cols: vec![ColAlign::Center],
-            cell_style: MathStyle::Display,
-            hlines: Vec::new(),
-            vlines: Vec::new(),
-            row_gaps: gaps,
-            pitch: RowPitch::Normal,
-            stretch: 1.0,
-        }))])
+        Ok(vec![lines_array(rows)])
     }
 
+    /// The inside of a braced group. `{a \\ b}` breaks the group into
+    /// centred lines, as KaTeX and MathJax do; arXiv sources rely on it.
+    fn group_body(&mut self) -> Result<Vec<Node>> {
+        let first = self.parse_list()?;
+        if !matches!(self.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr")) {
+            return Ok(first);
+        }
+        let mut rows = vec![vec![first]];
+        while matches!(self.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr")) {
+            self.lx.advance()?;
+            rows.push(vec![self.parse_list()?]);
+        }
+        Ok(vec![lines_array(rows)])
+    }
+}
+
+/// Lines stacked and centred, like `gathered`. A trailing break adds no line.
+fn lines_array(mut rows: Vec<Vec<Vec<Node>>>) -> Node {
+    if rows.len() > 1 && rows.last().is_some_and(|r| r[0].is_empty()) {
+        rows.pop();
+    }
+    let gaps = vec![0.0; rows.len().saturating_sub(1)];
+    Node::Array(Box::new(Array {
+        rows,
+        cols: vec![ColAlign::Center],
+        cell_style: MathStyle::Display,
+        hlines: Vec::new(),
+        vlines: Vec::new(),
+        row_gaps: gaps,
+        pitch: RowPitch::Normal,
+        stretch: 1.0,
+    }))
+}
+
+impl<'a> Parser<'a> {
     /// Parses atoms until a group/row/environment terminator.
     fn parse_list(&mut self) -> Result<Vec<Node>> {
         if self.depth > MAX_DEPTH {
@@ -184,7 +210,10 @@ impl<'a> Parser<'a> {
         let mut out = Vec::new();
         loop {
             let tok = self.lx.peek()?;
-            if is_stop(tok) || self.text_math_close.as_ref() == Some(tok) {
+            if is_stop(tok)
+                || self.text_math_close.as_ref() == Some(tok)
+                || matches!((tok, self.cd_stop), (Tok::Char(c), Some(s)) if *c == s)
+            {
                 return Ok(out);
             }
             if is_infix(tok) {
@@ -328,7 +357,7 @@ impl<'a> Parser<'a> {
             Tok::LBrace => {
                 self.lx.advance()?;
                 let saved = self.variant;
-                let list = self.parse_list()?;
+                let list = self.group_body()?;
                 self.variant = saved;
                 self.expect_rbrace()?;
                 Ok(Node::Row(list))
@@ -390,7 +419,7 @@ impl<'a> Parser<'a> {
             Tok::Char(c) => Ok(self.char_node(c)),
             Tok::LBrace => {
                 let saved = self.variant;
-                let list = self.parse_list()?;
+                let list = self.group_body()?;
                 self.variant = saved;
                 self.expect_rbrace()?;
                 Ok(Node::Row(list))
@@ -1238,6 +1267,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_environment(&mut self, env: &str, pos: usize) -> Result<Node> {
+        if env == "CD" {
+            return self.parse_cd(pos);
+        }
         let mut vlines = Vec::new();
         let (cols, cell_style, left, right): (Vec<ColAlign>, MathStyle, Delim, Delim) = match env {
             "matrix" | "pmatrix" | "bmatrix" | "Bmatrix" | "vmatrix" | "Vmatrix" | "smallmatrix" | "matrix*" | "pmatrix*" | "bmatrix*"

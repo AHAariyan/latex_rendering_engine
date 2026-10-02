@@ -200,6 +200,8 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
     ),
     ("sizes", r"{\tiny a} {\small b} c {\large d} {\Huge e}", true),
     ("tagged", r"E = mc^2 \tag{1.2}", true),
+    ("cd", r"\begin{CD} A @>f>> B \\ @VgVV @VVhV \\ C @>>k> D \end{CD}", true),
+    ("group_lines", r"\sum_{\substack{i<n}} {x \\ y+z}", true),
 ];
 
 /// Formulas rendered with a text font for `\text{}`: (name, tex).
