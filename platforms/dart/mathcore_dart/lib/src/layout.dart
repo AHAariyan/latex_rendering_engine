@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 /// One drawable item of a laid-out formula. Coordinates are pixels, y down,
@@ -55,10 +56,19 @@ class MathRegion {
   double get area => width * height;
 
   /// Slices the source this region came from.
-  String textIn(String latex) => latex.substring(start.clamp(0, latex.length), end.clamp(0, latex.length));
+  /// The source this region came from. [start] and [end] are UTF-8 byte offsets.
+  String textIn(String latex) => sliceUtf8(latex, start, end);
 }
 
 /// A laid-out formula. The baseline sits at [ascent] from the top.
+/// The text between two UTF-8 byte offsets of [s], as the engine reports ranges.
+String sliceUtf8(String s, int start, int end) {
+  final bytes = utf8.encode(s);
+  final lo = start.clamp(0, bytes.length);
+  final hi = end.clamp(lo, bytes.length);
+  return utf8.decode(bytes.sublist(lo, hi));
+}
+
 class MathLayout {
   const MathLayout({
     required this.width,
@@ -83,6 +93,19 @@ class MathLayout {
   }
 
   /// The smallest piece of source under the point.
+  /// The regions covering a range of source, outermost only, for outlining
+  /// the part a screen reader is reading. Needs a hit-testing layout.
+  List<MathRegion> highlight(int start, int end) {
+    final out = <MathRegion>[];
+    for (final r in regions) {
+      if (r.start < start || r.end > end) continue;
+      if (out.any((o) => o.start <= r.start && o.end >= r.end)) continue;
+      out.removeWhere((o) => r.start <= o.start && r.end >= o.end);
+      out.add(r);
+    }
+    return out;
+  }
+
   MathRegion? hitTest(double x, double y) {
     final found = hit(x, y);
     return found.isEmpty ? null : found.last;

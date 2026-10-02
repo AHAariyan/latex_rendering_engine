@@ -15,7 +15,9 @@ platforms/web/pkg-node/
 .dart_tool/
 pubspec.lock
 platforms/flutter/*/android/src/main/jniLibs/
-platforms/flutter/*/ios/*.xcframework
+platforms/flutter/*/ios/mathcore_flutter/*.xcframework
+platforms/flutter/*/macos/mathcore_flutter/*.xcframework
+platforms/flutter/*/*/mathcore_flutter/.build/
 platforms/ios/*/*.xcframework
 platforms/ios/*/.build/
 # Comparison harness output

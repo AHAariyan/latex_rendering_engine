@@ -82,6 +82,13 @@ typedef MathmlD = Pointer<Utf8> Function(Pointer<Utf8>, bool, Pointer<Utf8>);
 typedef SpeechC = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>);
 typedef StringFreeC = Void Function(Pointer<Utf8>);
 typedef StringFreeD = void Function(Pointer<Utf8>);
+typedef SpeechExC = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Int32);
+typedef SpeechExD = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, int);
+typedef AsciiC = Pointer<Utf8> Function(Pointer<Utf8>);
+typedef BudgetC = Void Function(Pointer<MathEngineOpaque>, Size, Size, Size);
+typedef BudgetD = void Function(Pointer<MathEngineOpaque>, int, int, int);
+typedef CacheC = Void Function(Pointer<MathEngineOpaque>, Size);
+typedef CacheD = void Function(Pointer<MathEngineOpaque>, int);
 typedef LastErrorC = Pointer<Utf8> Function();
 typedef VersionC = Pointer<Utf8> Function();
 
@@ -98,6 +105,11 @@ class MathBindings {
         bufferFree = lib.lookupFunction<BufferFreeC, BufferFreeD>('math_buffer_free'),
         mathml = lib.lookupFunction<MathmlC, MathmlD>('math_mathml'),
         speech = lib.lookupFunction<SpeechC, SpeechC>('math_speech'),
+        speechEx = lib.lookupFunction<SpeechExC, SpeechExD>('math_speech_ex'),
+        speechTree = lib.lookupFunction<SpeechExC, SpeechExD>('math_speech_tree'),
+        asciimathToTex = lib.lookupFunction<AsciiC, AsciiC>('math_asciimath_to_tex'),
+        setBudget = lib.lookupFunction<BudgetC, BudgetD>('math_engine_set_budget'),
+        setCacheCapacity = lib.lookupFunction<CacheC, CacheD>('math_engine_set_cache_capacity'),
         stringFree = lib.lookupFunction<StringFreeC, StringFreeD>('math_string_free'),
         lastError = lib.lookupFunction<LastErrorC, LastErrorC>('math_last_error'),
         version = lib.lookupFunction<VersionC, VersionC>('math_version');
@@ -113,6 +125,11 @@ class MathBindings {
   final BufferFreeD bufferFree;
   final MathmlD mathml;
   final SpeechC speech;
+  final SpeechExD speechEx;
+  final SpeechExD speechTree;
+  final AsciiC asciimathToTex;
+  final BudgetD setBudget;
+  final CacheD setCacheCapacity;
   final StringFreeD stringFree;
   final LastErrorC lastError;
   final VersionC version;

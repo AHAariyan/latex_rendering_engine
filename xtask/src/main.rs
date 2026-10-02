@@ -11,6 +11,7 @@
 mod android;
 mod apple;
 mod c;
+mod flutter;
 mod util;
 mod web;
 
@@ -55,6 +56,7 @@ fn sdk(args: &[String]) -> Result {
             "apple" | "ios" => apple::build(verify)?,
             "web" => web::build(verify)?,
             "android" => android::build(verify)?,
+            "flutter" => flutter::build(verify)?,
             other => return Err(format!("unknown platform `{other}`; one of {}", PLATFORMS.join(", "))),
         }
     }

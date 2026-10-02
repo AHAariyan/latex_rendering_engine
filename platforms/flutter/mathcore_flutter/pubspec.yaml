@@ -8,8 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  mathcore_dart:
-    path: ../../dart/mathcore_dart
+  mathcore_dart: ^0.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -20,4 +19,6 @@ flutter:
       android:
         ffiPlugin: true
       ios:
+        ffiPlugin: true
+      macos:
         ffiPlugin: true
