@@ -108,7 +108,10 @@ jobs:
         run: |
           prerelease=""
           case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "v$VERSION" release/* --title "mathcore $VERSION" --generate-notes $prerelease
+          # The CHANGELOG section for this version leads; GitHub's list of
+          # merged changes follows.
+          awk -v v="## $VERSION" '$0 == v {on = 1; next} /^## / {on = 0} on' CHANGELOG.md > notes.md
+          gh release create "v$VERSION" release/* --title "mathcore $VERSION" --notes-file notes.md --generate-notes $prerelease
       - uses: actions/setup-node@v4
         with:
           node-version: 20
