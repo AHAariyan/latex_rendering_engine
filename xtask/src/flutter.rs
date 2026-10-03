@@ -113,6 +113,12 @@ pub fn build(verify: bool) -> Result {
         return Err(format!("pub validation found problems:\n{}", problems.join("\n")));
     }
     copy_dir(&stage, &out)?;
+    // Archives of both packages, for the release page and CI artifacts.
+    for name in ["mathcore_dart", "mathcore_flutter"] {
+        run(cmd("tar")
+            .args(["-czf", &format!("{name}-{version}.tar.gz"), name])
+            .current_dir(&out))?;
+    }
     eprintln!(
         "\nFlutter SDK {version}: {} and {}",
         out.join("mathcore_dart").display(),
