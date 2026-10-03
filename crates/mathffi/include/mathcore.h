@@ -98,11 +98,31 @@ void math_result_free(MathResult* result);
 float* math_engine_glyph_outline(const MathEngine* engine, uint16_t font, uint16_t glyph, size_t* out_len);
 void math_buffer_free(float* buffer, size_t len);
 
+/* Caps the work one formula may cost (for input from strangers); 0 keeps a
+ * limit's default: 256 KB expanded source, 50,000 nodes, 200,000 items. */
+void math_engine_set_budget(MathEngine* engine, size_t max_expanded_bytes, size_t max_nodes, size_t max_items);
+/* Layouts kept for repeated requests (default 256); 0 turns the cache off. */
+void math_engine_set_cache_capacity(MathEngine* engine, size_t capacity);
+
 /* Accessibility. Both parse `tex` and return a string the caller owns and must
  * release with math_string_free; NULL on a parse error. Neither needs an engine
  * or a font. `macros` is optional, as in math_engine_render. */
 char* math_mathml(const char* tex, bool display_mode, const char* macros);
 char* math_speech(const char* tex, const char* macros);
+/* Verbosity: 0 verbose ("..., end fraction"), 1 brief (math_speech), 2 superbrief. */
+char* math_speech_ex(const char* tex, const char* macros, int32_t verbosity);
+/* A tree a screen reader walks part by part, as JSON:
+ * {"role","label","text","start","end","children":[...]}. start..end is the
+ * source byte range to pass to the highlight call while that part is read. */
+char* math_speech_tree(const char* tex, const char* macros, int32_t verbosity);
+/* Speech and the speech tree in a language: a BCP 47 tag such as "es", "fr",
+ * "de", "pt-BR", "bn" or "hi"; English for NULL or an unsupported tag. */
+char* math_speech_lang(const char* tex, const char* macros, int32_t verbosity, const char* language);
+char* math_speech_tree_lang(const char* tex, const char* macros, int32_t verbosity, const char* language);
+/* The formula in Nemeth braille, as Unicode braille cells (U+2800 block). */
+char* math_nemeth(const char* tex, const char* macros);
+/* AsciiMath input ("sum_(i=1)^n i^2") translated to TeX for the calls above. */
+char* math_asciimath_to_tex(const char* src);
 void math_string_free(char* s);
 
 /* Message for the last failed call on this thread, or NULL. Valid until the next call. */

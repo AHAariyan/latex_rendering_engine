@@ -56,6 +56,22 @@ class MathLayout internal constructor(private val data: FloatArray) {
         }
     }
 
+    /**
+     * The regions covering a range of source, for outlining the part a screen
+     * reader is reading. Only the outermost regions inside the range are
+     * returned, so they do not overlap. Needs a hit-testing layout.
+     */
+    fun highlight(start: Int, end: Int): List<MathRegion> {
+        val out = ArrayList<MathRegion>()
+        for (r in regions) {
+            if (r.start < start || r.end > end) continue
+            if (out.any { it.start <= r.start && it.end >= r.end }) continue
+            out.removeAll { r.start <= it.start && r.end >= it.end }
+            out.add(r)
+        }
+        return out
+    }
+
     /** Every region containing the point, outermost first. */
     fun hit(x: Float, y: Float): List<MathRegion> = regions.filter { it.contains(x, y) }.sortedByDescending { it.width * it.height }
 
@@ -97,8 +113,16 @@ data class MathRegion(
         return kotlin.math.sqrt(dx * dx + dy * dy)
     }
 
-    /** Slices the source this region came from. */
-    fun textIn(latex: String): String = latex.substring(start.coerceIn(0, latex.length), end.coerceIn(0, latex.length))
+    /** Slices the source this region came from. [start] and [end] are UTF-8 byte offsets. */
+    fun textIn(latex: String): String = sliceUtf8(latex, start, end)
+}
+
+/** The text between two UTF-8 byte offsets of [s], as the engine reports ranges. */
+fun sliceUtf8(s: String, start: Int, end: Int): String {
+    val bytes = s.encodeToByteArray()
+    val lo = start.coerceIn(0, bytes.size)
+    val hi = end.coerceIn(lo, bytes.size)
+    return bytes.copyOfRange(lo, hi).decodeToString()
 }
 
 class MathParseException(message: String) : IllegalArgumentException(message)

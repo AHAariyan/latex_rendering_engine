@@ -22,11 +22,37 @@ fn clear_error() {
     LAST_ERROR.with(|e| *e.borrow_mut() = None);
 }
 
+/// Runs an entry point so that a panic inside the engine becomes an error
+/// return instead of unwinding into, or aborting, the host application.
+/// (Effective in builds with `panic = "unwind"`, which the SDK profile uses.)
+fn guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(v) => v,
+        Err(_) => {
+            set_error("internal error in the math engine; please report the formula");
+            fallback
+        }
+    }
+}
+
 pub struct MathEngine {
     /// Leaked font bytes; reclaimed in `math_engine_free` after the font is
     /// dropped. Empty when every font is one of the static bundled ones.
     data: Vec<*mut [u8]>,
     font: MathFont<'static>,
+    cache: mathcore::LayoutCache,
+    budget: std::sync::Mutex<mathcore::Budget>,
+}
+
+impl MathEngine {
+    fn new(data: Vec<*mut [u8]>, font: MathFont<'static>) -> Self {
+        MathEngine {
+            data,
+            font,
+            cache: mathcore::LayoutCache::default(),
+            budget: std::sync::Mutex::new(mathcore::Budget::default()),
+        }
+    }
 }
 
 #[repr(C)]
@@ -156,7 +182,7 @@ pub unsafe extern "C" fn math_engine_new_with_text_font(
             }
         }
     }
-    Box::into_raw(Box::new(MathEngine { data: owned_buffers, font }))
+    Box::into_raw(Box::new(MathEngine::new(owned_buffers, font)))
 }
 
 /// Creates an engine with the bundled Latin Modern Math font. Returns NULL when
@@ -167,7 +193,7 @@ pub extern "C" fn math_engine_new_bundled() -> *mut MathEngine {
     #[cfg(feature = "bundled-font")]
     {
         match mathcore::bundled::font() {
-            Ok(font) => Box::into_raw(Box::new(MathEngine { data: Vec::new(), font })),
+            Ok(font) => Box::into_raw(Box::new(MathEngine::new(Vec::new(), font))),
             Err(e) => {
                 set_error(e.to_string());
                 std::ptr::null_mut()
@@ -215,6 +241,7 @@ pub unsafe extern "C" fn math_engine_units_per_em(engine: *const MathEngine, fon
 /// `macros` is either null or a NUL-terminated UTF-8 string. `max_width` of 0
 /// or less renders one line of any width.
 #[no_mangle]
+#[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn math_engine_render(
     engine: *const MathEngine,
     tex: *const c_char,
@@ -226,6 +253,22 @@ pub unsafe extern "C" fn math_engine_render(
     hit_testing: bool,
 ) -> *mut MathResult {
     clear_error();
+    guard(std::ptr::null_mut(), || {
+        render_impl(engine, tex, font_size_px, display_mode, color, macros, max_width, hit_testing)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn render_impl(
+    engine: *const MathEngine,
+    tex: *const c_char,
+    font_size_px: f32,
+    display_mode: bool,
+    color: u32,
+    macros: *const c_char,
+    max_width: f32,
+    hit_testing: bool,
+) -> *mut MathResult {
     if engine.is_null() || tex.is_null() {
         set_error("null argument");
         return std::ptr::null_mut();
@@ -245,9 +288,9 @@ pub unsafe extern "C" fn math_engine_render(
         macros: defs,
         line_break: (max_width > 0.0).then(|| LineBreak::new(max_width)),
         hit_testing,
-        budget: mathcore::Budget::default(),
+        budget: *(*engine).budget.lock().unwrap_or_else(|p| p.into_inner()),
     };
-    let dl = match mathcore::render(&(*engine).font, tex, &opts) {
+    let dl = match (*engine).cache.render(&(*engine).font, tex, &opts) {
         Ok(dl) => dl,
         Err(e) => {
             set_error(e.to_string());
@@ -428,6 +471,39 @@ fn macros_from_c(macros: *const c_char) -> Macros {
     defs
 }
 
+/// Caps the work one formula may cost on this engine, for hosts rendering
+/// input from strangers. A value of 0 keeps that limit's default (256 KB of
+/// expanded source, 50,000 nodes, 200,000 drawn items).
+///
+/// # Safety
+/// `engine` must be a live engine.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_set_budget(engine: *mut MathEngine, max_expanded_bytes: usize, max_nodes: usize, max_items: usize) {
+    if engine.is_null() {
+        return;
+    }
+    let d = mathcore::Budget::default();
+    let pick = |v: usize, default: usize| if v == 0 { default } else { v };
+    *(*engine).budget.lock().unwrap_or_else(|p| p.into_inner()) = mathcore::Budget {
+        max_expanded_bytes: pick(max_expanded_bytes, d.max_expanded_bytes),
+        max_nodes: pick(max_nodes, d.max_nodes),
+        max_items: pick(max_items, d.max_items),
+    };
+    (*engine).cache.clear();
+}
+
+/// How many layouts the engine keeps for repeated requests (default 256);
+/// 0 turns the cache off.
+///
+/// # Safety
+/// `engine` must be a live engine.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_set_cache_capacity(engine: *mut MathEngine, capacity: usize) {
+    if !engine.is_null() {
+        (*engine).cache.set_capacity(capacity);
+    }
+}
+
 /// Presentation MathML for `tex`, for a screen reader. The caller owns the
 /// string and must release it with `math_string_free`. NULL on a parse error.
 ///
@@ -447,8 +523,112 @@ pub unsafe extern "C" fn math_speech(tex: *const c_char, macros: *const c_char) 
     string_out(tex, macros, mathcore::render_speech)
 }
 
+fn verbosity_from_c(v: i32) -> mathcore::SpeechOptions {
+    let verbosity = match v {
+        0 => mathcore::Verbosity::Verbose,
+        2 => mathcore::Verbosity::Superbrief,
+        _ => mathcore::Verbosity::Brief,
+    };
+    mathcore::SpeechOptions {
+        verbosity,
+        ..Default::default()
+    }
+}
+
+/// # Safety
+/// `language` is null or a NUL-terminated string.
+unsafe fn options_from_c(v: i32, language: *const c_char) -> mathcore::SpeechOptions {
+    let tag = if language.is_null() {
+        ""
+    } else {
+        CStr::from_ptr(language).to_str().unwrap_or("")
+    };
+    mathcore::SpeechOptions {
+        language: mathcore::Language::from_tag(tag),
+        ..verbosity_from_c(v)
+    }
+}
+
+/// `math_speech_ex` in a language: a BCP 47 tag such as "es", "pt-BR" or
+/// "bn" (English for null or an unsupported one).
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` and `language` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_lang(
+    tex: *const c_char,
+    macros: *const c_char,
+    verbosity: i32,
+    language: *const c_char,
+) -> *mut c_char {
+    let opts = options_from_c(verbosity, language);
+    string_out(tex, macros, |t, m| mathcore::render_speech_with(t, m, &opts))
+}
+
+/// `math_speech_tree` in a language, as `math_speech_lang`.
+///
+/// # Safety
+/// As `math_speech_lang`.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_tree_lang(
+    tex: *const c_char,
+    macros: *const c_char,
+    verbosity: i32,
+    language: *const c_char,
+) -> *mut c_char {
+    let opts = options_from_c(verbosity, language);
+    string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
+}
+
+/// `math_speech` at a verbosity: 0 verbose, 1 brief (the default), 2 superbrief.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_ex(tex: *const c_char, macros: *const c_char, verbosity: i32) -> *mut c_char {
+    let opts = verbosity_from_c(verbosity);
+    string_out(tex, macros, |t, m| mathcore::render_speech_with(t, m, &opts))
+}
+
+/// The formula as a navigable speech tree, as JSON. Each node is
+/// `{"role","label","text","start","end","children"}`; `start..end` is the
+/// source byte range to highlight while that node is read. Ownership and
+/// errors as `math_mathml`.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_tree(tex: *const c_char, macros: *const c_char, verbosity: i32) -> *mut c_char {
+    let opts = verbosity_from_c(verbosity);
+    string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
+}
+
+/// The formula in Nemeth braille (Unicode braille cells). Ownership and
+/// errors as `math_mathml`.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_nemeth(tex: *const c_char, macros: *const c_char) -> *mut c_char {
+    string_out(tex, macros, mathcore::render_nemeth)
+}
+
+/// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `math_engine_render`.
+/// Ownership and errors as `math_mathml`.
+///
+/// # Safety
+/// `src` must be a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_asciimath_to_tex(src: *const c_char) -> *mut c_char {
+    string_out(src, std::ptr::null(), |t, _| mathcore::asciimath_to_tex(t))
+}
+
 unsafe fn string_out(tex: *const c_char, macros: *const c_char, f: impl Fn(&str, &Macros) -> mathcore::Result<String>) -> *mut c_char {
     clear_error();
+    guard(std::ptr::null_mut(), || string_out_impl(tex, macros, f))
+}
+
+unsafe fn string_out_impl(tex: *const c_char, macros: *const c_char, f: impl Fn(&str, &Macros) -> mathcore::Result<String>) -> *mut c_char {
     if tex.is_null() {
         set_error("tex is null");
         return std::ptr::null_mut();

@@ -218,6 +218,10 @@ fn pathological_inputs() {
         "\\\\".repeat(1000),
         "^".repeat(100),
         "\\sqrt[".repeat(100),
+        "\\xrightarrow[".repeat(100),
+        // A macro argument that is a lone trailing backslash (found by fuzz_mutate).
+        "\\newcommand{\\y}[1]{#1#1}\\y\\".to_string(),
+        "\\sqrt[".repeat(100) + "x" + &"]{y}".repeat(100),
         "\\begin{".repeat(50),
         "\\end{x}".repeat(50),
         "\\kern".to_string(),

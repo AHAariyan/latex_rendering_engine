@@ -39,7 +39,10 @@ Quality gates, all green at the last commit:
 
 ## Getting the machine ready
 
-Installed and still there: Rust with the Android and wasm targets, `cargo-ndk`,
+On the Mac: Rust comes from Homebrew's rustup, so put
+`/opt/homebrew/opt/rustup/bin` on `PATH`. Node is under nvm.
+
+On Linux, installed and still there: Rust with the Android and wasm targets, `cargo-ndk`,
 `wasm-pack`, Android SDK and NDK 28 at `~/Android/Sdk`, JDK 21, TinyTeX at
 `~/.TinyTeX`, Node.
 
@@ -64,6 +67,8 @@ cargo test --release -p mathcore --test robustness       # fuzz and budgets, rel
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test -p mathcore --features complex-text           # the optional shaper
 scripts/parity.sh                                        # wasm and Dart against the core
+tools/corpus/run.sh                                      # 100k arXiv formulas, KaTeX diff, fuzzing (~2 min)
+scripts/bench.sh                                         # side-by-side bench page with KaTeX and MathJax
 UPDATE_GOLDEN=1 cargo test -p mathraster --test golden   # after an intended layout change
 PATH=$HOME/.TinyTeX/bin/x86_64-linux:$PATH python3 tools/texcompare/compare.py   # against real TeX
 scripts/build-android.sh && (cd platforms/android && ./gradlew :app:assembleDebug -PskipCargo)
@@ -75,34 +80,34 @@ accessibility tree, which is how the spoken output was checked.
 
 ## What to do next
 
-The gap list against a world-class tool, biggest first. The first three are
-done; work down from there.
+Done since the last plan: real-world corpus gate (98.2% of arXiv, KaTeX
+94.1%), text mode, sizes, `\tag`, chemistry, AsciiMath, layout cache,
+budgets on every ABI, speech verbosity and navigable speech trees, and the SDK
+pipeline for C, Apple, Android, Flutter, web and React Native (docs/SDK.md),
+each built and verified on this Mac, the mobile ones run on a simulator and
+an emulator.
 
-1. ~~Hit testing and selection~~ done.
-2. ~~Command coverage~~ done: 585 symbols, KaTeX parity where it matters.
-3. ~~Text handling~~ done: text font role, fallback, right-to-left, optional shaper.
-4. **Accessibility depth.** Ours emits MathML and one spoken sentence. The
-   benchmark is MathJax's Speech Rule Engine: verbosity levels, more languages,
-   sub-expression navigation, synchronized highlighting, Nemeth braille.
-5. **Test corpus size.** We validate 58 formulas. Real engines validate against
-   hundreds of thousands from arXiv and Wikipedia. Pulling a few thousand and
-   running them through the parser would find the real gaps fast.
-6. **Input formats.** TeX only. No MathML in, no AsciiMath, no Word OMML.
-7. **Throughput at scale.** Every glyph is a path fill. A glyph atlas with
-   batched draws would matter on a page with hundreds of formulas. No layout
-   cache, no incremental relayout.
-8. **Ecosystem.** Nothing is published: Maven, npm, pub.dev, SwiftPM. No docs
-   site, no API stability promise, no continuous fuzzing, no security review.
-9. **Platform reach.** Compile the Flutter and iOS packages. React Native.
-   Desktop toolkits.
+Next, biggest first:
 
-Smaller open items: `mhchem` for chemistry, `\tag` display, `\hdashline`,
-`\let`/`\expandafter`/`\csname`, exposing `Budget` through the C ABI, and a
-full bidirectional algorithm for mixed-direction prose.
+1. **First release.** Run the Release workflow (needs `NPM_TOKEN`, and
+   `RELEASE_TOKEN` plus pub.dev automated publishing for the pub packages).
+   Maven Central needs signing keys; GitHub Packages works today.
+2. ~~Speech in more languages, Nemeth braille~~ done: seven languages
+   (src/speech_lang.rs; add a column to PHRASES for another), Nemeth core
+   rules (src/braille.rs). UEB math and more languages next if wanted.
+3. **Editing model** (cursor, selection, incremental relayout) for a math
+   input control. Roughly triples scope; decide before more layout work.
+4. **Remaining TeX:** `siunitx`, physics macros (`CD` and `\\` in groups done).
+5. **Throughput on pages with hundreds of formulas:** a glyph atlas in the
+   platform renderers.
 
-Needs your decision: whether to build an editing model (cursor, selection,
-incremental relayout) for a math input control. It roughly triples the scope
-and shapes the tree design, so it should be decided before more layout work.
+Machine notes (this Mac): Rust via Homebrew rustup, put
+`/opt/homebrew/opt/rustup/bin` and `~/.cargo/bin` on PATH. Gradle's user
+properties turn on the configuration cache, which Flutter's and React
+Native's Gradle plugins reject; the pipeline turns it off for those builds.
+CocoaPods 1.12 here cannot read Flutter's SwiftPM projects; the plugin
+supports SwiftPM directly. React Native 0.87 wants Node 22 (here: 20; builds
+still work).
 
 ## Things that bit us, so they do not bite again
 
@@ -118,3 +123,11 @@ and shapes the tree design, so it should be decided before more layout work.
   them; the subset test will catch it if that regresses.
 - A reference file that is not regenerated after a font change fails parity
   loudly. That is the harness working, not a bug.
+- `cargo fmt` reflows long lines, so a scripted edit that matches a line
+  written before formatting silently misses it. Check that every edit applied.
+- Fabric attaches a component's event emitter after its first props: an
+  event sent from the first `updateProps` is lost.
+- CocoaPods rejects an xcframework mixing iOS and versioned macOS framework
+  slices; ship one per platform.
+- Byte offsets from the engine are UTF-8: every binding slices with them as
+  bytes, never as UTF-16 indices.

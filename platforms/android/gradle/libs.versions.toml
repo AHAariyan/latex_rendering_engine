@@ -1,6 +1,7 @@
 [versions]
 androidGradlePlugin = "9.0.1"
 androidxCore = "1.18.0"
+androidxCustomview = "1.2.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
 androidxComposeBom = "2026.03.01"
@@ -15,6 +16,7 @@ nav3Core = "1.0.1"
 lifecycleViewmodelNav3 = "2.10.0"
 
 [libraries]
+androidx-customview = { module = "androidx.customview:customview", version.ref = "androidxCustomview" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBom" }

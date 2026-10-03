@@ -33,7 +33,12 @@ final class MathCoreTests: XCTestCase {
         let tex = #"\frac{a}{b} + x"#
         let layout = try MathEngine.shared.render(tex, fontSize: 32, hitTesting: true)
         XCTAssertFalse(layout.regions.isEmpty)
-        guard case let .glyph(_, _, x, y, _, _) = layout.items[0] else { return XCTFail("glyph expected") }
+        // The first glyph is the numerator's `a` (the fraction bar is a rule).
+        let firstGlyph = layout.items.lazy.compactMap { item -> (CGFloat, CGFloat)? in
+            if case let .glyph(_, _, x, y, _, _) = item { return (x, y) }
+            return nil
+        }.first
+        guard let (x, y) = firstGlyph else { return XCTFail("glyph expected") }
         let point = CGPoint(x: x + 1, y: y - 5)
         XCTAssertEqual(layout.hitTest(point)?.text(in: tex), "a")
         XCTAssertEqual(layout.hit(point).first?.text(in: tex), #"\frac{a}{b}"#)
@@ -53,5 +58,45 @@ final class MathCoreTests: XCTestCase {
         var ink = 0
         for i in stride(from: 3, to: w * h * 4, by: 4) where data[i] > 0 { ink += 1 }
         XCTAssertGreaterThan(ink, 50)
+    }
+}
+
+final class MathCoreFeatureTests: XCTestCase {
+    func testSpeechVerbosityAndTree() throws {
+        XCTAssertEqual(try MathEngine.speech(#"\frac{1}{2}"#, verbosity: .verbose, language: "en"), "the fraction 1 over 2, end fraction")
+        let tree = try MathEngine.speechTree(#"\frac{a+b}{c} = 1"#, language: "en")
+        XCTAssertEqual(tree.role, "formula")
+        XCTAssertEqual(tree.children.first?.children.first?.label, "numerator")
+    }
+
+    func testSpeechInOtherLanguagesAndBraille() throws {
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "es"), "x al cuadrado")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "fr-CA"), "x au carré")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "ja"), "x squared")
+        XCTAssertEqual(try MathEngine.nemeth("x^2"), "⠭⠘⠆")
+    }
+
+    func testHighlightCoversAPart() throws {
+        let tex = #"a + \frac{b}{c}"#
+        let layout = try MathEngine.shared.render(tex, fontSize: 32, hitTesting: true)
+        let start = tex.utf8.distance(from: tex.utf8.startIndex, to: tex.range(of: #"\frac"#)!.lowerBound)
+        let rects = layout.highlight(start: start, end: tex.utf8.count)
+        XCTAssertEqual(rects.count, 1)
+        XCTAssertGreaterThan(rects[0].minX, 20)
+    }
+
+    func testAsciiMathBudgetAndCache() throws {
+        XCTAssertEqual(try MathEngine.asciimathToTex("x/y"), #"\frac{x}{y}"#)
+        let engine = try MathEngine()
+        engine.setBudget(maxNodes: 10)
+        XCTAssertThrowsError(try engine.render(String(repeating: "x+", count: 50) + "x", fontSize: 20))
+        engine.setBudget()
+        engine.setCacheCapacity(0)
+        XCTAssertNoThrow(try engine.render(String(repeating: "x+", count: 50) + "x", fontSize: 20))
+    }
+
+    func testChemistryAndText() throws {
+        XCTAssertNoThrow(try MathEngine.shared.render(#"\ce{2H2 + O2 -> 2H2O}"#, fontSize: 20))
+        XCTAssertNoThrow(try MathEngine.shared.render(#"\text{if $x>0$ then}"#, fontSize: 20))
     }
 }

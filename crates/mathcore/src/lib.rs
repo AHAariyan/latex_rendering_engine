@@ -5,7 +5,10 @@
 //! Nothing here touches a canvas; platform backends draw the display list.
 
 pub mod a11y;
+pub mod asciimath;
 pub mod ast;
+pub mod braille;
+pub mod cache;
 pub mod display;
 pub mod error;
 pub mod font;
@@ -13,16 +16,19 @@ pub mod layout;
 pub mod lexer;
 pub mod macros;
 pub mod parser;
+pub mod speech_lang;
 pub mod symbols;
 
-pub use a11y::{mathml, speech};
+pub use a11y::{mathml, speech, speech_tree, speech_with, SpeechNode, SpeechOptions, Verbosity};
 pub use ast::Node;
+pub use cache::{CacheStats, LayoutCache};
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
 pub use font::MathFont;
 pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
+pub use speech_lang::Language;
 
 /// The fonts every binding embeds: Latin Modern Math, subset to what the
 /// parser can ask for, plus a 5 KB slice of STIX Two Math carrying the handful
@@ -84,6 +90,31 @@ pub fn render_mathml(tex: &str, display_mode: bool, macros: &Macros) -> Result<S
 /// Parses a formula and writes a spoken sentence for a screen reader.
 pub fn render_speech(tex: &str, macros: &Macros) -> Result<String> {
     Ok(a11y::speech(&parse_with(tex, macros)?))
+}
+
+/// `render_speech` at a chosen verbosity.
+pub fn render_speech_with(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<String> {
+    Ok(a11y::speech_with(&parse_with(tex, macros)?, opts))
+}
+
+/// Parses a formula into a tree a screen reader can walk part by part. Each
+/// part's `start..end` is the source range to pass to `DisplayList::highlight`
+/// (on a list rendered with `hit_testing`) while that part is being read.
+pub fn render_speech_tree(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<SpeechNode> {
+    let nodes = parser::parse_with_spans(tex, macros, Budget::default())?;
+    Ok(a11y::speech_tree(&nodes, opts))
+}
+
+/// Parses a formula and writes it in Nemeth braille (Unicode braille cells),
+/// for refreshable braille displays and embossers.
+pub fn render_nemeth(tex: &str, macros: &Macros) -> Result<String> {
+    Ok(braille::nemeth(&parse_with(tex, macros)?))
+}
+
+/// Translates AsciiMath (`sum_(i=1)^n i^2`) to TeX, which every other call
+/// accepts. Source ranges in hit testing then refer to the TeX.
+pub fn asciimath_to_tex(src: &str) -> Result<String> {
+    asciimath::to_tex(src)
 }
 
 /// Parses and lays out a formula in one call.
@@ -424,6 +455,77 @@ mod tests {
         assert!(dl.hit_innermost(1.0, 1.0).is_none());
     }
 
+    /// Everything text mode can produce must exist in the fonts every binding
+    /// ships, or a name like Erdős would come out with a blank box in it.
+    #[test]
+    fn bundled_fonts_cover_text_mode() {
+        let f = bundled::font().unwrap();
+        let tex = r#"\text{Erd\H{o}s G\"odel na\"{\i}ve \c{c}a \v{S}koda \AA ngstr\"om \L\'od\'z \ae\oe\ss\o
+            \'a\'e\'i\'o\'u \`a\`e \^o \~n \=a \.z \u{g} \k{a} \r{u} 1--2---3 ``a'' \S\P\dag\ddag\copyright
+            \pounds\textdegree\textregistered\texttrademark\dots\textbullet}"#;
+        let dl = render(&f, tex, &RenderOptions::default()).unwrap();
+        for item in &dl.items {
+            if let Item::Glyph { id, .. } = item {
+                assert_ne!(*id, 0, "a text character fell back to .notdef");
+            }
+        }
+    }
+
+    #[test]
+    fn tag_sits_at_the_right_edge() {
+        let f = font();
+        let glyph_xs = |dl: &DisplayList| -> Vec<f32> {
+            dl.items
+                .iter()
+                .filter_map(|i| match i {
+                    Item::Glyph { x, .. } => Some(*x),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Without a width the tag follows the formula at a \qquad.
+        let plain = render(&f, "E = mc^2", &RenderOptions::default()).unwrap();
+        let tagged = render(&f, r"E = mc^2 \tag{1}", &RenderOptions::default()).unwrap();
+        assert!(tagged.width > plain.width + 2.0 * 32.0);
+        // With one, it is flush right.
+        let opts = RenderOptions {
+            line_break: Some(LineBreak::new(600.0)),
+            ..Default::default()
+        };
+        let dl = render(&f, r"E = mc^2 \tag{1.2}", &opts).unwrap();
+        assert!((dl.width - 600.0).abs() < 1.0, "{}", dl.width);
+        assert!(glyph_xs(&dl).iter().any(|x| *x > 500.0));
+        // \tag* drops the parentheses; a second \tag is an error.
+        let starred = render(&f, r"x \tag*{A}", &RenderOptions::default()).unwrap();
+        let plain = render(&f, r"x \tag{A}", &RenderOptions::default()).unwrap();
+        assert!(starred.width < plain.width);
+        assert!(render(&f, r"x \tag{1} \tag{2}", &RenderOptions::default()).is_err());
+        assert_eq!(
+            render_speech(r"E = mc^2 \tag{3}", &Macros::new()).unwrap(),
+            "E equals m c squared, equation 3"
+        );
+    }
+
+    /// Recording regions must never move ink. Each case is a construct whose
+    /// layout looks at a neighbour or a child's kind, which the region
+    /// wrapper used to hide (found by the arXiv corpus check).
+    #[test]
+    fn hit_testing_never_changes_the_drawing() {
+        let f = font();
+        for tex in [
+            r"0<\displaystyle\frac{\nu \pi }{p+1}<\pi /2",
+            r"a + \color{red} b + c",
+            r"1 \stackrel{\cal H}{\rightarrow} \theta(x)",
+            r"j(T)\stackrel{def}{=} 1728 J(T)",
+            r"\left\{ x \middle| \frac{x}{2} \in \mathbb{Z} \right\}",
+            r"D = -\textstyle{\frac{4}{9}} C",
+        ] {
+            let plain = render(&f, tex, &RenderOptions::default()).unwrap();
+            let hit = render(&f, tex, &hit_opts()).unwrap();
+            assert_eq!(plain.items, hit.items, "{tex}");
+        }
+    }
+
     #[test]
     fn highlight_covers_a_source_range_without_overlap() {
         let f = font();
@@ -536,6 +638,9 @@ mod tests {
     fn bundled_fonts_cover_the_symbol_table() {
         use crate::symbols::{ACCENTS, BIG_OPS, SYMBOLS};
         const KNOWN_MISSING_IN_LATIN_MODERN: &[&str] = &[
+            "minuso",
+            "varsubsetneqq",
+            "varsupsetneqq",
             "Diamond",
             "bigstar",
             "blacktriangle",

@@ -46,7 +46,11 @@ Working today:
   the same tree the engine draws from, so `x^2 + y^2 = z^2` is announced as
   "x squared plus y squared equals z squared". The Compose, SwiftUI, Flutter
   and Android View widgets carry it automatically, so TalkBack and VoiceOver
-  read the formula instead of skipping it.
+  read the formula instead of skipping it. Speech comes at three verbosity
+  levels (verbose closes every structure: "..., end fraction"), and
+  `render_speech_tree` gives a tree a reader can walk into numerator,
+  denominator, scripts and matrix cells, each part carrying the source range
+  to `highlight` while it is spoken.
 - **Line breaking**: a formula too wide for the space available is broken into
   lines before relations and binary operators, the way an author breaks a long
   equation by hand, with the split chosen by a Knuth-Plass style dynamic
@@ -88,7 +92,30 @@ Working today:
   whole table renders out of the box. Layout constants always come from the
   primary, so adding a fallback cannot change a formula that did not need it.
 
-Not yet: `mhchem`, React Native, an editing model. See `docs/ROADMAP.md`.
+- **Text mode** in `\text`/`\mbox`: `$...$` math islands, font switches,
+  `\small`...`\Huge` (in math too), accents (`\'e`), escapes, dash and quote
+  ligatures. `\tag` equation numbers set flush right.
+- **Chemistry**: mhchem `\ce{...}` and `\pu{...}`.
+- **AsciiMath input**: `asciimath_to_tex("sum_(i=1)^n i^2")`.
+- **Layout cache** in every binding; **budgets** for untrusted input.
+
+Coverage: 98.2% of 103,559 real arXiv formulas (KaTeX 94.1%) and 94% of
+KaTeX's command surface (the rest is KaTeX-internal or `CD` diagrams).
+
+## SDKs
+
+`cargo xtask sdk <platform>` builds, verifies and packages an SDK; see
+[docs/SDK.md](docs/SDK.md). C (Linux, macOS, Windows), Swift (iOS, macOS),
+Android (AAR), Flutter (Android, iOS, macOS), web (`mathcore` npm package
+with a `<math-tex>` element) and React Native (`react-native-mathcore`), all
+at one version, released by one workflow.
+
+- **Speech in seven languages** (English, Spanish, French, German,
+  Portuguese, Bengali, Hindi), following the device or page language.
+- **Nemeth braille** output for refreshable braille displays.
+- **Commutative diagrams** (`\begin{CD}`) and line breaks inside groups.
+
+Not yet: an editing model. See `docs/ROADMAP.md`.
 
 ## Try it
 
@@ -176,6 +203,13 @@ for item in &list.items {
   parsed nodes and drawable items. A formula from a stranger that would cost
   real memory is an error, not an out-of-memory kill. Defaults are far above
   anything a person writes; `Budget::unlimited()` opts out.
+- **Real-world corpus**: `tools/corpus/run.sh` runs the 103,559 arXiv
+  formulas of im2latex-100k through mathcore and KaTeX. mathcore accepts
+  97.6% (KaTeX 94.1%); every accepted formula is checked for determinism,
+  finite geometry, hit testing that never moves ink, line breaking, a
+  well-nested speech tree and balanced MathML; then 100,000 mutants of real
+  formulas are fuzzed on a 256 KB stack. Any violation, panic or a mutant
+  slower than 50 ms fails the run.
 - **Benchmarks**: `cargo bench -p mathcore`.
 
 ## Development

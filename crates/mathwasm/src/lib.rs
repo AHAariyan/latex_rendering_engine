@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct MathEngine {
     font: MathFont<'static>,
+    cache: mathcore::LayoutCache,
 }
 
 fn color_from_argb(argb: u32) -> Color {
@@ -36,7 +37,10 @@ impl MathEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MathEngine, JsError> {
         let font = mathcore::bundled::font().map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(MathEngine { font })
+        Ok(MathEngine {
+            font,
+            cache: mathcore::LayoutCache::default(),
+        })
     }
 
     /// Engine for any OpenType font with a MATH table. The bytes are copied and kept for the page lifetime.
@@ -47,6 +51,7 @@ impl MathEngine {
         let fallback = MathFont::from_bytes(mathcore::bundled::FALLBACK).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(MathEngine {
             font: font.with_fallback(fallback),
+            cache: mathcore::LayoutCache::default(),
         })
     }
 
@@ -82,7 +87,10 @@ impl MathEngine {
             budget: mathcore::Budget::default(),
             hit_testing: false,
         };
-        let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
+        let dl = self
+            .cache
+            .render(&self.font, tex, &opts)
+            .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(mathraster::to_svg(&self.font, &dl, 0.0))
     }
 
@@ -109,7 +117,10 @@ impl MathEngine {
             budget: mathcore::Budget::default(),
             hit_testing: hit_testing.unwrap_or(false),
         };
-        let dl = mathcore::render(&self.font, tex, &opts).map_err(|e| JsError::new(&e.to_string()))?;
+        let dl = self
+            .cache
+            .render(&self.font, tex, &opts)
+            .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(dl.to_flat())
     }
 
@@ -156,6 +167,45 @@ pub fn mathml(tex: &str, display_mode: bool, macros: Option<String>) -> Result<S
 #[wasm_bindgen]
 pub fn speech(tex: &str, macros: Option<String>) -> Result<String, JsError> {
     mathcore::render_speech(tex, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+fn speech_opts(verbosity: u8, language: Option<String>) -> mathcore::SpeechOptions {
+    let verbosity = match verbosity {
+        0 => mathcore::Verbosity::Verbose,
+        2 => mathcore::Verbosity::Superbrief,
+        _ => mathcore::Verbosity::Brief,
+    };
+    mathcore::SpeechOptions {
+        verbosity,
+        language: mathcore::Language::from_tag(language.as_deref().unwrap_or("")),
+    }
+}
+
+/// `speech` at a verbosity (0 verbose, 1 brief, 2 superbrief) and in a
+/// language (a BCP 47 tag: "es", "fr", "de", "pt", "bn", "hi"; English otherwise).
+#[wasm_bindgen(js_name = speechWith)]
+pub fn speech_with(tex: &str, verbosity: u8, macros: Option<String>, language: Option<String>) -> Result<String, JsError> {
+    mathcore::render_speech_with(tex, &macros_from(macros), &speech_opts(verbosity, language)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// The navigable speech tree as JSON; `JSON.parse` it. Each node's
+/// `start..end` is a source byte range for highlighting.
+#[wasm_bindgen(js_name = speechTree)]
+pub fn speech_tree(tex: &str, verbosity: u8, macros: Option<String>, language: Option<String>) -> Result<String, JsError> {
+    mathcore::render_speech_tree(tex, &macros_from(macros), &speech_opts(verbosity, language))
+        .map(|n| n.to_json())
+        .map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn nemeth(tex: &str, macros: Option<String>) -> Result<String, JsError> {
+    mathcore::render_nemeth(tex, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for the other calls.
+#[wasm_bindgen(js_name = asciimathToTex)]
+pub fn asciimath_to_tex(src: &str) -> Result<String, JsError> {
+    mathcore::asciimath_to_tex(src).map_err(|e| JsError::new(&e.to_string()))
 }
 
 #[wasm_bindgen]

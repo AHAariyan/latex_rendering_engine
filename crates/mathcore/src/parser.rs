@@ -13,6 +13,10 @@ use crate::macros::{self, Macros};
 use crate::symbols;
 use crate::Budget;
 
+mod cd;
+mod mhchem;
+mod text;
+
 /// Parses a formula with no host-supplied macros.
 pub fn parse(src: &str) -> Result<Vec<Node>> {
     parse_with(src, &Macros::new())
@@ -45,15 +49,29 @@ fn parse_inner(src: &str, macros: &Macros, budget: Budget, spans: bool) -> Resul
         nodes: 0,
         max_nodes: budget.max_nodes,
         spans,
+        text_math_close: None,
+        tag: None,
+        cd_stop: None,
     };
     let nodes = p.parse_list()?;
-    match p.lx.advance()? {
-        Tok::Eof => Ok(nodes),
-        Tok::RBrace => Err(Error::parse(p.lx.pos(), "unexpected `}`")),
-        Tok::Amp => Err(Error::parse(p.lx.pos(), "`&` outside of an array")),
-        Tok::Cmd(c) => Err(Error::parse(p.lx.pos(), format!("unexpected \\{c}"))),
-        t => Err(Error::parse(p.lx.pos(), format!("unexpected token {t:?}"))),
-    }
+    let nodes = if matches!(p.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline")) {
+        p.top_level_lines(nodes)?
+    } else {
+        match p.lx.advance()? {
+            Tok::Eof => nodes,
+            Tok::RBrace => return Err(Error::parse(p.lx.pos(), "unexpected `}`")),
+            Tok::Amp => return Err(Error::parse(p.lx.pos(), "`&` outside of an array")),
+            Tok::Cmd(c) => return Err(Error::parse(p.lx.pos(), format!("unexpected \\{c}"))),
+            t => return Err(Error::parse(p.lx.pos(), format!("unexpected token {t:?}"))),
+        }
+    };
+    Ok(match p.tag.take() {
+        Some(tag) => vec![Node::Tagged {
+            body: nodes,
+            tag: Box::new(tag),
+        }],
+        None => nodes,
+    })
 }
 
 struct Parser<'a> {
@@ -67,6 +85,12 @@ struct Parser<'a> {
     max_nodes: usize,
     /// Record the source range of every atom.
     spans: bool,
+    /// Inside `$...$` in text: the token that closes the math.
+    text_math_close: Option<Tok<'static>>,
+    /// The formula's `\tag`, set wherever in the source it appears.
+    tag: Option<Node>,
+    /// Inside a CD diagram: the character that ends the current object or label.
+    cd_stop: Option<char>,
 }
 
 /// Deeper nesting than this is rejected. The layout engine recurses once per
@@ -77,7 +101,15 @@ const MAX_DEPTH: usize = 64;
 fn is_stop(tok: &Tok<'_>) -> bool {
     matches!(
         tok,
-        Tok::Eof | Tok::RBrace | Tok::Amp | Tok::Cmd("\\") | Tok::Cmd("right") | Tok::Cmd("end") | Tok::Cmd("middle") | Tok::Cmd("cr")
+        Tok::Eof
+            | Tok::RBrace
+            | Tok::Amp
+            | Tok::Cmd("\\")
+            | Tok::Cmd("newline")
+            | Tok::Cmd("right")
+            | Tok::Cmd("end")
+            | Tok::Cmd("middle")
+            | Tok::Cmd("cr")
     )
 }
 
@@ -112,6 +144,57 @@ pub fn parse_dimen(s: &str) -> Option<f32> {
 }
 
 impl<'a> Parser<'a> {
+    /// `a \\ b` outside any environment: TeX's display math has no line
+    /// breaks of its own, but KaTeX and MathJax set each line centred, as
+    /// `gathered` does, and real documents rely on it.
+    fn top_level_lines(&mut self, first: Vec<Node>) -> Result<Vec<Node>> {
+        let mut rows = vec![vec![first]];
+        while matches!(self.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline")) {
+            self.lx.advance()?;
+            rows.push(vec![self.parse_list()?]);
+        }
+        match self.lx.advance()? {
+            Tok::Eof => {}
+            t => return Err(Error::parse(self.lx.pos(), format!("unexpected {t:?}"))),
+        }
+        Ok(vec![lines_array(rows)])
+    }
+
+    /// The inside of a braced group. `{a \\ b}` breaks the group into
+    /// centred lines, as KaTeX and MathJax do; arXiv sources rely on it.
+    fn group_body(&mut self) -> Result<Vec<Node>> {
+        let first = self.parse_list()?;
+        if !matches!(self.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr")) {
+            return Ok(first);
+        }
+        let mut rows = vec![vec![first]];
+        while matches!(self.lx.peek()?, Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr")) {
+            self.lx.advance()?;
+            rows.push(vec![self.parse_list()?]);
+        }
+        Ok(vec![lines_array(rows)])
+    }
+}
+
+/// Lines stacked and centred, like `gathered`. A trailing break adds no line.
+fn lines_array(mut rows: Vec<Vec<Vec<Node>>>) -> Node {
+    if rows.len() > 1 && rows.last().is_some_and(|r| r[0].is_empty()) {
+        rows.pop();
+    }
+    let gaps = vec![0.0; rows.len().saturating_sub(1)];
+    Node::Array(Box::new(Array {
+        rows,
+        cols: vec![ColAlign::Center],
+        cell_style: MathStyle::Display,
+        hlines: Vec::new(),
+        vlines: Vec::new(),
+        row_gaps: gaps,
+        pitch: RowPitch::Normal,
+        stretch: 1.0,
+    }))
+}
+
+impl<'a> Parser<'a> {
     /// Parses atoms until a group/row/environment terminator.
     fn parse_list(&mut self) -> Result<Vec<Node>> {
         if self.depth > MAX_DEPTH {
@@ -127,7 +210,10 @@ impl<'a> Parser<'a> {
         let mut out = Vec::new();
         loop {
             let tok = self.lx.peek()?;
-            if is_stop(tok) {
+            if is_stop(tok)
+                || self.text_math_close.as_ref() == Some(tok)
+                || matches!((tok, self.cd_stop), (Tok::Char(c), Some(s)) if *c == s)
+            {
                 return Ok(out);
             }
             if is_infix(tok) {
@@ -183,7 +269,13 @@ impl<'a> Parser<'a> {
     /// One nucleus plus any scripts and primes attached to it.
     fn parse_atom(&mut self) -> Result<Node> {
         let pos = self.lx.pos();
-        let base = self.parse_nucleus()?;
+        // `{}^a`, `{^*}H`, `\sqrt{^6 g}`: a script with nothing before it has
+        // an empty nucleus, as in TeX.
+        let base = if matches!(self.lx.peek()?, Tok::Sup | Tok::Sub) {
+            Node::Row(vec![])
+        } else {
+            self.parse_nucleus()?
+        };
         let mut sup: Option<Node> = None;
         let mut sub: Option<Node> = None;
         loop {
@@ -265,13 +357,43 @@ impl<'a> Parser<'a> {
             Tok::LBrace => {
                 self.lx.advance()?;
                 let saved = self.variant;
-                let list = self.parse_list()?;
+                let list = self.group_body()?;
                 self.variant = saved;
                 self.expect_rbrace()?;
                 Ok(Node::Row(list))
             }
             Tok::Char(_) | Tok::Cmd(_) => self.parse_nucleus(),
             t => Err(Error::parse(pos, format!("expected an argument, found {t:?}"))),
+        }
+    }
+
+    /// An optional `[...]` argument (`\\sqrt[3]`, `\\xrightarrow[below]`). It
+    /// nests like a group, so it counts against the depth limit like one.
+    fn parse_bracket_arg(&mut self, pos: usize, missing: &str) -> Result<Option<Box<Node>>> {
+        if !matches!(self.lx.peek()?, Tok::Char('[')) {
+            return Ok(None);
+        }
+        if self.depth > MAX_DEPTH {
+            return Err(Error::parse(pos, format!("nesting deeper than {MAX_DEPTH} levels")));
+        }
+        self.lx.advance()?;
+        self.depth += 1;
+        let r = self.parse_bracket_items(pos, missing);
+        self.depth -= 1;
+        Ok(Some(Box::new(Node::Row(r?))))
+    }
+
+    fn parse_bracket_items(&mut self, pos: usize, missing: &str) -> Result<Vec<Node>> {
+        let mut items = Vec::new();
+        loop {
+            match self.lx.peek()? {
+                Tok::Char(']') => {
+                    self.lx.advance()?;
+                    return Ok(items);
+                }
+                Tok::Eof => return Err(Error::parse(pos, missing.to_string())),
+                _ => items.push(self.parse_atom()?),
+            }
         }
     }
 
@@ -297,7 +419,7 @@ impl<'a> Parser<'a> {
             Tok::Char(c) => Ok(self.char_node(c)),
             Tok::LBrace => {
                 let saved = self.variant;
-                let list = self.parse_list()?;
+                let list = self.group_body()?;
                 self.variant = saved;
                 self.expect_rbrace()?;
                 Ok(Node::Row(list))
@@ -376,7 +498,30 @@ impl<'a> Parser<'a> {
         Ok(Color(rgb[0], rgb[1], rgb[2], 255))
     }
 
+    /// Counts one node against the budget.
+    fn count_node(&mut self, pos: usize) -> Result<()> {
+        let _ = pos;
+        self.nodes += 1;
+        if self.nodes > self.max_nodes {
+            return Err(Error::TooLarge {
+                what: "symbols",
+                limit: self.max_nodes,
+            });
+        }
+        Ok(())
+    }
+
     fn parse_command(&mut self, name: &'a str, pos: usize) -> Result<Node> {
+        // `\` followed by a tab or a line break is a control space, like `\ `.
+        if name.chars().all(char::is_whitespace) {
+            return Ok(Node::Space { mu: 6.0 });
+        }
+        if let Some(factor) = text::size_factor(name) {
+            return Ok(Node::Size {
+                factor,
+                body: self.parse_list()?,
+            });
+        }
         if let Some((_, mu)) = symbols::SPACES.iter().find(|(n, _)| *n == name) {
             return Ok(Node::Space { mu: *mu });
         }
@@ -494,23 +639,7 @@ impl<'a> Parser<'a> {
                 })
             }
             "sqrt" => {
-                let index = if matches!(self.lx.peek()?, Tok::Char('[')) {
-                    self.lx.advance()?;
-                    let mut items = Vec::new();
-                    loop {
-                        match self.lx.peek()? {
-                            Tok::Char(']') => {
-                                self.lx.advance()?;
-                                break;
-                            }
-                            Tok::Eof => return Err(Error::parse(pos, "missing `]` in \\sqrt")),
-                            _ => items.push(self.parse_atom()?),
-                        }
-                    }
-                    Some(Box::new(Node::Row(items)))
-                } else {
-                    None
-                };
+                let index = self.parse_bracket_arg(pos, "missing `]` in \\sqrt")?;
                 let radicand = self.parse_arg()?;
                 Ok(Node::Sqrt {
                     radicand: Box::new(radicand),
@@ -555,10 +684,11 @@ impl<'a> Parser<'a> {
                     Some('m') => AtomType::Rel,
                     _ => AtomType::Ord,
                 };
-                let ch = self
-                    .parse_delimiter(pos)?
-                    .ok_or_else(|| Error::parse(pos, "null delimiter after \\big"))?;
-                Ok(Node::SizedDelim { ch, size, atom })
+                match self.parse_delimiter(pos)? {
+                    Some(ch) => Ok(Node::SizedDelim { ch, size, atom }),
+                    // `\bigl.`: TeX's null delimiter, \nulldelimiterspace (1.2 pt) wide.
+                    None => Ok(Node::Space { mu: 0.12 * 18.0 }),
+                }
             }
             "mathbf" | "mathrm" | "mathit" | "mathbb" | "mathcal" | "mathfrak" | "mathsf" | "mathtt" | "boldsymbol" | "bm"
             | "mathnormal" | "mathscr" | "pmb" | "Bbb" | "bold" | "rm" | "bf" | "it" | "cal" => {
@@ -587,7 +717,6 @@ impl<'a> Parser<'a> {
                 arg
             }
             "text" | "textrm" | "textnormal" | "mbox" | "textit" | "textbf" | "textsf" | "texttt" | "hbox" => {
-                let raw = self.lx.raw_group()?;
                 let variant = match name {
                     "textit" => Variant::Italic,
                     "textbf" => Variant::Bold,
@@ -595,10 +724,7 @@ impl<'a> Parser<'a> {
                     "texttt" => Variant::Monospace,
                     _ => Variant::Roman,
                 };
-                Ok(Node::Text {
-                    text: raw.to_string(),
-                    variant,
-                })
+                self.parse_text_arg(variant, pos)
             }
             "operatorname" | "operatornamewithlimits" => {
                 let starred = if matches!(self.lx.peek()?, Tok::Char('*')) {
@@ -677,46 +803,59 @@ impl<'a> Parser<'a> {
             "limits" | "nolimits" | "displaylimits" | "relax" | "nonumber" | "notag" | "allowbreak" | "noindent" | "ignorespaces" => {
                 Ok(Node::Row(vec![]))
             }
-            "label" | "tag" | "ref" | "eqref" => {
+            "tag" => {
+                let starred = matches!(self.lx.peek()?, Tok::Char('*'));
+                if starred {
+                    self.lx.advance()?;
+                }
+                if self.tag.is_some() {
+                    return Err(Error::parse(pos, "a formula takes one \\tag"));
+                }
+                let body = self.parse_text_arg(Variant::Roman, pos)?;
+                let paren = |c: &str| Node::Text {
+                    text: c.to_string(),
+                    variant: Variant::Roman,
+                };
+                self.tag = Some(if starred {
+                    body
+                } else {
+                    Node::Row(vec![paren("("), body, paren(")")])
+                });
+                Ok(Node::Row(vec![]))
+            }
+            // A label or cross-reference points into the surrounding document,
+            // which a formula renderer cannot see.
+            "label" | "ref" | "eqref" => {
                 let _ = self.lx.raw_group()?;
                 Ok(Node::Row(vec![]))
             }
             "not" => {
+                // A symbol with a precomposed negation becomes it. Anything
+                // else gets TeX's own \not: a zero-width relation slash laid
+                // over whatever follows, which is parsed as usual.
+                let saved = self.lx.clone();
                 let arg = self.parse_arg()?;
-                match arg {
-                    Node::Symbol { ch, atom, variant } => {
-                        let negated = match ch {
-                            '=' => '≠',
-                            '∈' => '∉',
-                            '<' => '≮',
-                            '>' => '≯',
-                            '≡' => '≢',
-                            '⊂' => '⊄',
-                            '⊃' => '⊅',
-                            '⊆' => '⊈',
-                            '⊇' => '⊉',
-                            '∼' => '≁',
-                            '≈' => '≉',
-                            '≤' => '≰',
-                            '≥' => '≱',
-                            '∃' => '∄',
-                            '≃' => '≄',
-                            '≅' => '≇',
-                            '∣' => '∤',
-                            '∥' => '∦',
-                            '→' => '↛',
-                            '⇒' => '⇏',
-                            '∋' => '∌',
-                            other => return Err(Error::parse(pos, format!("\\not cannot negate `{other}`"))),
-                        };
-                        Ok(Node::Symbol {
-                            ch: negated,
-                            atom,
-                            variant,
-                        })
-                    }
-                    _ => Err(Error::parse(pos, "\\not needs a symbol")),
+                if !matches!(&arg, Node::Symbol { ch, .. } if negation(*ch).is_some()) {
+                    self.lx = saved;
+                    return Ok(Node::Class {
+                        atom: AtomType::Rel,
+                        body: Box::new(Node::Lap {
+                            align: Lap::Right,
+                            body: Box::new(Node::Symbol {
+                                ch: '/',
+                                atom: AtomType::Ord,
+                                variant: Variant::Normal,
+                            }),
+                        }),
+                        limits: Limits::Default,
+                    });
                 }
+                let Node::Symbol { ch, atom, variant } = arg else { unreachable!() };
+                Ok(Node::Symbol {
+                    ch: negation(ch).expect("checked above"),
+                    atom,
+                    variant,
+                })
             }
             "begin" => {
                 let env = self.lx.raw_group()?.to_string();
@@ -822,10 +961,8 @@ impl<'a> Parser<'a> {
                     variant: Variant::Monospace,
                 })
             }
-            "emph" | "textup" | "textmd" => Ok(Node::Text {
-                text: self.lx.raw_group()?.to_string(),
-                variant: Variant::Italic,
-            }),
+            "emph" => self.parse_text_arg(Variant::Italic, pos),
+            "textup" | "textmd" => self.parse_text_arg(Variant::Roman, pos),
             "sf" | "tt" | "frak" => {
                 self.variant = match name {
                     "sf" => Variant::SansSerif,
@@ -854,7 +991,8 @@ impl<'a> Parser<'a> {
             }
             "xrightarrow" | "xleftarrow" | "xleftrightarrow" | "xRightarrow" | "xLeftarrow" | "xLeftrightarrow" | "xmapsto"
             | "xhookrightarrow" | "xhookleftarrow" | "xtwoheadrightarrow" | "xtwoheadleftarrow" | "xrightharpoonup" | "xleftharpoonup"
-            | "xlongequal" | "xrightharpoondown" | "xleftharpoondown" | "xrightleftharpoons" | "xleftrightharpoons" | "xtofrom" => {
+            | "xlongequal" | "xrightharpoondown" | "xleftharpoondown" | "xrightleftharpoons" | "xleftrightharpoons" | "xtofrom"
+            | "xrightequilibrium" | "xleftequilibrium" | "xrightleftarrows" => {
                 let ch = match name {
                     "xrightarrow" => '→',
                     "xleftarrow" => '←',
@@ -871,28 +1009,14 @@ impl<'a> Parser<'a> {
                     "xleftharpoonup" => '↼',
                     "xrightharpoondown" => '⇁',
                     "xleftharpoondown" => '↽',
-                    "xrightleftharpoons" => '⇌',
+                    "xrightleftharpoons" | "xrightequilibrium" => '⇌',
+                    "xleftequilibrium" => '⇋',
+                    "xrightleftarrows" => '⇄',
                     "xleftrightharpoons" => '⇋',
                     "xtofrom" => '⇄',
                     _ => '=',
                 };
-                let under = if matches!(self.lx.peek()?, Tok::Char('[')) {
-                    self.lx.advance()?;
-                    let mut items = Vec::new();
-                    loop {
-                        match self.lx.peek()? {
-                            Tok::Char(']') => {
-                                self.lx.advance()?;
-                                break;
-                            }
-                            Tok::Eof => return Err(Error::parse(pos, "missing `]`")),
-                            _ => items.push(self.parse_atom()?),
-                        }
-                    }
-                    Some(Box::new(Node::Row(items)))
-                } else {
-                    None
-                };
+                let under = self.parse_bracket_arg(pos, "missing `]`")?;
                 let over = self.parse_arg()?;
                 Ok(Node::XArrow {
                     ch,
@@ -949,6 +1073,10 @@ impl<'a> Parser<'a> {
                 Ok(Node::Row(items))
             }
             "hspace" | "hskip" | "kern" | "mkern" | "mskip" | "hspace*" => {
+                // `\hspace*` lexes as `\hspace` then `*`; in math it means the same.
+                if name == "hspace" && matches!(self.lx.peek()?, Tok::Char('*')) {
+                    self.lx.advance()?;
+                }
                 let em = self.parse_dimen_arg(pos)?;
                 Ok(Node::Space { mu: em * 18.0 })
             }
@@ -957,6 +1085,124 @@ impl<'a> Parser<'a> {
                 atom: if name == "lVert" { AtomType::Open } else { AtomType::Close },
                 variant: Variant::Normal,
             }),
+            _ if symbols::colon_relation(name).is_some() => {
+                let chars = symbols::colon_relation(name).unwrap();
+                Ok(Node::Class {
+                    atom: AtomType::Rel,
+                    body: Box::new(Node::Row(
+                        chars
+                            .chars()
+                            .map(|ch| Node::Symbol {
+                                ch,
+                                atom: AtomType::Ord,
+                                variant: Variant::Normal,
+                            })
+                            .collect(),
+                    )),
+                    limits: Limits::NoLimits,
+                })
+            }
+            _ if symbols::NAMED_COLOR_COMMANDS.iter().any(|(n, _)| *n == name) => {
+                let rgb = symbols::NAMED_COLOR_COMMANDS.iter().find(|(n, _)| *n == name).unwrap().1;
+                let body = self.parse_arg()?;
+                Ok(Node::Color {
+                    color: Color((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8, 255),
+                    body: vec![body],
+                })
+            }
+            // braket: ⟨a|, |a⟩, ⟨a|b⟩ at text size, or growing with \Bra and friends.
+            "bra" | "ket" | "braket" | "Bra" | "Ket" | "Braket" | "set" | "Set" => {
+                let body = self.parse_arg()?;
+                let (l, r) = match name {
+                    "bra" | "Bra" => ('⟨', '|'),
+                    "ket" | "Ket" => ('|', '⟩'),
+                    "braket" | "Braket" => ('⟨', '⟩'),
+                    _ => ('{', '}'),
+                };
+                if name.starts_with(char::is_uppercase) {
+                    return Ok(Node::LeftRight {
+                        left: Some(l),
+                        body: vec![body],
+                        right: Some(r),
+                    });
+                }
+                let sym = |ch, atom| Node::Symbol {
+                    ch,
+                    atom,
+                    variant: Variant::Normal,
+                };
+                Ok(Node::Class {
+                    atom: AtomType::Inner,
+                    body: Box::new(Node::Row(vec![sym(l, AtomType::Open), body, sym(r, AtomType::Close)])),
+                    limits: Limits::NoLimits,
+                })
+            }
+            // Links and HTML attributes have no place in a display list: the
+            // content is drawn, the target dropped.
+            "href" => {
+                let _url = self.lx.raw_group()?;
+                self.parse_arg()
+            }
+            "url" => Ok(Node::Text {
+                text: self.lx.raw_group()?.to_string(),
+                variant: Variant::Monospace,
+            }),
+            "htmlClass" | "htmlId" | "htmlStyle" | "htmlData" => {
+                let _attr = self.lx.raw_group()?;
+                self.parse_arg()
+            }
+            "TextOrMath" => {
+                let _text = self.lx.raw_group()?;
+                self.parse_arg()
+            }
+            "DOTSB" | "DOTSI" | "DOTSX" => Ok(Node::Row(vec![])),
+            "ce" | "pu" => {
+                let raw = self.lx.raw_group()?;
+                // The inner parse starts its own depth count, so it must not
+                // be able to start another one.
+                if raw.contains("\\ce") || raw.contains("\\pu") {
+                    return Err(Error::parse(pos, format!("\\{name} inside \\ce or \\pu")));
+                }
+                let tex = if name == "ce" {
+                    mhchem::ce_to_tex(raw).map_err(|m| Error::parse(pos, m))?
+                } else {
+                    mhchem::pu_to_tex(raw)
+                };
+                let budget = Budget {
+                    max_nodes: self.max_nodes.saturating_sub(self.nodes),
+                    ..Budget::default()
+                };
+                let nodes = parse_inner(&tex, &Macros::new(), budget, false).map_err(|e| Error::parse(pos, format!("in \\{name}: {e}")))?;
+                self.nodes += nodes.len();
+                Ok(Node::Row(nodes))
+            }
+            // Text-mode letters and accents used in math: `\AA`, `\c{C}`.
+            _ if text::text_symbol(name).is_some()
+                || matches!(
+                    name,
+                    "TeX"
+                        | "LaTeX"
+                        | "KaTeX"
+                        | "'"
+                        | "`"
+                        | "^"
+                        | "\""
+                        | "~"
+                        | "="
+                        | "."
+                        | "c"
+                        | "H"
+                        | "v"
+                        | "u"
+                        | "r"
+                        | "k"
+                        | "d"
+                        | "b"
+                        | "t"
+                ) =>
+            {
+                self.parse_text_arg_from_command(name, pos)
+            }
             _ => Err(Error::parse(pos, format!("unknown command \\{name}"))),
         }
     }
@@ -999,7 +1245,7 @@ impl<'a> Parser<'a> {
             let cell = self.parse_list()?;
             rows.push(vec![cell]);
             match self.lx.advance()? {
-                Tok::Cmd("\\") | Tok::Cmd("cr") => continue,
+                Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr") => continue,
                 Tok::RBrace => break,
                 Tok::Eof => return Err(Error::parse(pos, format!("unterminated \\{what}"))),
                 t => return Err(Error::parse(pos, format!("unexpected {t:?} in \\{what}"))),
@@ -1021,6 +1267,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_environment(&mut self, env: &str, pos: usize) -> Result<Node> {
+        if env == "CD" {
+            return self.parse_cd(pos);
+        }
         let mut vlines = Vec::new();
         let (cols, cell_style, left, right): (Vec<ColAlign>, MathStyle, Delim, Delim) = match env {
             "matrix" | "pmatrix" | "bmatrix" | "Bmatrix" | "vmatrix" | "Vmatrix" | "smallmatrix" | "matrix*" | "pmatrix*" | "bmatrix*"
@@ -1130,7 +1379,7 @@ impl<'a> Parser<'a> {
             rows.last_mut().unwrap().push(cell);
             match self.lx.advance()? {
                 Tok::Amp => {}
-                Tok::Cmd("\\") | Tok::Cmd("cr") => {
+                Tok::Cmd("\\") | Tok::Cmd("newline") | Tok::Cmd("cr") => {
                     let mut gap = 0.0;
                     if matches!(self.lx.peek()?, Tok::Char('[')) {
                         self.lx.advance()?;
@@ -1185,7 +1434,10 @@ impl<'a> Parser<'a> {
         } else {
             cols.into_iter().take(ncols.max(1)).collect()
         };
-        let pitch = if env == "smallmatrix" {
+        // amsmath's subarray is \substack with a column alignment.
+        let pitch = if env == "subarray" {
+            RowPitch::Substack
+        } else if env == "smallmatrix" {
             RowPitch::SmallMatrix
         } else {
             RowPitch::Normal
@@ -1225,6 +1477,34 @@ impl<'a> Parser<'a> {
             _ => Err(Error::parse(pos, format!("missing \\end{{{env}}}"))),
         }
     }
+}
+
+/// The precomposed negation `\\not` turns a symbol into, if there is one.
+fn negation(ch: char) -> Option<char> {
+    Some(match ch {
+        '=' => '≠',
+        '∈' => '∉',
+        '<' => '≮',
+        '>' => '≯',
+        '≡' => '≢',
+        '⊂' => '⊄',
+        '⊃' => '⊅',
+        '⊆' => '⊈',
+        '⊇' => '⊉',
+        '∼' => '≁',
+        '≈' => '≉',
+        '≤' => '≰',
+        '≥' => '≱',
+        '∃' => '∄',
+        '≃' => '≄',
+        '≅' => '≇',
+        '∣' => '∤',
+        '∥' => '∦',
+        '→' => '↛',
+        '⇒' => '⇏',
+        '∋' => '∌',
+        _ => return None,
+    })
 }
 
 fn is_prime(ch: char) -> bool {
@@ -1372,6 +1652,36 @@ mod tests {
         let n = parse(r"\newcommand{\R}{\mathbb{R}} x \in \R").unwrap();
         assert_eq!(n.len(), 3);
         assert!(matches!(&n[2], Node::Row(v) if matches!(v[0], Node::Symbol { variant: Variant::DoubleStruck, .. })));
+    }
+
+    /// Forms the arXiv corpus showed KaTeX accepting and us rejecting.
+    #[test]
+    fn real_world_forms_from_the_arxiv_corpus() {
+        // A script with no nucleus.
+        assert!(
+            matches!(&parse("{^*}H").unwrap()[0], Node::Row(v) if matches!(&v[0], Node::Scripts { base, .. } if **base == Node::Row(vec![])))
+        );
+        assert!(parse(r"\sqrt{^6 g}").is_ok());
+        assert!(parse(r"\chi_{_{2}}").is_ok());
+        // Line breaks outside an environment become centred lines.
+        let lines = parse(r"a = b \\ c = d \\").unwrap();
+        assert!(matches!(&lines[..], [Node::Array(a)] if a.rows.len() == 2 && a.cols == [ColAlign::Center]));
+        // \> is a medium space.
+        assert_eq!(parse(r"\>").unwrap(), vec![Node::Space { mu: 4.0 }]);
+        // \not on something without a precomposed negation overlays a slash
+        // and leaves what follows to be parsed normally.
+        assert_eq!(parse(r"\not=").unwrap().len(), 1);
+        let not_d = parse(r"\not D").unwrap();
+        assert!(matches!(
+            &not_d[..],
+            [Node::Class { atom: AtomType::Rel, .. }, Node::Symbol { ch: 'D', .. }]
+        ));
+        assert!(parse(r"\not{\!\! D}").is_ok());
+        assert!(parse(r"\not\mathrel{D}").is_ok());
+        // \hspace* and \lbrack, \bigl.
+        assert_eq!(parse(r"\hspace*{1em}").unwrap(), vec![Node::Space { mu: 18.0 }]);
+        assert!(parse(r"\left\lbrack x \right\rbrack").is_ok());
+        assert!(parse(r"\biggl. f \biggr|_{x=0}").is_ok());
     }
 
     #[test]

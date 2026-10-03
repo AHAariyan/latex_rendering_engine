@@ -20,3 +20,11 @@ new CanvasRenderer(engine).draw(layout, ctx, 0, 0);                        // se
 
 `node test.mjs` runs the smoke test against a `--target nodejs` build in
 `pkg-node/`. The package is about 1 MB, of which the embedded font is 730 KB.
+
+## Bench
+
+`scripts/bench.sh` builds the package and serves `bench.html`: the whole
+regression corpus rendered by mathcore, KaTeX and MathJax side by side, with
+per-formula timings, a failure count per engine, and a screen-reader explorer
+that walks the speech tree with the arrow keys and highlights the part being
+read.

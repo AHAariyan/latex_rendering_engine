@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
@@ -6,6 +7,53 @@ import 'package:ffi/ffi.dart';
 
 import 'bindings.dart';
 import 'layout.dart';
+
+/// How much scaffolding spoken math carries.
+enum SpeechVerbosity {
+  /// Every structure is opened and closed: "the fraction 1 over 2, end fraction".
+  verbose,
+
+  /// Scaffolding only where the reading would be ambiguous: "1 over 2". The default.
+  brief,
+
+  /// Content words only.
+  superbrief,
+}
+
+/// One part of a formula for a screen reader to step through. [start] and
+/// [end] are the UTF-8 byte range of the source, for [MathLayout.highlight].
+class SpeechNode {
+  SpeechNode({
+    required this.role,
+    required this.label,
+    required this.text,
+    required this.start,
+    required this.end,
+    required this.children,
+  });
+
+  factory SpeechNode.fromJson(Map<String, dynamic> j) => SpeechNode(
+        role: j['role'] as String,
+        label: j['label'] as String,
+        text: j['text'] as String,
+        start: j['start'] as int,
+        end: j['end'] as int,
+        children: [for (final c in j['children'] as List) SpeechNode.fromJson(c as Map<String, dynamic>)],
+      );
+
+  /// "formula", "fraction", "root", "scripts", "matrix", "symbol", ...
+  final String role;
+
+  /// Place in the parent: "numerator", "superscript", "row 2", or empty.
+  final String label;
+  final String text;
+  final int start;
+  final int end;
+  final List<SpeechNode> children;
+
+  /// What a screen reader says for this part: its place, then its content.
+  String get announcement => label.isEmpty ? text : '$label: $text';
+}
 
 class MathParseException implements Exception {
   MathParseException(this.message);
@@ -30,7 +78,16 @@ class MathEngine {
   static DynamicLibrary _open() {
     final path = libraryPath;
     if (path != null) return DynamicLibrary.open(path);
-    if (Platform.isIOS || Platform.isMacOS) return DynamicLibrary.process();
+    if (Platform.isIOS || Platform.isMacOS) {
+      // mathcore_flutter ships the engine as a dynamic framework, which
+      // survives the symbol stripping of release builds; a host that links
+      // it statically can still be found through the process.
+      try {
+        return DynamicLibrary.open('MathCoreFFI.framework/MathCoreFFI');
+      } on ArgumentError {
+        return DynamicLibrary.process();
+      }
+    }
     if (Platform.isWindows) return DynamicLibrary.open('mathcore_ffi.dll');
     return DynamicLibrary.open('libmathcore_ffi.so');
   }
@@ -89,7 +146,54 @@ class MathEngine {
       _string(tex, (b, t) => b.mathml(t, displayMode, nullptr));
 
   /// A spoken sentence for [tex], for a semantics label. Needs no engine.
-  static String speech(String tex) => _string(tex, (b, t) => b.speech(t, nullptr));
+  static String speech(String tex) => speechWith(tex, SpeechVerbosity.brief);
+
+  /// Languages spoken math is available in, as BCP 47 tags. Any other
+  /// language reads in English.
+  static const speechLanguages = ['en', 'es', 'fr', 'de', 'pt', 'bn', 'hi'];
+
+  /// The system's language (`bn_BD` becomes `bn-BD`).
+  static String get systemLanguage => Platform.localeName.split('.').first.replaceAll('_', '-');
+
+  /// [speech] at a chosen verbosity, in [language] (a BCP 47 tag; the
+  /// system's language by default).
+  static String speechWith(String tex, SpeechVerbosity verbosity, {String? language}) =>
+      _withLanguage(language, (lang) => _string(tex, (b, t) => b.speechLang(t, nullptr, verbosity.index, lang)));
+
+  /// The formula as a tree a screen reader can walk part by part.
+  static SpeechNode speechTree(String tex, {SpeechVerbosity verbosity = SpeechVerbosity.brief, String? language}) {
+    final json = _withLanguage(
+        language, (lang) => _string(tex, (b, t) => b.speechTreeLang(t, nullptr, verbosity.index, lang)));
+    return SpeechNode.fromJson(jsonDecode(json) as Map<String, dynamic>);
+  }
+
+  static String _withLanguage(String? language, String Function(Pointer<Utf8>) call) {
+    final p = (language ?? systemLanguage).toNativeUtf8();
+    try {
+      return call(p);
+    } finally {
+      malloc.free(p);
+    }
+  }
+
+  /// The formula in Nemeth braille (Unicode braille cells), for braille displays.
+  static String nemeth(String tex) => _string(tex, (b, t) => b.nemeth(t, nullptr));
+
+  /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for [render].
+  static String asciimathToTex(String source) => _string(source, (b, t) => b.asciimathToTex(t));
+
+  /// Caps the work one formula may cost, for input from strangers. Null keeps
+  /// a limit's default (256 KB expanded source, 50,000 nodes, 200,000 items).
+  void setBudget({int? maxExpandedBytes, int? maxNodes, int? maxItems}) {
+    _check();
+    _b.setBudget(_handle, maxExpandedBytes ?? 0, maxNodes ?? 0, maxItems ?? 0);
+  }
+
+  /// Layouts kept for repeated requests (default 256); 0 turns caching off.
+  void setCacheCapacity(int capacity) {
+    _check();
+    _b.setCacheCapacity(_handle, capacity);
+  }
 
   static String _string(String tex, Pointer<Utf8> Function(MathBindings, Pointer<Utf8>) call) {
     final b = bindings;

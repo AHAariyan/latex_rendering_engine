@@ -1,0 +1,48 @@
+// react-native-mathcore for Android. The engine's Kotlin view (dev.mathcore)
+// and native library are vendored into src/main by `cargo xtask sdk
+// react-native`, so the package needs no Maven repository of its own.
+buildscript {
+  ext.mathcoreExt = { name, fallback -> rootProject.ext.has(name) ? rootProject.ext.get(name) : fallback }
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.3"
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${mathcoreExt('kotlinVersion', '2.1.20')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+apply plugin: "com.facebook.react"
+
+android {
+  namespace "dev.mathcore.reactnative"
+  compileSdkVersion mathcoreExt("compileSdkVersion", 35)
+  defaultConfig {
+    minSdkVersion mathcoreExt("minSdkVersion", 24)
+    targetSdkVersion mathcoreExt("targetSdkVersion", 35)
+    consumerProguardFiles "proguard-rules.pro"
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  sourceSets {
+    main {
+      jniLibs.srcDirs = ["src/main/jniLibs"]
+    }
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation "androidx.core:core-ktx:1.13.1"
+  implementation "androidx.customview:customview:1.1.0"
+}

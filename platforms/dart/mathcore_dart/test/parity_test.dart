@@ -6,9 +6,11 @@ import 'dart:io';
 import 'package:mathcore_dart/mathcore_dart.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   test('layout matches the Rust core for every corpus formula', () {
-    MathEngine.libraryPath = Platform.environment['MATHCORE_LIB'] ?? '../../../target/release/libmathcore_ffi.so';
+    MathEngine.libraryPath = libraryForTests();
     final file = File(Platform.environment['MATHCORE_PARITY'] ?? '../../../tests/parity/expected.json');
     final expected = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     final fontSize = (expected['fontSize'] as num).toDouble();

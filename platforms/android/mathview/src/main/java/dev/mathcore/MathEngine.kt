@@ -36,6 +36,10 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         fun withFonts(mathFont: ByteArray? = null, textFont: ByteArray? = null): MathEngine =
             MathEngine(check(NativeBridge.create(mathFont, textFont)))
 
+        /** AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for [render]. */
+        fun asciimathToTex(source: String): String =
+            NativeBridge.asciimathToTex(source) ?: throw MathParseException(NativeBridge.lastError() ?: "asciimath failed")
+
         private fun check(handle: Long): Long {
             if (handle == 0L) throw IllegalStateException(NativeBridge.lastError() ?: "cannot create math engine")
             return handle
@@ -74,6 +78,22 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText, maxWidthPx, hitTesting)
             ?: throw MathParseException(NativeBridge.lastError() ?: "render failed")
         return MathLayout(data)
+    }
+
+    /**
+     * Caps the work one formula may cost on this engine, for input from
+     * strangers (a chat, a comment field). Null keeps a limit's default:
+     * 256 KB of expanded source, 50,000 nodes, 200,000 drawn items.
+     */
+    @Synchronized
+    fun setBudget(maxExpandedBytes: Long? = null, maxNodes: Long? = null, maxItems: Long? = null) {
+        NativeBridge.setBudget(handle, maxExpandedBytes ?: 0, maxNodes ?: 0, maxItems ?: 0)
+    }
+
+    /** Layouts kept for repeated requests (default 256); 0 turns caching off. */
+    @Synchronized
+    fun setCacheCapacity(capacity: Int) {
+        NativeBridge.setCacheCapacity(handle, capacity)
     }
 
     /** Outline of a glyph in font units, y down. Null when the glyph has no outline. */

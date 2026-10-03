@@ -185,6 +185,23 @@ pub const CORPUS: &[(&str, &str, bool)] = &[
         r"\blacktriangle \blacktriangledown \circledS \Finv \Game \diagup \dashrightarrow \doublebarwedge",
         true,
     ),
+    ("chem_redox", r"\ce{MnO4- + 8H+ + 5e- -> Mn^2+ + 4H2O}", true),
+    ("chem_equilibrium", r"\ce{Zn^2+ <=>[+ 2OH-][+ 2H+] Zn(OH)2 v}", true),
+    (
+        "chem_marks",
+        r"\ce{^{227}_{90}Th+} \quad \ce{CuSO4*5H2O} \quad \ce{CH2=CH2} \quad \ce{HC#CH} \quad \ce{CO2 ^}",
+        true,
+    ),
+    ("units", r"\Delta H = \pu{-286 kJ/mol} \quad g = \pu{9.81 m/s^2}", true),
+    (
+        "text_mode",
+        r#"\text{Erd\H{o}s and G\"odel: if $x>0$ then {\small small} \textbf{bold} \textit{it}}"#,
+        true,
+    ),
+    ("sizes", r"{\tiny a} {\small b} c {\large d} {\Huge e}", true),
+    ("tagged", r"E = mc^2 \tag{1.2}", true),
+    ("cd", r"\begin{CD} A @>f>> B \\ @VgVV @VVhV \\ C @>>k> D \end{CD}", true),
+    ("group_lines", r"\sum_{\substack{i<n}} {x \\ y+z}", true),
 ];
 
 /// Formulas rendered with a text font for `\text{}`: (name, tex).

@@ -1,0 +1,5 @@
+# Development in this repository uses the mathcore_dart beside it; a published
+# mathcore_flutter depends on the mathcore_dart of the same release.
+dependency_overrides:
+  mathcore_dart:
+    path: ../../dart/mathcore_dart

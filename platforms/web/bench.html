@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mathcore bench</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>window.MathJax = { svg: { fontCache: "local" }, startup: { typeset: false } };</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<style>
+  :root { --bg: #fff; --fg: #1b1b1f; --muted: #666; --line: #e3e3e8; --accent: #3949ab; --hl: rgba(255, 193, 7, .45); --err: #b00020; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--fg); }
+  header { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; }
+  header label { font-size: 13px; color: var(--muted); }
+  #summary { font-size: 13px; font-variant-numeric: tabular-nums; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; padding: 16px; }
+  @media (max-width: 1100px) { main { grid-template-columns: minmax(0, 1fr); } }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: middle; overflow-x: auto; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; position: sticky; top: 57px; background: var(--bg); }
+  th.name, td.name { width: 120px; font-size: 12px; font-family: ui-monospace, monospace; }
+  td .ms { display: block; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td .bad { color: var(--err); font-size: 12px; }
+  tr { cursor: pointer; }
+  tr.sel { background: #eef0fb; }
+  textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 14px; }
+  aside { position: sticky; top: 73px; align-self: start; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  aside h2 { font-size: 14px; margin: 0 0 8px; }
+  #stage { position: relative; overflow-x: auto; outline: none; border-radius: 6px; }
+  #stage:focus { box-shadow: 0 0 0 2px var(--accent); }
+  #now { font-size: 15px; min-height: 2.6em; margin: 8px 0; }
+  #now b { color: var(--accent); }
+  #path { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .keys { font-size: 12px; color: var(--muted); }
+  kbd { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 11px; }
+  #full { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>mathcore bench</h1>
+  <label>Size <select id="size"><option>20</option><option selected>28</option><option>40</option></select></label>
+  <label>Verbosity <select id="verb"><option value="0">verbose</option><option value="1" selected>brief</option><option value="2">superbrief</option></select></label>
+  <label><input type="checkbox" id="speak"> Speak aloud</label>
+  <button id="timeAll">Time all (100×)</button>
+  <span id="summary"></span>
+</header>
+<main>
+  <section>
+    <textarea id="custom" rows="2" placeholder="Type TeX to add a row at the top…">\frac{\partial^2 u}{\partial t^2} = c^2 \nabla^2 u</textarea>
+    <table>
+      <thead><tr><th class="name">formula</th><th>mathcore</th><th>KaTeX</th><th>MathJax</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+  <aside>
+    <h2>Screen reader view</h2>
+    <div id="stage" tabindex="0" role="application" aria-label="Formula explorer. Arrow keys move through its parts."><canvas id="cv"></canvas></div>
+    <div id="path"></div>
+    <div id="now" aria-live="polite"></div>
+    <p class="keys"><kbd>↓</kbd> into a part · <kbd>↑</kbd> out · <kbd>←</kbd><kbd>→</kbd> siblings · <kbd>Space</kbd> repeat</p>
+    <details><summary style="font-size:13px">Whole sentence and MathML</summary><p id="full"></p><pre id="mathml" style="white-space:pre-wrap;font-size:11px"></pre></details>
+  </aside>
+</main>
+<script type="module">
+  import init, { MathEngine, mathml, speechWith, speechTree } from "./pkg/mathwasm.js";
+  import { CanvasRenderer } from "./mathcore.js";
+
+  await init();
+  await new Promise((r) => (document.readyState === "complete" ? r() : addEventListener("load", r)));
+  await MathJax.startup.promise;
+
+  const engine = new MathEngine();
+  const renderer = new CanvasRenderer(engine);
+  const $ = (id) => document.getElementById(id);
+  const corpus = await (await fetch("./corpus.json")).json();
+  const size = () => +$("size").value;
+  const verbosity = () => +$("verb").value;
+
+  // ---- the three engines, each to a DOM node -------------------------------
+
+  const ENGINES = {
+    mathcore: (f) => {
+      const el = document.createElement("div");
+      el.innerHTML = engine.renderSvg(f.tex, size(), f.display, 0xff1b1b1f, null, 0);
+      return el;
+    },
+    katex: (f) => {
+      const el = document.createElement("div");
+      el.innerHTML = katex.renderToString(f.tex, { displayMode: f.display, throwOnError: true });
+      el.style.fontSize = size() / 1.21 + "px"; // KaTeX sets 1.21em
+      return el;
+    },
+    mathjax: (f) => {
+      const el = MathJax.tex2svg(f.tex, { display: f.display, em: size(), ex: size() / 2 });
+      el.style.fontSize = size() + "px";
+      return el;
+    },
+  };
+
+  function cell(engineName, f) {
+    const td = document.createElement("td");
+    const t0 = performance.now();
+    try {
+      const el = ENGINES[engineName](f);
+      const ms = performance.now() - t0;
+      // MathJax reports parse errors in the output rather than throwing.
+      if (engineName === "mathjax" && el.querySelector("[data-mjx-error]")) throw new Error(el.querySelector("[data-mjx-error]").getAttribute("data-mjx-error"));
+      td.append(el);
+      td.insertAdjacentHTML("beforeend", `<span class="ms">${ms.toFixed(2)} ms</span>`);
+    } catch (e) {
+      td.innerHTML = `<span class="bad">${String(e.message || e).slice(0, 160)}</span>`;
+      td.dataset.failed = "1";
+    }
+    return td;
+  }
+
+  function row(f, isCustom) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="name" title="${f.tex.replace(/"/g, "&quot;")}">${isCustom ? "<i>yours</i>" : f.name}</td>`;
+    for (const k of Object.keys(ENGINES)) tr.append(cell(k, f));
+    tr.onclick = () => select(f, tr);
+    return tr;
+  }
+
+  let customRow = null;
+  function renderTable() {
+    const body = $("rows");
+    body.textContent = "";
+    customRow = null;
+    renderCustom();
+    for (const f of corpus) body.append(row(f));
+    const failed = (k) => [...body.querySelectorAll(`td:nth-child(${2 + Object.keys(ENGINES).indexOf(k)})[data-failed]`)].length;
+    $("summary").textContent = `${corpus.length} formulas · failures: ` + Object.keys(ENGINES).map((k) => `${k} ${failed(k)}`).join(", ");
+  }
+
+  function renderCustom() {
+    const tex = $("custom").value.trim();
+    const f = { name: "yours", tex, display: true };
+    const tr = tex ? row(f, true) : null;
+    if (customRow) customRow.remove();
+    if (tr) $("rows").prepend(tr);
+    customRow = tr;
+    if (tr && (!selected || selected.name === "yours")) select(f, tr);
+  }
+
+  // ---- timing ---------------------------------------------------------------
+
+  $("timeAll").onclick = async () => {
+    $("summary").textContent = "timing…";
+    await new Promise((r) => setTimeout(r, 20));
+    const N = 100, totals = {};
+    for (const k of Object.keys(ENGINES)) {
+      const per = [];
+      for (const f of corpus) {
+        try { ENGINES[k](f); } catch { continue; } // warm up, skip failures
+        const t0 = performance.now();
+        for (let i = 0; i < N; i++) ENGINES[k](f);
+        per.push((performance.now() - t0) / N);
+      }
+      per.sort((a, b) => a - b);
+      totals[k] = { median: per[per.length >> 1], total: per.reduce((a, b) => a + b, 0) };
+    }
+    $("summary").textContent = "median per formula · " + Object.entries(totals).map(([k, v]) => `${k} ${v.median.toFixed(3)} ms`).join(" · ") +
+      "  (mathcore and KaTeX to markup, MathJax to SVG DOM)";
+  };
+
+  // ---- screen reader explorer -----------------------------------------------
+
+  const PAD = 8;
+  let selected = null, layout = null, tree = null, cursor = [];
+
+  function regionsOf(l) {
+    const base = 4 + l[3] * 8, n = l[base], out = [];
+    for (let i = 0, b = base + 1; i < n; i++, b += 7) out.push({ start: l[b], end: l[b + 1], x: l[b + 2], y: l[b + 3], w: l[b + 4], h: l[b + 5] });
+    return out;
+  }
+
+  // Outermost regions inside a source range, as DisplayList::highlight does.
+  function highlight(start, end) {
+    const out = [];
+    for (const r of regionsOf(layout).filter((r) => r.start >= start && r.end <= end)) {
+      if (out.some((o) => o.start <= r.start && o.end >= r.end)) continue;
+      for (let i = out.length - 1; i >= 0; i--) if (r.start <= out[i].start && r.end >= out[i].end) out.splice(i, 1);
+      out.push(r);
+    }
+    return out;
+  }
+
+  function draw() {
+    const cv = $("cv"), dpr = devicePixelRatio || 1, s = CanvasRenderer.size(layout);
+    cv.width = Math.ceil((s.width + 2 * PAD) * dpr); cv.height = Math.ceil((s.height + 2 * PAD) * dpr);
+    cv.style.width = s.width + 2 * PAD + "px"; cv.style.height = s.height + 2 * PAD + "px";
+    const ctx = cv.getContext("2d");
+    ctx.scale(dpr, dpr);
+    const node = current();
+    if (node && node !== tree) {
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--hl");
+      for (const r of highlight(node.start, node.end)) ctx.fillRect(PAD + r.x - 2, PAD + r.y - 2, r.w + 4, r.h + 4);
+    }
+    renderer.draw(layout, ctx, PAD, PAD);
+  }
+
+  function current() {
+    let n = tree;
+    for (const i of cursor) n = n.children[i];
+    return n;
+  }
+
+  function announce() {
+    const n = current();
+    const where = n.label ? `${n.label}: ` : "";
+    $("now").innerHTML = `<b>${where}</b>${n.text}`;
+    let p = tree, trail = ["formula"];
+    for (const i of cursor) { p = p.children[i]; trail.push(p.label || p.role); }
+    $("path").textContent = trail.join(" › ") + (n.children.length ? `  (${n.children.length} parts)` : "");
+    if ($("speak").checked && "speechSynthesis" in window) {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(where + n.text));
+    }
+    draw();
+  }
+
+  function select(f, tr) {
+    document.querySelectorAll("tr.sel").forEach((r) => r.classList.remove("sel"));
+    tr?.classList.add("sel");
+    selected = f;
+    try {
+      layout = engine.render(f.tex, size() + 8, f.display, 0xff1b1b1f, null, $("stage").clientWidth - 2 * PAD, true);
+      tree = JSON.parse(speechTree(f.tex, verbosity(), null));
+      $("full").textContent = speechWith(f.tex, verbosity(), null);
+      $("mathml").textContent = mathml(f.tex, f.display, null);
+      cursor = [];
+      announce();
+    } catch (e) {
+      $("now").textContent = String(e.message || e);
+    }
+  }
+
+  $("stage").addEventListener("keydown", (e) => {
+    if (!tree) return;
+    const n = current();
+    if (e.key === "ArrowDown" && n.children.length) cursor.push(0);
+    else if (e.key === "ArrowUp" && cursor.length) cursor.pop();
+    else if (e.key === "ArrowRight" && cursor.length) {
+      const sibs = cursor.length === 1 ? tree.children : (() => { let p = tree; for (const i of cursor.slice(0, -1)) p = p.children[i]; return p.children; })();
+      cursor[cursor.length - 1] = Math.min(cursor.at(-1) + 1, sibs.length - 1);
+    } else if (e.key === "ArrowLeft" && cursor.length) cursor[cursor.length - 1] = Math.max(cursor.at(-1) - 1, 0);
+    else if (e.key !== " ") return;
+    e.preventDefault();
+    announce();
+  });
+
+  // Clicking the drawing jumps the explorer to the smallest part under the pointer.
+  $("cv").addEventListener("click", (e) => {
+    const rect = $("cv").getBoundingClientRect(), x = e.clientX - rect.left - PAD, y = e.clientY - rect.top - PAD;
+    const hit = regionsOf(layout).filter((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h).sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    if (!hit) return;
+    // Deepest tree node whose range covers the hit.
+    const path = [];
+    for (let n = tree; ; ) {
+      const i = n.children.findIndex((c) => c.start <= hit.start && c.end >= hit.end);
+      if (i < 0) break;
+      path.push(i); n = n.children[i];
+    }
+    cursor = path;
+    $("stage").focus();
+    announce();
+  });
+
+  $("custom").addEventListener("input", renderCustom);
+  $("size").onchange = renderTable;
+  $("verb").onchange = () => selected && select(selected, document.querySelector("tr.sel"));
+  renderTable();
+</script>
+</body>
+</html>

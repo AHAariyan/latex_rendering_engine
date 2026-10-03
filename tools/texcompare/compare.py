@@ -69,12 +69,13 @@ def render_ours(tex, display, size, path):
     subprocess.run(args, check=True)
 
 def render_tex(tex, display, size, path, tmp):
-    """Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
+    r"""Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
     \fboxsep, \jot, \delimitershortfall...) mean what they mean in a normal
     document, then rasterizes at the DPI that makes 1 em = `size` px."""
     body = ("$\\displaystyle " + tex + "$") if display else ("$" + tex + "$")
     doc = r"""\documentclass[border=1pt,10pt]{standalone}
-\usepackage{amsmath,amssymb,mathtools,cancel,xcolor}
+\usepackage{amsmath,amssymb,amscd,mathtools,cancel,xcolor}
+\usepackage[version=4]{mhchem}
 \usepackage{unicode-math}
 \setmathfont{latinmodern-math.otf}
 \setmainfont{latinmodern-math.otf}

@@ -218,6 +218,19 @@ pub enum Node {
         style: MathStyle,
         body: Vec<Node>,
     },
+    /// `\small`, `\Large` and the other size commands, relative to the
+    /// formula's font size and not to each other (`\tiny` inside `\Huge` is
+    /// still tiny). Like a style change it covers the rest of its group.
+    Size {
+        factor: f32,
+        body: Vec<Node>,
+    },
+    /// A display formula with an equation number from `\tag`: the tag is set
+    /// at the right edge of the available width.
+    Tagged {
+        body: Vec<Node>,
+        tag: Box<Node>,
+    },
     /// Verbatim text from `\text{}`; spaces are preserved.
     Text {
         text: String,

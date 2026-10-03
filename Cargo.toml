@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/mathcore", "crates/mathraster", "crates/mathcli", "crates/mathffi", "crates/mathjni", "crates/mathwasm"]
+members = ["crates/mathcore", "crates/mathraster", "crates/mathcli", "crates/mathffi", "crates/mathjni", "crates/mathwasm", "xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,3 +20,15 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Release speed with unwinding kept, so the corpus checker and the fuzzer can
+# catch a panic and report the input that caused it instead of aborting.
+[profile.fuzz]
+inherits = "release"
+panic = "unwind"
+
+# What the SDK pipeline ships: release speed, but a panic unwinds to the C ABI
+# boundary, where it becomes an error return instead of killing the host app.
+[profile.sdk]
+inherits = "release"
+panic = "unwind"

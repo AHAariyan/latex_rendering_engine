@@ -48,7 +48,8 @@ CLI, golden-image tests, CI.
       (`platforms/ios/MathCore`). Written on Linux; needs a first Xcode build.
 - [~] Flutter: `mathcore_dart` (pure `dart:ffi`, tested on host) + `mathcore_flutter`
       widget plugin (written; needs a first build with the Flutter SDK). pub.dev publishing open.
-- [ ] React Native: Nitro/JSI module reusing the native renderers.
+- [x] React Native: Fabric view and TurboModule over the native views (`platforms/react-native`).
+- [x] SDK pipeline: `cargo xtask sdk` for every platform, CI matrix, release workflow (docs/SDK.md).
 - [x] Web: wasm-bindgen + SVG/canvas renderer (`crates/mathwasm`, `platforms/web`), Node smoke test. npm publishing open.
 - [ ] Demo apps and benchmarks (target: < 1 ms layout for a typical equation on a mid-range phone).
 
@@ -70,10 +71,16 @@ CLI, golden-image tests, CI.
 - [x] Accessibility: Presentation MathML and spoken text from the AST
       (`crates/mathcore/src/a11y.rs`), carried by every widget as a content
       description, semantics label or aria-label.
+- [~] Accessibility depth: verbosity levels and a navigable speech tree with
+      source ranges for synchronized highlighting (core, C ABI, wasm). Open:
+      JNI/Kotlin/Swift/Dart and widget navigation, more languages, Nemeth braille.
 - [x] Hit testing: source regions in the display list, exposed on every binding,
       with tap support in the Compose and Flutter widgets.
 - [ ] Selection UI: drag to extend, copy as LaTeX or MathML.
 - [ ] Editing model: cursor and incremental relayout for a math input control.
-- [ ] Chemistry (`mhchem`), physics package macros, `siunitx` subset.
-- [ ] Multiple fonts (STIX Two, Fira Math) and font fallback for missing glyphs.
-- [ ] Layout caching keyed by (source, font, size, style).
+- [x] Chemistry (`mhchem` `\ce`, `\pu`). Open: physics package macros, `siunitx` subset.
+- [x] Multiple fonts and font fallback for missing glyphs.
+- [x] Layout caching keyed by the whole request (`LayoutCache`, in every binding).
+- [x] Text mode, size commands, `\tag`, AsciiMath input.
+- [x] Speech in seven languages (en, es, fr, de, pt, bn, hi); Nemeth braille.
+- [x] amscd `CD` diagrams; `\\` inside brace groups.

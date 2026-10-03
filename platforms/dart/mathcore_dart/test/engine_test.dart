@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:mathcore_dart/mathcore_dart.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   setUpAll(() {
-    final env = Platform.environment['MATHCORE_LIB'];
-    MathEngine.libraryPath = env ?? '../../../target/release/libmathcore_ffi.so';
+    MathEngine.libraryPath = libraryForTests();
   });
 
   test('bundled engine renders a fraction', () {
