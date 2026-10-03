@@ -148,6 +148,9 @@ pub struct Array {
     pub pitch: RowPitch,
     /// LaTeX `\arraystretch`: multiplies row struts and pitch (`cases` uses 1.2).
     pub stretch: f32,
+    /// LaTeX's `array` keeps `\arraycolsep` outside the first and last
+    /// columns; amsmath's matrices and the other environments drop it.
+    pub outer_sep: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -313,13 +316,19 @@ pub enum Node {
         span: Span,
         body: Box<Node>,
     },
+    /// Drawn as `body`, spoken (in English) as `speech`: siunitx's units,
+    /// which read as "meters per second squared", not "m s to the minus 2".
+    Spoken {
+        speech: String,
+        body: Box<Node>,
+    },
 }
 
 impl Node {
     /// The node itself with any span wrapper removed.
     pub fn bare(&self) -> &Node {
         match self {
-            Node::Spanned { body, .. } => body.bare(),
+            Node::Spanned { body, .. } | Node::Spoken { body, .. } => body.bare(),
             other => other,
         }
     }

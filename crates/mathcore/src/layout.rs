@@ -430,9 +430,32 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let font = self.font.font_at(fi);
         let s = self.em(sty) / font.units_per_em();
         let variants = font.variants(gid, vertical);
+        let mut shorter: Option<(GlyphId, f32)> = None;
         for &(g, adv) in &variants {
             if adv * s >= target {
+                if !vertical && adv * s > target * 1.25 {
+                    // A horizontal arrow nearly long enough already beats one
+                    // far too long; otherwise it is drawn to length, as amsmath
+                    // fills its arrows.
+                    if let Some((sg, sadv)) = shorter.filter(|(_, a)| a * s >= 0.85 * target) {
+                        let _ = sadv;
+                        return self.glyph_box_in(fi, sg, sty);
+                    }
+                    if let Some(parts) = font.assembly(gid, vertical) {
+                        return self.assemble(fi, &parts, target, sty, vertical);
+                    }
+                }
                 return self.glyph_box_in(fi, g, sty);
+            }
+            shorter = Some((g, adv));
+        }
+        // No pre-drawn size reaches: a horizontal glyph within 15% of the
+        // length (the plain arrow under a one-letter label) beats an assembly,
+        // whose least length can be far longer.
+        if !vertical {
+            let base = shorter.unwrap_or((gid, font.metrics(gid).advance));
+            if base.1 * s >= 0.85 * target {
+                return self.glyph_box_in(fi, base.0, sty);
             }
         }
         if let Some(parts) = font.assembly(gid, vertical) {
@@ -535,7 +558,17 @@ impl<'f, 'a> Layouter<'f, 'a> {
                         }
                     }
                 }
-                _ => out.push((self.layout_node(n, sty), sty)),
+                _ => {
+                    let mut b = self.layout_node(n, sty);
+                    // Rule 17: a character with no scripts keeps its italic
+                    // correction, the small gap in `f(x)` and `V(t)`. As the
+                    // base of scripts the correction is placed by rule 18.
+                    if matches!(n.bare(), Node::Symbol { .. }) && b.italic > 0.0 {
+                        b.w += b.italic;
+                        b.italic = 0.0;
+                    }
+                    out.push((b, sty))
+                }
             }
         }
     }
@@ -904,6 +937,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 out.glyph = None;
                 out
             }
+            Node::Spoken { body, .. } => self.layout_node(body, sty),
             Node::Spanned { span, body } => {
                 let mut b = self.layout_node(body, sty);
                 if self.hit_testing {
@@ -1020,16 +1054,20 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
         let c = self.font.constants();
         let s = self.scale(sty);
-        let s_sup = self.scale(sty.sup());
-        let s_sub = self.scale(sty.sub());
-        let is_char = base_box.glyph.is_some();
+        // Rule 12: an accented single character keeps its scripts where the
+        // character alone would have them (\dot{q}_i sits like q_i).
+        let accented_char = matches!(base.bare(), Node::Accent { base: inner, under: false, .. }
+            if matches!(inner.bare(), Node::Symbol { .. } | Node::Row(_)) && is_single_symbol(inner));
+        let is_char = base_box.glyph.is_some() || accented_char;
         // Rule 18a.
         let (mut u, mut v) = if is_char {
             (0.0, 0.0)
         } else {
             (
-                base_box.h - c.superscript_baseline_drop_max * s_sup,
-                base_box.d + c.subscript_baseline_drop_min * s_sub,
+                // The drops are in the base's size, as the OpenType MATH spec
+                // defines them (and LuaTeX and Word apply them), not the script's.
+                base_box.h - c.superscript_baseline_drop_max * s,
+                base_box.d + c.subscript_baseline_drop_min * s,
             )
         };
         let sup_box = sup.map(|n| self.layout_node(n, sty.sup()));
@@ -1202,7 +1240,9 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let iw = inner.w;
         let mut out = BBox::list(vec![inner.at(pad, 0.0)]);
         out.w = iw + 2.0 * pad;
-        out.atom = Some(AtomType::Inner);
+        // LaTeX's \frac and \binom are braced groups, so they space as
+        // ordinary atoms (KaTeX agrees); TeX's Inner applies to a bare \over.
+        out.atom = Some(AtomType::Ord);
         out
     }
 
@@ -1220,7 +1260,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         inner.atom = Some(AtomType::Ord);
         let all = vec![(mk(left, AtomType::Open), sty), (inner, sty), (mk(right, AtomType::Close), sty)];
         let mut out = self.hlist(all, sty);
-        out.atom = Some(AtomType::Inner);
+        out.atom = Some(AtomType::Ord);
         out.glyph = None;
         out.italic = 0.0;
         out
@@ -1495,7 +1535,9 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let Some(g) = self.resolve_glyph(ch, Variant::Normal) else {
             return BBox::empty();
         };
-        let arrow = self.extensible(g, label_w + 0.8 * self.em(sty), sty, false);
+        // amsmath pads the label by 9 mu in all (measured against LaTeX: the
+        // arrow under `d` is the label plus half an em).
+        let arrow = self.extensible(g, label_w + 0.5 * self.em(sty), sty, false);
         let arrow = self.center_on_axis(arrow, sty);
         let mut out = self.stack_limits(arrow, up, dn, s, c);
         out.atom = Some(AtomType::Rel);
@@ -1551,8 +1593,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
             }
         };
         let rule_t = 0.04 * em;
-        // Outer padding when a vertical rule sits on the edge.
-        let side = if a.pitch == RowPitch::SmallMatrix { outer / 6.0 } else { 0.0 };
+        // Outer padding: \arraycolsep for LaTeX's array, a thin space for
+        // smallmatrix, half a column gap beside an edge rule.
+        let side = if a.pitch == RowPitch::SmallMatrix {
+            outer / 6.0
+        } else if a.outer_sep {
+            0.5 * em
+        } else {
+            0.0
+        };
         let left_pad = if a.vlines.contains(&0) { 0.5 * em } else { side };
         let right_pad = if a.vlines.contains(&ncols) { 0.5 * em } else { side };
         let mut children = Vec::new();
@@ -1716,6 +1765,16 @@ impl<'f, 'a> Layouter<'f, 'a> {
 
 /// The atom class of a node once single-element groups are unwrapped, for
 /// constructs that must keep their base's spacing class.
+/// A single character, possibly wrapped in a group or a source span.
+fn is_single_symbol(n: &Node) -> bool {
+    match n {
+        Node::Symbol { .. } => true,
+        Node::Row(v) => v.len() == 1 && is_single_symbol(&v[0]),
+        Node::Spanned { body, .. } | Node::Spoken { body, .. } => is_single_symbol(body),
+        _ => false,
+    }
+}
+
 fn intrinsic_atom(node: &Node) -> Option<AtomType> {
     match node {
         Node::Symbol { atom, .. } => Some(*atom),
@@ -1723,7 +1782,7 @@ fn intrinsic_atom(node: &Node) -> Option<AtomType> {
         Node::Class { atom, .. } => Some(*atom),
         Node::BigOp { .. } | Node::FnName { .. } => Some(AtomType::Op),
         Node::Row(v) if v.len() == 1 => intrinsic_atom(&v[0]),
-        Node::Spanned { body, .. } => intrinsic_atom(body),
+        Node::Spanned { body, .. } | Node::Spoken { body, .. } => intrinsic_atom(body),
         _ => None,
     }
 }

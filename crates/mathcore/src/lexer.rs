@@ -125,6 +125,90 @@ impl<'a> Lexer<'a> {
         Err(Error::parse(start, "unbalanced group"))
     }
 
+    /// The next character of source, without consuming it or skipping space.
+    pub fn peek_raw(&mut self) -> Option<char> {
+        if let Some((p, _)) = self.peeked.take() {
+            self.pos = p;
+        }
+        self.src[self.pos..].chars().next()
+    }
+
+    /// The next character after any spaces, without consuming it.
+    pub fn peek_raw_skipping_space(&mut self) -> Option<char> {
+        if let Some((p, _)) = self.peeked.take() {
+            self.pos = p;
+        }
+        let save = self.pos;
+        self.skip_ws();
+        let c = self.src[self.pos..].chars().next();
+        self.pos = save;
+        c
+    }
+
+    /// Reads `open ... close` with nesting (`\qty(f(x))`), returning the inside.
+    /// Braces inside are skipped as units, so `\qty(\frac{(}{2})` balances.
+    pub fn raw_balanced(&mut self, open: char, close: char) -> Result<&'a str> {
+        if let Some((p, _)) = self.peeked.take() {
+            self.pos = p;
+        }
+        self.skip_ws();
+        let start = self.pos;
+        let mut chars = self.src[start..].char_indices();
+        match chars.next() {
+            Some((_, c)) if c == open => {}
+            _ => return Err(Error::parse(start, format!("expected `{open}`"))),
+        }
+        // What closes a nested `open`: `\eval(f(x)|` nests on `(`/`)`.
+        let partner = match open {
+            '(' => Some(')'),
+            '[' => Some(']'),
+            _ => None,
+        };
+        let (mut depth, mut braces, mut escaped) = (1usize, 0usize, false);
+        for (i, c) in chars {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match c {
+                '\\' => escaped = true,
+                '{' => braces += 1,
+                '}' => braces = braces.saturating_sub(1),
+                _ if braces > 0 => {}
+                _ if c == close && depth == 1 => {
+                    self.pos = start + i + c.len_utf8();
+                    self.last_end = self.pos;
+                    return Ok(&self.src[start + open.len_utf8()..start + i]);
+                }
+                _ if c == open && open != close => depth += 1,
+                _ if Some(c) == partner => depth = depth.saturating_sub(1).max(1),
+                _ => {}
+            }
+        }
+        Err(Error::parse(start, format!("missing `{close}`")))
+    }
+
+    /// Consumes `c` if it is the next character after spaces (`\abs*`).
+    pub fn eat(&mut self, c: char) -> bool {
+        if self.peek_raw_skipping_space() == Some(c) {
+            self.skip_ws();
+            self.pos += c.len_utf8();
+            self.last_end = self.pos;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// An optional `[...]` argument, raw.
+    pub fn raw_optional(&mut self) -> Result<Option<&'a str>> {
+        if self.peek_raw_skipping_space() == Some('[') {
+            self.raw_balanced('[', ']').map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// The next token in text mode (inside `\text{}`): whitespace is a
     /// character rather than skipped, `%` starts a comment, and a control word
     /// swallows the spaces after it, as TeX does.

@@ -29,6 +29,12 @@ export class MathTexElement extends HTMLElement {
   constructor() {
     super();
     this._root = this.attachShadow({ mode: "open" });
+    // Layout comes first: a display formula is a block from the start, so it
+    // has a width to break to before it is ever drawn.
+    this._root.innerHTML =
+      `<style>:host{display:inline-block}:host([display]){display:block;text-align:center;margin:1em 0}` +
+      `svg{display:inline-block;overflow:visible}</style><span part="formula"></span>`;
+    this._out = this._root.querySelector("span");
     this._source = null;
     this._width = 0;
   }
@@ -74,22 +80,26 @@ export class MathTexElement extends HTMLElement {
     const style = getComputedStyle(this);
     const size = Number(this.getAttribute("size")) || parseFloat(style.fontSize) || 16;
     const display = this.hasAttribute("display");
+    const width = display ? this._width || this.clientWidth : 0;
+    // A display formula breaks to its width: until layout has given it one
+    // (WebKit reports it after the first frame), wait for the resize
+    // observer rather than drawing it unbroken and then again.
+    if (display && width === 0) return;
     try {
       const tex = this.tex;
-      const width = display ? this._width || this.clientWidth : 0;
       const svg = engine.renderSvg(tex, size, display, argb(style.color), null, width);
       const metrics = engine.render(tex, size, display, argb(style.color), null, width);
       const descent = metrics[2];
-      this._root.innerHTML =
-        `<style>:host{display:${display ? "block" : "inline-block"};${display ? "text-align:center;margin:1em 0" : ""}}` +
-        `svg{display:inline-block;vertical-align:${display ? "top" : `${-descent}px`};overflow:visible}</style>${svg}`;
+      this._out.innerHTML = svg;
+      // Inline formulas sit on the text baseline.
+      this._out.firstElementChild.style.verticalAlign = display ? "top" : `${-descent}px`;
       const level = Verbosity[this.getAttribute("verbosity")] ?? Verbosity.brief;
       // The element's language, as the page declares it, else the browser's.
       const language = this.closest("[lang]")?.getAttribute("lang") || navigator.language || "en";
       this.setAttribute("aria-label", speechWith(tex, level, null, language));
       this.removeAttribute("data-error");
     } catch (e) {
-      this._root.innerHTML = `<span part="error" style="color:#b00020;font:0.85em monospace">${String(e.message ?? e)
+      this._out.innerHTML = `<span part="error" style="color:#b00020;font:0.85em monospace">${String(e.message ?? e)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")}</span>`;
       this.setAttribute("data-error", String(e.message ?? e));

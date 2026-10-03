@@ -56,6 +56,7 @@ impl<'a> Parser<'a> {
             row_gaps: gaps,
             pitch: RowPitch::Normal,
             stretch: 1.0,
+            outer_sep: false,
         })))
     }
 

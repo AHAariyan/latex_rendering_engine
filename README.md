@@ -96,6 +96,11 @@ Working today:
   `\small`...`\Huge` (in math too), accents (`\'e`), escapes, dash and quote
   ligatures. `\tag` equation numbers set flush right.
 - **Chemistry**: mhchem `\ce{...}` and `\pu{...}`.
+- **Physics and units**: the physics package (`\dv`, `\pdv`, `\abs`,
+  `\norm`, `\qty`, `\braket`, `\mel`, `\expval`, `\vb`, `\grad`, `\curl`,
+  `\eval`, `\order`, `\mqty`, ...) and siunitx (`\num`, `\unit`/`\si`,
+  `\qty`/`\SI`, `\ang`, ranges, lists), drawn as those packages draw them
+  and read aloud as "9.81 meters per second squared".
 - **AsciiMath input**: `asciimath_to_tex("sum_(i=1)^n i^2")`.
 - **Layout cache** in every binding; **budgets** for untrusted input.
 

@@ -317,7 +317,7 @@ fn node(out: &mut String, n: &Node) {
                 r#"<mspace width="{width}em" height="{height}em" mathbackground="currentColor"/>"#
             );
         }
-        Node::Spanned { body, .. } => one(out, body),
+        Node::Spanned { body, .. } | Node::Spoken { body, .. } => one(out, body),
     }
 }
 
@@ -472,6 +472,13 @@ fn fill_spans(n: &mut SpeechNode, parent: (u32, u32)) {
     for c in &mut n.children {
         fill_spans(c, me);
     }
+    // Parts whose source positions were not recorded (the inside of `\ce`,
+    // which is translated before parsing) would all point at the whole
+    // group: a screen reader could neither outline nor touch them apart.
+    // The group is then read as one part.
+    if me.1 > me.0 && n.children.len() > 1 && n.children.iter().all(|c| (c.start, c.end) == me) {
+        n.children.clear();
+    }
 }
 
 struct Speaker {
@@ -505,8 +512,26 @@ impl Speaker {
     }
 
     fn say_list(&self, out: &mut String, nodes: &[Node]) {
-        for n in nodes {
-            self.say(out, n);
+        let mut i = 0;
+        while i < nodes.len() {
+            if let Some((len, number)) = number_run(&nodes[i..]) {
+                word(out, &number);
+                // `90^\circ`: TeX hangs the script on the last digit alone.
+                if let (Some(_), Node::Scripts { sup, sub, .. }) = (scripted_digit(&nodes[i + len - 1]), peel(&nodes[i + len - 1])) {
+                    self.say(
+                        out,
+                        &Node::Scripts {
+                            base: Box::new(Node::Row(vec![])),
+                            sup: sup.clone(),
+                            sub: sub.clone(),
+                        },
+                    );
+                }
+                i += len;
+            } else {
+                self.say(out, &nodes[i]);
+                i += 1;
+            }
         }
     }
 
@@ -584,6 +609,9 @@ impl Speaker {
                 }
                 if let Some(s) = sup {
                     match self.said(s).as_str() {
+                        _ if single_char(s) == Some('∘') => self.w(out, "degrees"),
+                        // f′ is "f prime", not "f to the prime".
+                        _ if matches!(single_char(s), Some('′' | '″' | '‴')) => self.say_one(out, s),
                         "2" => self.w(out, "squared"),
                         "3" => self.w(out, "cubed"),
                         _ if self.simple(s) => {
@@ -747,6 +775,14 @@ impl Speaker {
             Node::Choice(b) => self.say_one(out, &b[0]),
             Node::Rule { .. } => {}
             Node::Spanned { body, .. } => self.say_one(out, body),
+            // The spoken form is English; other languages read the symbols.
+            Node::Spoken { speech, body } => {
+                if self.lang == Language::English {
+                    word(out, speech)
+                } else {
+                    self.say_one(out, body)
+                }
+            }
         }
     }
 
@@ -784,11 +820,31 @@ impl Speaker {
         }
         let mut s = String::new();
         self.say_list(&mut s, nodes);
-        let children = nodes
-            .iter()
-            .map(|c| self.tree(c, String::new()))
-            .filter(|c| !c.text.is_empty())
-            .collect();
+        // A number is one stop, not one per digit.
+        let mut children = Vec::new();
+        let mut i = 0;
+        while i < nodes.len() {
+            if let Some((len, _)) = number_run(&nodes[i..]) {
+                let spans: Vec<_> = nodes[i..i + len].iter().filter_map(span_of).collect();
+                let mut text = String::new();
+                self.say_list(&mut text, &nodes[i..i + len]);
+                children.push(SpeechNode {
+                    role: "number",
+                    label: String::new(),
+                    text: tidy(&text),
+                    start: spans.iter().map(|s| s.0).min().unwrap_or(0),
+                    end: spans.iter().map(|s| s.1).max().unwrap_or(0),
+                    children: Vec::new(),
+                });
+                i += len;
+            } else {
+                let c = self.tree(&nodes[i], String::new());
+                if !c.text.is_empty() {
+                    children.push(c);
+                }
+                i += 1;
+            }
+        }
         with_children(
             SpeechNode {
                 role: "row",
@@ -941,6 +997,79 @@ impl Speaker {
 /// Attaches children and gives the node the range they cover. A node with a
 /// single child that says the same thing collapses into it, so navigation
 /// never stops twice on one thing.
+/// The character a node draws, if it is a single symbol: `^{\circ}`.
+fn single_char(n: &Node) -> Option<char> {
+    match n {
+        Node::Symbol { ch, .. } => Some(*ch),
+        Node::Spanned { body, .. } => single_char(body),
+        Node::Row(v) if v.len() == 1 => single_char(&v[0]),
+        _ => None,
+    }
+}
+
+/// The digit a script hangs on: the `0` of `90^\circ`.
+fn scripted_digit(n: &Node) -> Option<char> {
+    match n {
+        Node::Scripts { base, .. } => single_char(base).filter(char::is_ascii_digit),
+        Node::Spanned { body, .. } => scripted_digit(body),
+        _ => None,
+    }
+}
+
+fn peel(n: &Node) -> &Node {
+    match n {
+        Node::Spanned { body, .. } => peel(body),
+        n => n,
+    }
+}
+
+fn span_of(n: &Node) -> Option<(u32, u32)> {
+    match n {
+        Node::Spanned { span, .. } => Some((span.start, span.end)),
+        _ => None,
+    }
+}
+
+/// A number written as separate digit atoms, read as one: `9.81`, and
+/// `12\,345` with siunitx's thin-space grouping. Returns how many nodes it
+/// spans and its text, or `None` unless the run has two digits or more.
+fn number_run(nodes: &[Node]) -> Option<(usize, String)> {
+    let digit = |n: &Node| single_char(n).filter(char::is_ascii_digit);
+    let mut text = String::new();
+    let mut i = 0;
+    while i < nodes.len() {
+        if let Some(d) = digit(&nodes[i]) {
+            text.push(d);
+            i += 1;
+            continue;
+        }
+        // A script on the last digit ends the number: `90^\circ`, `10^{3}`.
+        if let Some(d) = scripted_digit(&nodes[i]).filter(|_| !text.is_empty()) {
+            text.push(d);
+            i += 1;
+            break;
+        }
+        let rest = &nodes[i + 1..];
+        let next_digits = rest.iter().take_while(|n| digit(n).is_some()).count();
+        match &nodes[i] {
+            // A decimal point between digits.
+            n if !text.is_empty() && single_char(n) == Some('.') && next_digits > 0 && !text.contains('.') => {
+                text.push('.');
+                i += 1;
+            }
+            // A thin space between groups of three.
+            // A thin space between groups of three (the last decimal group may be shorter).
+            Node::Space { mu }
+                if !text.is_empty() && *mu <= 3.0 && (next_digits == 3 || (text.contains('.') && (1..3).contains(&next_digits))) =>
+            {
+                i += 1
+            }
+            _ => break,
+        }
+    }
+    (text.chars().filter(char::is_ascii_digit).count() >= 2).then_some((i, text))
+}
+
 fn with_children(mut n: SpeechNode, children: Vec<SpeechNode>) -> SpeechNode {
     if !children.is_empty() {
         n.children = children;
@@ -1306,6 +1435,19 @@ mod tests {
     }
 
     #[test]
+    fn numbers_primes_degrees_and_units_read_naturally() {
+        assert_eq!(sp("9.81"), "9.81");
+        assert_eq!(sp(r"12\,345"), "12345");
+        assert_eq!(sp("90^\\circ"), "90 degrees");
+        assert_eq!(sp("f'(x)"), "f prime open paren x close paren");
+        assert_eq!(sp("y''"), "y double prime");
+        assert_eq!(sp(r"\SI{9.81}{\meter\per\second\squared}"), "9.81 meters per second squared");
+        assert_eq!(sp(r"\qty{1}{m}"), "1 meter");
+        // Coordinates stay separate numbers.
+        assert_eq!(sp("(1,2)"), "open paren 1, 2 close paren");
+    }
+
+    #[test]
     fn speech_handles_structures() {
         assert!(sp(r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}").contains("the 2 by 2 matrix"));
         assert!(sp(r"\text{if } x > 0").starts_with("if x is greater than 0"));
@@ -1415,6 +1557,18 @@ mod tests {
         assert_eq!(sp(r"\ce{2H2 + O2 -> 2H2O}"), "2 H sub 2 plus O sub 2 goes to 2 H sub 2 O");
         assert_eq!(sp(r"A \xrightarrow{f} B"), "A goes to with f above, B");
         assert_eq!(sp(r"A \xrightarrow[g]{f} B"), "A goes to with f above, with g below, B");
+    }
+
+    #[test]
+    fn parts_without_their_own_place_are_not_separate_stops() {
+        // Found by reading the iOS accessibility tree: every part of \ce had
+        // the whole formula's frame.
+        let t = tree(r"\ce{2H2 + O2 -> 2H2O} = x");
+        let chem = &t.children[0];
+        assert!(chem.children.is_empty(), "{chem:?}");
+        assert_eq!(chem.text, "2 H sub 2 plus O sub 2 goes to 2 H sub 2 O");
+        // Ordinary formulas keep their parts.
+        assert_eq!(tree(r"\frac{a+b}{c}").children.len(), 2);
     }
 
     #[test]

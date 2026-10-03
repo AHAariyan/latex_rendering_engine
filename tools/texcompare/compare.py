@@ -68,21 +68,23 @@ def render_ours(tex, display, size, path):
     if not display: args.append("--inline")
     subprocess.run(args, check=True)
 
-def render_tex(tex, display, size, path, tmp):
+def render_tex(tex, display, size, path, tmp, packages=()):
     r"""Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
     \fboxsep, \jot, \delimitershortfall...) mean what they mean in a normal
     document, then rasterizes at the DPI that makes 1 em = `size` px."""
-    body = ("$\\displaystyle " + tex + "$") if display else ("$" + tex + "$")
-    doc = r"""\documentclass[border=1pt,10pt]{standalone}
+    # Real display math (\[...\], which needs varwidth in standalone), so
+    # amsmath's display-only choices (\pmod's 18mu) apply as in a document.
+    body = ("\\[" + tex + "\\]") if display else ("$" + tex + "$")
+    doc = r"""\documentclass[varwidth=40cm,border=1pt,10pt]{standalone}
 \usepackage{amsmath,amssymb,amscd,mathtools,cancel,xcolor}
 \usepackage[version=4]{mhchem}
-\usepackage{unicode-math}
+%s\usepackage{unicode-math}
 \setmathfont{latinmodern-math.otf}
 \setmainfont{latinmodern-math.otf}
 \begin{document}
 %s
 \end{document}
-""" % body
+""" % ("".join("\\usepackage{%s}\n" % p for p in packages), body)
     src = os.path.join(tmp, "f.tex")
     open(src, "w").write(doc)
     r = subprocess.run(["lualatex", "-interaction=nonstopmode", "-halt-on-error", "-output-directory", tmp, src],

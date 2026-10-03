@@ -15,6 +15,8 @@ use crate::Budget;
 
 mod cd;
 mod mhchem;
+mod physics;
+mod siunitx;
 mod text;
 
 /// Parses a formula with no host-supplied macros.
@@ -191,6 +193,7 @@ fn lines_array(mut rows: Vec<Vec<Vec<Node>>>) -> Node {
         row_gaps: gaps,
         pitch: RowPitch::Normal,
         stretch: 1.0,
+        outer_sep: false,
     }))
 }
 
@@ -512,6 +515,35 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_command(&mut self, name: &'a str, pos: usize) -> Result<Node> {
+        // The physics and siunitx packages, translated to TeX.
+        if let Some(tex) = physics::translate(name, &mut self.lx)? {
+            return self.sub_parse(&tex, name, pos);
+        }
+        if let Some(tex) = siunitx::translate(name, &mut self.lx)? {
+            return self.sub_parse(&tex, name, pos);
+        }
+        // amsmath: \implies is \;\Longrightarrow\;, a relation padded by thick spaces.
+        if let Some(ch) = match name {
+            "implies" => Some('⟹'),
+            "impliedby" => Some('⟸'),
+            "iff" => Some('⟺'),
+            _ => None,
+        } {
+            let thick = || Node::Space { mu: 5.0 };
+            return Ok(Node::Class {
+                atom: AtomType::Rel,
+                body: Box::new(Node::Row(vec![
+                    thick(),
+                    Node::Symbol {
+                        ch,
+                        atom: AtomType::Rel,
+                        variant: Variant::Normal,
+                    },
+                    thick(),
+                ])),
+                limits: Limits::NoLimits,
+            });
+        }
         // `\` followed by a tab or a line break is a control space, like `\ `.
         if name.chars().all(char::is_whitespace) {
             return Ok(Node::Space { mu: 6.0 });
@@ -564,7 +596,11 @@ impl<'a> Parser<'a> {
         }
         match name {
             "frac" | "dfrac" | "tfrac" | "cfrac" => {
-                let num = self.parse_arg()?;
+                let mut num = self.parse_arg()?;
+                if name == "cfrac" {
+                    // amsmath sets a continued fraction's numerator on a strut.
+                    num = Node::Row(vec![strut(), num]);
+                }
                 let den = self.parse_arg()?;
                 let style = match name {
                     "dfrac" | "cfrac" => Some(MathStyle::Display),
@@ -792,7 +828,8 @@ impl<'a> Parser<'a> {
                     kind,
                 })
             }
-            "mathstrut" | "strut" => Ok(Node::Phantom {
+            "strut" => Ok(strut()),
+            "mathstrut" => Ok(Node::Phantom {
                 body: Box::new(Node::Symbol {
                     ch: '(',
                     atom: AtomType::Ord,
@@ -1156,6 +1193,14 @@ impl<'a> Parser<'a> {
                 self.parse_arg()
             }
             "DOTSB" | "DOTSI" | "DOTSX" => Ok(Node::Row(vec![])),
+            // `\spokenas{meters}{\mathrm{m}}`: drawn as the math, read as the words.
+            "spokenas" => {
+                let speech = self.lx.raw_group()?.trim().to_string();
+                Ok(Node::Spoken {
+                    speech,
+                    body: Box::new(self.parse_arg()?),
+                })
+            }
             "ce" | "pu" => {
                 let raw = self.lx.raw_group()?;
                 // The inner parse starts its own depth count, so it must not
@@ -1205,6 +1250,36 @@ impl<'a> Parser<'a> {
             }
             _ => Err(Error::parse(pos, format!("unknown command \\{name}"))),
         }
+    }
+
+    /// Parses TeX that a package command was translated to, one level
+    /// deeper than the command, within what is left of the node budget.
+    fn sub_parse(&mut self, tex: &str, name: &str, pos: usize) -> Result<Node> {
+        if self.depth > MAX_DEPTH {
+            return Err(Error::parse(pos, format!("nesting deeper than {MAX_DEPTH} levels")));
+        }
+        let mut p = Parser {
+            lx: Lexer::new(tex),
+            variant: self.variant,
+            in_left_right: 0,
+            depth: self.depth + 1,
+            nodes: 0,
+            max_nodes: self.max_nodes.saturating_sub(self.nodes),
+            spans: false,
+            text_math_close: None,
+            tag: None,
+            cd_stop: None,
+        };
+        let parsed = p.parse_list().and_then(|nodes| match p.lx.advance()? {
+            Tok::Eof => Ok(nodes),
+            t => Err(Error::parse(p.lx.pos(), format!("unexpected {t:?}"))),
+        });
+        let mut nodes = parsed.map_err(|e| match e {
+            Error::Parse { msg, .. } => Error::parse(pos, format!("in \\{name}: {msg}")),
+            e => e,
+        })?;
+        self.nodes += p.nodes;
+        Ok(if nodes.len() == 1 { nodes.pop().unwrap() } else { Node::Row(nodes) })
     }
 
     fn parse_limits_modifier(&mut self, default: Limits) -> Result<Limits> {
@@ -1263,6 +1338,7 @@ impl<'a> Parser<'a> {
             row_gaps: vec![],
             pitch,
             stretch: 1.0,
+            outer_sep: false,
         })))
     }
 
@@ -1452,6 +1528,7 @@ impl<'a> Parser<'a> {
             row_gaps,
             pitch,
             stretch,
+            outer_sep: matches!(env, "array" | "darray"),
         }));
         if left.is_some() || right.is_some() {
             Ok(Node::LeftRight {
@@ -1476,6 +1553,16 @@ impl<'a> Parser<'a> {
             }
             _ => Err(Error::parse(pos, format!("missing \\end{{{env}}}"))),
         }
+    }
+}
+
+/// LaTeX's \\strut: no width, 0.7 and 0.3 of a 1.2 em baselineskip above
+/// and below the baseline.
+fn strut() -> Node {
+    Node::Rule {
+        width: 0.0,
+        height: 1.2,
+        raise: -0.36,
     }
 }
 
