@@ -107,3 +107,26 @@ jobs:
             dist/**/*.tgz
             dist/**/*.aar
           if-no-files-found: error
+
+  browsers:
+    name: Web in Chromium, Firefox and WebKit
+    needs: core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: sdk-web
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo install wasm-pack --locked
+      - run: cargo xtask sdk web --no-verify
+      - name: browsers
+        working-directory: platforms/web/browser-test
+        run: |
+          cp demo.html ../../../dist/web/package/
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium firefox webkit
+          node check.mjs ../../../dist/web/package

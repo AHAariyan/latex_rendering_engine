@@ -472,6 +472,13 @@ fn fill_spans(n: &mut SpeechNode, parent: (u32, u32)) {
     for c in &mut n.children {
         fill_spans(c, me);
     }
+    // Parts whose source positions were not recorded (the inside of `\ce`,
+    // which is translated before parsing) would all point at the whole
+    // group: a screen reader could neither outline nor touch them apart.
+    // The group is then read as one part.
+    if me.1 > me.0 && n.children.len() > 1 && n.children.iter().all(|c| (c.start, c.end) == me) {
+        n.children.clear();
+    }
 }
 
 struct Speaker {
@@ -1415,6 +1422,18 @@ mod tests {
         assert_eq!(sp(r"\ce{2H2 + O2 -> 2H2O}"), "2 H sub 2 plus O sub 2 goes to 2 H sub 2 O");
         assert_eq!(sp(r"A \xrightarrow{f} B"), "A goes to with f above, B");
         assert_eq!(sp(r"A \xrightarrow[g]{f} B"), "A goes to with f above, with g below, B");
+    }
+
+    #[test]
+    fn parts_without_their_own_place_are_not_separate_stops() {
+        // Found by reading the iOS accessibility tree: every part of \ce had
+        // the whole formula's frame.
+        let t = tree(r"\ce{2H2 + O2 -> 2H2O} = x");
+        let chem = &t.children[0];
+        assert!(chem.children.is_empty(), "{chem:?}");
+        assert_eq!(chem.text, "2 H sub 2 plus O sub 2 goes to 2 H sub 2 O");
+        // Ordinary formulas keep their parts.
+        assert_eq!(tree(r"\frac{a+b}{c}").children.len(), 2);
     }
 
     #[test]
