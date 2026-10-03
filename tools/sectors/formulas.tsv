@@ -242,3 +242,52 @@ education	decimal	0.75 = \frac{3}{4} = 75\%
 education	exponent	2^{10} = 1024
 education	square_root	\sqrt{144} = 12
 education	text_mixed	\text{The area is } A = \pi r^2 \text{ square units.}
+siunitx	gravity	g = \SI{9.81}{\meter\per\second\squared}
+siunitx	speed_literal	v = \SI{3.0e8}{m/s}
+siunitx	avogadro	N_A = \num{6.02214076e23}\,\si{\per\mole}
+siunitx	grouping	\num{1234567.891011}
+siunitx	small_number	\num{0.000012345}
+siunitx	uncertainty	m = \SI{1.25+-0.03}{\kilo\gram}
+siunitx	energy	E = \SI{4.2}{\kilo\joule\per\mole}
+siunitx	density	\rho = \SI{1000}{\kilogram\per\cubic\meter}
+siunitx	temperature	T = \SI{25}{\degreeCelsius}
+siunitx	percent	\eta = \SI{85}{\percent}
+siunitx	angle	\theta = \ang{30}
+siunitx	angle_dms	\ang{12;30;45}
+siunitx	resistance	R = \SI{4.7}{\kilo\ohm}
+siunitx	capacitance	C = \SI{100}{\micro\farad}
+siunitx	range	\SIrange{10}{20}{\milli\liter}
+siunitx	numrange	\numrange{1}{100}
+siunitx	list	\numlist{1;2;3}
+siunitx	power	P = \SI{2.5}{\kilo\watt\hour}
+siunitx	pressure	p = \SI{101.325}{\kilo\pascal}
+siunitx	exponent_only	\num{e-9}
+siunitx	planck	h = \SI{6.626e-34}{\joule\second}
+siunitx	acceleration_lit	a = \SI{2}{m.s^{-2}}
+physicspkg	derivative	\dv{f}{x}
+physicspkg	derivative_order	\dv[2]{y}{t} + \omega^2 y = 0
+physicspkg	derivative_apply	\dv{x}(x^2 + 1) = 2x
+physicspkg	partial	\pdv{u}{t} = \alpha \pdv[2]{u}{x}
+physicspkg	mixed_partial	\pdv{f}{x}{y}
+physicspkg	functional	\fdv{S}{q}
+physicspkg	abs	\abs{x - y} \le \abs{x} + \abs{y}
+physicspkg	abs_tall	\abs{\frac{a}{b}}
+physicspkg	norm	\norm{\vb{v}}^2 = \vb{v}\vdot\vb{v}
+physicspkg	qty_paren	\qty(\frac{1}{2})^2
+physicspkg	qty_bracket	\qty[x + \frac{1}{n}]
+physicspkg	eval	\eval{x^2}_0^1 = 1
+physicspkg	order	f(h) = f(0) + h f'(0) + \order{h^2}
+physicspkg	commutator	\comm{\hat{x}}{\hat{p}} = i\hbar
+physicspkg	braket	\braket{\phi}{\psi}
+physicspkg	ket_bra	\ket{\psi} = \alpha\ket{0} + \beta\ket{1}
+physicspkg	expval	\expval{H}{\psi}
+physicspkg	matrix_element	\mel{n}{H}{m}
+physicspkg	maxwell	\divergence{\vb{E}} = \frac{\rho}{\varepsilon_0}
+physicspkg	curl	\curl{\vb{B}} = \mu_0 \vb{J}
+physicspkg	gradient	\vb{F} = -\grad{V}
+physicspkg	laplacian	\laplacian{\phi} = 0
+physicspkg	differential	\int_0^1 x \dd{x}
+physicspkg	trace	\tr{\rho} = 1
+physicspkg	matrix	\mqty(a & b \\ c & d)
+physicspkg	unit_vector	\vu{r}
+physicspkg	cross	\vb{L} = \vb{r} \cross \vb{p}

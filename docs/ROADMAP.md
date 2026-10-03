@@ -78,7 +78,7 @@ CLI, golden-image tests, CI.
       with tap support in the Compose and Flutter widgets.
 - [ ] Selection UI: drag to extend, copy as LaTeX or MathML.
 - [ ] Editing model: cursor and incremental relayout for a math input control.
-- [x] Chemistry (`mhchem` `\ce`, `\pu`). Open: physics package macros, `siunitx` subset.
+- [x] Chemistry (`mhchem` `\ce`, `\pu`), physics package, siunitx.
 - [x] Multiple fonts and font fallback for missing glyphs.
 - [x] Layout caching keyed by the whole request (`LayoutCache`, in every binding).
 - [x] Text mode, size commands, `\tag`, AsciiMath input.

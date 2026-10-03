@@ -316,13 +316,19 @@ pub enum Node {
         span: Span,
         body: Box<Node>,
     },
+    /// Drawn as `body`, spoken (in English) as `speech`: siunitx's units,
+    /// which read as "meters per second squared", not "m s to the minus 2".
+    Spoken {
+        speech: String,
+        body: Box<Node>,
+    },
 }
 
 impl Node {
     /// The node itself with any span wrapper removed.
     pub fn bare(&self) -> &Node {
         match self {
-            Node::Spanned { body, .. } => body.bare(),
+            Node::Spanned { body, .. } | Node::Spoken { body, .. } => body.bare(),
             other => other,
         }
     }

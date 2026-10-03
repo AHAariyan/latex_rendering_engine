@@ -937,6 +937,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 out.glyph = None;
                 out
             }
+            Node::Spoken { body, .. } => self.layout_node(body, sty),
             Node::Spanned { span, body } => {
                 let mut b = self.layout_node(body, sty);
                 if self.hit_testing {
@@ -1769,7 +1770,7 @@ fn is_single_symbol(n: &Node) -> bool {
     match n {
         Node::Symbol { .. } => true,
         Node::Row(v) => v.len() == 1 && is_single_symbol(&v[0]),
-        Node::Spanned { body, .. } => is_single_symbol(body),
+        Node::Spanned { body, .. } | Node::Spoken { body, .. } => is_single_symbol(body),
         _ => false,
     }
 }
@@ -1781,7 +1782,7 @@ fn intrinsic_atom(node: &Node) -> Option<AtomType> {
         Node::Class { atom, .. } => Some(*atom),
         Node::BigOp { .. } | Node::FnName { .. } => Some(AtomType::Op),
         Node::Row(v) if v.len() == 1 => intrinsic_atom(&v[0]),
-        Node::Spanned { body, .. } => intrinsic_atom(body),
+        Node::Spanned { body, .. } | Node::Spoken { body, .. } => intrinsic_atom(body),
         _ => None,
     }
 }

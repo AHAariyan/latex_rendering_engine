@@ -101,6 +101,7 @@ impl Writer {
             Node::Symbol { ch, atom, variant } => self.symbol(styled_char(*ch, *variant), *atom),
             Node::Row(v) | Node::Style { body: v, .. } | Node::Color { body: v, .. } | Node::Size { body: v, .. } => self.list(v),
             Node::Spanned { body, .. }
+            | Node::Spoken { body, .. }
             | Node::Class { body, .. }
             | Node::Raise { body, .. }
             | Node::VCenter(body)
@@ -523,7 +524,7 @@ fn said_digits(n: &Node) -> Option<String> {
                 true
             }
             Node::Row(v) => v.iter().all(|c| walk(c, out)),
-            Node::Spanned { body, .. } => walk(body, out),
+            Node::Spanned { body, .. } | Node::Spoken { body, .. } => walk(body, out),
             _ => false,
         }
     }
@@ -540,7 +541,7 @@ fn frac_order(n: &Node) -> usize {
                 v.iter().map(deepest).max().unwrap_or(0)
             }
             Node::LeftRight { body, .. } => body.iter().map(deepest).max().unwrap_or(0),
-            Node::Spanned { body, .. } | Node::Class { body, .. } => deepest(body),
+            Node::Spanned { body, .. } | Node::Spoken { body, .. } | Node::Class { body, .. } => deepest(body),
             Node::Scripts { base, sup, sub } => deepest(base)
                 .max(sup.as_deref().map_or(0, deepest))
                 .max(sub.as_deref().map_or(0, deepest)),

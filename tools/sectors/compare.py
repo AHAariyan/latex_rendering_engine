@@ -13,7 +13,7 @@ Also records whether KaTeX accepts the formula, and writes report.html with
 the formulas side by side, worst first.
 
 Usage: tools/sectors/compare.py [--out DIR] [--only SECTOR]
-Needs: lualatex with unicode-math and mhchem, pdftoppm, node with KaTeX in
+Needs: lualatex with unicode-math, mhchem, siunitx and physics, pdftoppm, node with KaTeX in
 tools/corpus/node_modules, a built target/release/mathcli.
 """
 import base64, html, json, os, subprocess, sys, tempfile
@@ -24,6 +24,9 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "texcompare"))
 import compare as texcompare  # noqa: E402
 
 SIZE = 40
+# Sectors whose formulas need a package beyond the standard preamble. Loaded
+# only there: physics redefines \div, \Re and the trig functions.
+PACKAGES = {"siunitx": ("siunitx",), "physicspkg": ("physics",)}
 TOLERANCE = 2
 
 
@@ -101,7 +104,7 @@ def main():
             ours_png = os.path.join(out, f"{sector}-{name}-ours.png")
             tex_png = os.path.join(out, f"{sector}-{name}-tex.png")
             ours_ok = subprocess.run([mathcli, "--size", str(SIZE), "--scale", "1", tex, "-o", ours_png], capture_output=True).returncode == 0
-            tex_ok = texcompare.render_tex(tex, True, SIZE, tex_png, tmp)
+            tex_ok = texcompare.render_tex(tex, True, SIZE, tex_png, tmp, PACKAGES.get(sector, ()))
             entry = {"sector": sector, "name": name, "tex": tex, "ours": ours_ok, "latex": tex_ok, "katex": kx}
             if ours_ok and tex_ok:
                 a, b = ink(ours_png), ink(tex_png)

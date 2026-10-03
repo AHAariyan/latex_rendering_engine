@@ -14,6 +14,10 @@ major platform. No WebView, no JavaScript in the layout path.
 - Text mode with `$...$`, font switches, accents and sizes; `\tag`
   equation numbers; chemistry with `\ce` and `\pu` (mhchem); commutative
   diagrams (`CD`); AsciiMath input.
+- The physics package (derivatives, brackets, Dirac notation, vector
+  operators, matrices) and siunitx (numbers, units, quantities, angles,
+  ranges, lists), each matching LaTeX with that package loaded on all 49
+  test formulas.
 - Line breaking to a width, hit testing and highlighting, a layout cache,
   and budgets for formulas from untrusted users.
 - Checked against LuaLaTeX: common formulas within 1–2%, almost all
@@ -26,6 +30,8 @@ major platform. No WebView, no JavaScript in the layout path.
 - A speech tree that VoiceOver and TalkBack users step through part by
   part, each part outlined where it is drawn.
 - Nemeth braille.
+- Numbers read as numbers ("9.81", not "9 . 8 1"), `f'` as "f prime",
+  `90^\circ` as "90 degrees", siunitx units by name.
 - MathML output.
 
 ### SDKs
@@ -45,4 +51,8 @@ major platform. No WebView, no JavaScript in the layout path.
   native speakers.
 - Nemeth braille covers the code's core rules.
 - No editing model (a math input field) yet.
-- `siunitx` and the `physics` package are not supported.
+- siunitx options (`[per-mode=symbol]` and the like) are read but not
+  applied: output follows siunitx's defaults. Unit names are spoken in
+  English only; other languages read the symbols.
+- physics' `\sin(x)`-style automatic brackets are not applied, since
+  documents without the package write `\sin(x)` too.

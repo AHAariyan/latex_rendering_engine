@@ -15,6 +15,8 @@ use crate::Budget;
 
 mod cd;
 mod mhchem;
+mod physics;
+mod siunitx;
 mod text;
 
 /// Parses a formula with no host-supplied macros.
@@ -513,6 +515,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_command(&mut self, name: &'a str, pos: usize) -> Result<Node> {
+        // The physics and siunitx packages, translated to TeX.
+        if let Some(tex) = physics::translate(name, &mut self.lx)? {
+            return self.sub_parse(&tex, name, pos);
+        }
+        if let Some(tex) = siunitx::translate(name, &mut self.lx)? {
+            return self.sub_parse(&tex, name, pos);
+        }
         // amsmath: \implies is \;\Longrightarrow\;, a relation padded by thick spaces.
         if let Some(ch) = match name {
             "implies" => Some('⟹'),
@@ -1184,6 +1193,14 @@ impl<'a> Parser<'a> {
                 self.parse_arg()
             }
             "DOTSB" | "DOTSI" | "DOTSX" => Ok(Node::Row(vec![])),
+            // `\spokenas{meters}{\mathrm{m}}`: drawn as the math, read as the words.
+            "spokenas" => {
+                let speech = self.lx.raw_group()?.trim().to_string();
+                Ok(Node::Spoken {
+                    speech,
+                    body: Box::new(self.parse_arg()?),
+                })
+            }
             "ce" | "pu" => {
                 let raw = self.lx.raw_group()?;
                 // The inner parse starts its own depth count, so it must not
@@ -1233,6 +1250,36 @@ impl<'a> Parser<'a> {
             }
             _ => Err(Error::parse(pos, format!("unknown command \\{name}"))),
         }
+    }
+
+    /// Parses TeX that a package command was translated to, one level
+    /// deeper than the command, within what is left of the node budget.
+    fn sub_parse(&mut self, tex: &str, name: &str, pos: usize) -> Result<Node> {
+        if self.depth > MAX_DEPTH {
+            return Err(Error::parse(pos, format!("nesting deeper than {MAX_DEPTH} levels")));
+        }
+        let mut p = Parser {
+            lx: Lexer::new(tex),
+            variant: self.variant,
+            in_left_right: 0,
+            depth: self.depth + 1,
+            nodes: 0,
+            max_nodes: self.max_nodes.saturating_sub(self.nodes),
+            spans: false,
+            text_math_close: None,
+            tag: None,
+            cd_stop: None,
+        };
+        let parsed = p.parse_list().and_then(|nodes| match p.lx.advance()? {
+            Tok::Eof => Ok(nodes),
+            t => Err(Error::parse(p.lx.pos(), format!("unexpected {t:?}"))),
+        });
+        let mut nodes = parsed.map_err(|e| match e {
+            Error::Parse { msg, .. } => Error::parse(pos, format!("in \\{name}: {msg}")),
+            e => e,
+        })?;
+        self.nodes += p.nodes;
+        Ok(if nodes.len() == 1 { nodes.pop().unwrap() } else { Node::Row(nodes) })
     }
 
     fn parse_limits_modifier(&mut self, default: Limits) -> Result<Limits> {
