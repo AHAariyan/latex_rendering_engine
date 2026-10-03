@@ -189,12 +189,13 @@ impl Writer {
             Node::XArrow { ch, over, under } => {
                 self.space();
                 self.put(arrow(*ch));
-                if let Some(o) = over.as_deref() {
+                // Labels that print nothing (mhchem's spacer) are left out.
+                if let Some(o) = over.as_deref().filter(|o| !braille_of(o).is_empty()) {
                     self.put("⠣");
                     self.one(o);
                     self.put("⠻");
                 }
-                if let Some(u) = under.as_deref() {
+                if let Some(u) = under.as_deref().filter(|u| !braille_of(u).is_empty()) {
                     self.put("⠩");
                     self.one(u);
                     self.put("⠻");
@@ -384,6 +385,12 @@ impl Writer {
         };
         self.put(cell);
     }
+}
+
+fn braille_of(n: &Node) -> String {
+    let mut w = Writer::default();
+    w.one(n);
+    w.out.trim().to_string()
 }
 
 fn digit_cell(c: char) -> bool {
@@ -605,6 +612,7 @@ mod tests {
             r"\ce{2H2 + O2 -> 2H2O}",
             r"\text{if } x > 0",
         ] {
+            assert!(!nm(tex).contains("⠣⠻"), "{tex}");
             assert!(!nm(tex).is_empty(), "{tex}");
         }
     }

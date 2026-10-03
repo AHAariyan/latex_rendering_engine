@@ -189,6 +189,8 @@ impl Translator<'_> {
                 let below = self.bracket()?.map(|s| ce_to_tex(&s)).transpose()?;
                 self.out.push(' ');
                 self.out.push_str(cmd);
+                // mhchem's arrows are long even without labels.
+                let above = if above.is_empty() { r"\hphantom{MM}".to_string() } else { above };
                 if let Some(b) = below {
                     self.out.push('[');
                     self.out.push_str(&b);
@@ -277,9 +279,12 @@ impl Translator<'_> {
                         self.i += 1;
                     }
                     if word.chars().count() == 1 {
-                        // A variable or a particle: `x H2O`, `e-` (an electron
-                        // takes a charge like an ion does).
+                        // A particle or a count: `e-`, `n`. mhchem sets them
+                        // upright like element symbols, and an electron takes
+                        // a charge like an ion does.
+                        self.out.push_str(r"\mathrm{");
                         self.out.push_str(&word);
+                        self.out.push('}');
                         self.in_formula = true;
                     } else {
                         self.out.push_str(r"\mathrm{");
@@ -313,6 +318,10 @@ impl Translator<'_> {
                         self.out.push_str(&format!(r"\tfrac{{{num}}}{{{den}}}"));
                     } else {
                         self.out.push_str(&num);
+                        // mhchem separates a coefficient from its formula.
+                        if self.peek(0).is_some_and(|c| c.is_ascii_alphabetic() || c == '(' || c == '[') {
+                            self.out.push_str(r"\,");
+                        }
                     }
                 }
                 '(' | '[' => {
@@ -330,6 +339,8 @@ impl Translator<'_> {
                     // A prescript (`^{227}_{90}Th`) hangs off an empty base.
                     if !self.in_formula && !self.out.ends_with('}') {
                         self.out.push_str("{}");
+                    } else if ch == '^' && self.in_formula {
+                        self.stagger();
                     }
                     self.out.push(ch);
                     self.out.push('{');
@@ -356,6 +367,7 @@ impl Translator<'_> {
                         s.push(c);
                         self.i += 1;
                     }
+                    self.stagger();
                     self.out.push_str("^{");
                     self.out.push_str(&script(&s));
                     self.out.push('}');
@@ -400,6 +412,14 @@ impl Translator<'_> {
         Ok(())
     }
 
+    /// A charge after a subscript sits to its right, as mhchem sets it
+    /// (`SO4^2-` is SO₄²⁻ side by side, not stacked).
+    fn stagger(&mut self) {
+        if self.out.ends_with('}') && self.out.rfind("_{").is_some_and(|i| !self.out[i..].contains('^')) {
+            self.out.push_str("{}");
+        }
+    }
+
     /// A run of `+`/`-` that ends the formula is a charge (`Na+`, `OH-`,
     /// `Fe(CN)6^3-` is written with `^`); one followed by more formula is a bond.
     fn charge_ahead(&self) -> bool {
@@ -428,24 +448,25 @@ mod tests {
     fn formulas_and_charges() {
         assert_eq!(ce_to_tex("H2O").unwrap(), r"\mathrm{H}_{2}\mathrm{O}");
         assert_eq!(ce_to_tex("Na+").unwrap(), r"\mathrm{Na}^{{+}}");
-        assert_eq!(ce_to_tex("SO4^2-").unwrap(), r"\mathrm{S}\mathrm{O}_{4}^{2{-}}");
+        assert_eq!(ce_to_tex("SO4^2-").unwrap(), r"\mathrm{S}\mathrm{O}_{4}{}^{2{-}}");
+        assert_eq!(ce_to_tex("NO3-").unwrap(), r"\mathrm{N}\mathrm{O}_{3}{}^{{-}}");
         assert_eq!(ce_to_tex("Fe^{III}").unwrap(), r"\mathrm{Fe}^{\mathrm{III}}");
         assert_eq!(
             ce_to_tex("(NH4)2SO4").unwrap(),
             r"(\mathrm{N}\mathrm{H}_{4})_{2}\mathrm{S}\mathrm{O}_{4}"
         );
-        assert_eq!(ce_to_tex("2H2").unwrap(), r"2\mathrm{H}_{2}");
-        assert_eq!(ce_to_tex("5e-").unwrap(), r"5e^{{-}}");
+        assert_eq!(ce_to_tex("2H2").unwrap(), r"2\,\mathrm{H}_{2}");
+        assert_eq!(ce_to_tex("5e-").unwrap(), r"5\,\mathrm{e}^{{-}}");
         assert_eq!(
             ce_to_tex("CuSO4*5H2O").unwrap(),
-            r"\mathrm{Cu}\mathrm{S}\mathrm{O}_{4}\cdot 5\mathrm{H}_{2}\mathrm{O}"
+            r"\mathrm{Cu}\mathrm{S}\mathrm{O}_{4}\cdot 5\,\mathrm{H}_{2}\mathrm{O}"
         );
     }
 
     #[test]
     fn arrows_and_marks() {
-        assert!(ce_to_tex("A -> B").unwrap().contains(r"\xrightarrow{}"));
-        assert!(ce_to_tex("A <=> B").unwrap().contains(r"\xrightleftharpoons{}"));
+        assert!(ce_to_tex("A -> B").unwrap().contains(r"\xrightarrow{\hphantom{MM}}"));
+        assert!(ce_to_tex("A <=> B").unwrap().contains(r"\xrightleftharpoons{\hphantom{MM}}"));
         assert!(ce_to_tex("A ->[\\Delta][cat] B")
             .unwrap()
             .contains(r"\xrightarrow[\mathrm{cat}]{\Delta }"));

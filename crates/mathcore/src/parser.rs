@@ -1434,7 +1434,10 @@ impl<'a> Parser<'a> {
         } else {
             cols.into_iter().take(ncols.max(1)).collect()
         };
-        let pitch = if env == "smallmatrix" {
+        // amsmath's subarray is \substack with a column alignment.
+        let pitch = if env == "subarray" {
+            RowPitch::Substack
+        } else if env == "smallmatrix" {
             RowPitch::SmallMatrix
         } else {
             RowPitch::Normal
