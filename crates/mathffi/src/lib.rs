@@ -555,6 +555,16 @@ pub unsafe extern "C" fn math_speech_tree(tex: *const c_char, macros: *const c_c
     string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
 }
 
+/// The formula in Nemeth braille (Unicode braille cells). Ownership and
+/// errors as `math_mathml`.
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_nemeth(tex: *const c_char, macros: *const c_char) -> *mut c_char {
+    string_out(tex, macros, mathcore::render_nemeth)
+}
+
 /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `math_engine_render`.
 /// Ownership and errors as `math_mathml`.
 ///

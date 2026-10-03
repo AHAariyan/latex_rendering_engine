@@ -112,6 +112,12 @@ fn check(font: &MathFont<'_>, tex: &str) -> Result<(), Outcome> {
         nests(&tree, tex.len() as u32)?;
     }
 
+    let braille =
+        mathcore::render_nemeth(tex, &opts.macros).map_err(|e| Outcome::Violation(format!("braille rejects what layout accepts: {e}")))?;
+    if braille.trim().is_empty() && !tex.trim().is_empty() && !dl.items.is_empty() {
+        return violation("empty braille for a formula that draws");
+    }
+
     let ml = mathcore::render_mathml(tex, true, &opts.macros)
         .map_err(|e| Outcome::Violation(format!("mathml rejects what layout accepts: {e}")))?;
     balanced(&ml)?;

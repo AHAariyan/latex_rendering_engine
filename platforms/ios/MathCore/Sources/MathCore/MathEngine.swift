@@ -239,6 +239,11 @@ public final class MathEngine {
         try string { tex.withCString { math_speech_tree($0, nil, verbosity.rawValue) } }
     }
 
+    /// The formula in Nemeth braille (Unicode braille cells), for braille displays.
+    public static func nemeth(_ tex: String) throws -> String {
+        try string { tex.withCString { math_nemeth($0, nil) } }
+    }
+
     /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for `render`.
     public static func asciimathToTex(_ source: String) throws -> String {
         try string { source.withCString { math_asciimath_to_tex($0) } }

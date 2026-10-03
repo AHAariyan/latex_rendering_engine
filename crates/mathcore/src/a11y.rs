@@ -1106,6 +1106,11 @@ fn symbol_name(c: char) -> String {
     name.to_string()
 }
 
+/// A character with its math alphabet undone: 𝑥 is x, 𝜶 is α.
+pub(crate) fn plain_char(c: char) -> char {
+    plain_letter(c).or_else(|| plain_greek(c)).unwrap_or(c)
+}
+
 /// Maps a Mathematical Alphanumeric Symbol back to its ASCII letter or digit.
 fn plain_letter(c: char) -> Option<char> {
     if c.is_ascii_alphanumeric() {

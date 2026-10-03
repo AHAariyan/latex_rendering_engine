@@ -14,6 +14,7 @@ export {
   speechWith,
   speechTree as speechTreeJson,
   asciimathToTex,
+  nemeth,
   version,
 } from "./wasm/mathwasm.js";
 export { CanvasRenderer } from "./renderer.js";

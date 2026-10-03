@@ -108,6 +108,7 @@ class MathBindings {
         speechEx = lib.lookupFunction<SpeechExC, SpeechExD>('math_speech_ex'),
         speechTree = lib.lookupFunction<SpeechExC, SpeechExD>('math_speech_tree'),
         asciimathToTex = lib.lookupFunction<AsciiC, AsciiC>('math_asciimath_to_tex'),
+        nemeth = lib.lookupFunction<SpeechC, SpeechC>('math_nemeth'),
         setBudget = lib.lookupFunction<BudgetC, BudgetD>('math_engine_set_budget'),
         setCacheCapacity = lib.lookupFunction<CacheC, CacheD>('math_engine_set_cache_capacity'),
         stringFree = lib.lookupFunction<StringFreeC, StringFreeD>('math_string_free'),
@@ -128,6 +129,7 @@ class MathBindings {
   final SpeechExD speechEx;
   final SpeechExD speechTree;
   final AsciiC asciimathToTex;
+  final SpeechC nemeth;
   final BudgetD setBudget;
   final CacheD setCacheCapacity;
   final StringFreeD stringFree;

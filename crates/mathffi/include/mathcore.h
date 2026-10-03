@@ -115,6 +115,8 @@ char* math_speech_ex(const char* tex, const char* macros, int32_t verbosity);
  * {"role","label","text","start","end","children":[...]}. start..end is the
  * source byte range to pass to the highlight call while that part is read. */
 char* math_speech_tree(const char* tex, const char* macros, int32_t verbosity);
+/* The formula in Nemeth braille, as Unicode braille cells (U+2800 block). */
+char* math_nemeth(const char* tex, const char* macros);
 /* AsciiMath input ("sum_(i=1)^n i^2") translated to TeX for the calls above. */
 char* math_asciimath_to_tex(const char* src);
 void math_string_free(char* s);

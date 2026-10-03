@@ -348,6 +348,16 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_speechTree(mut env: JNIEnv
 }
 
 #[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_nemeth(mut env: JNIEnv, _class: JClass, tex: JString) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(tex) = get(&mut env, &tex) else {
+            return std::ptr::null_mut();
+        };
+        string_result(&env, mathcore::render_nemeth(&tex, &Macros::new()))
+    })
+}
+
+#[no_mangle]
 pub extern "system" fn Java_dev_mathcore_NativeBridge_asciimathToTex(mut env: JNIEnv, _class: JClass, src: JString) -> jstring {
     guard(std::ptr::null_mut(), || {
         let Some(src) = get(&mut env, &src) else {

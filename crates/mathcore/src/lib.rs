@@ -7,6 +7,7 @@
 pub mod a11y;
 pub mod asciimath;
 pub mod ast;
+pub mod braille;
 pub mod cache;
 pub mod display;
 pub mod error;
@@ -100,6 +101,12 @@ pub fn render_speech_with(tex: &str, macros: &Macros, opts: &SpeechOptions) -> R
 pub fn render_speech_tree(tex: &str, macros: &Macros, opts: &SpeechOptions) -> Result<SpeechNode> {
     let nodes = parser::parse_with_spans(tex, macros, Budget::default())?;
     Ok(a11y::speech_tree(&nodes, opts))
+}
+
+/// Parses a formula and writes it in Nemeth braille (Unicode braille cells),
+/// for refreshable braille displays and embossers.
+pub fn render_nemeth(tex: &str, macros: &Macros) -> Result<String> {
+    Ok(braille::nemeth(&parse_with(tex, macros)?))
 }
 
 /// Translates AsciiMath (`sum_(i=1)^n i^2`) to TeX, which every other call

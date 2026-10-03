@@ -193,6 +193,7 @@ fn run(lines: &[String], seed: u64, count: usize, log: Option<String>) -> i32 {
             };
             mathcore::render(&font, &tex, &narrow).map_err(|e| format!("line breaking rejects: {e}"))?;
             mathcore::render_speech_tree(&tex, &opts.macros, &SpeechOptions::default()).map_err(|e| format!("speech rejects: {e}"))?;
+            mathcore::render_nemeth(&tex, &opts.macros).map_err(|e| format!("braille rejects: {e}"))?;
             mathcore::render_mathml(&tex, true, &opts.macros).map_err(|e| format!("mathml rejects: {e}"))?;
             Ok(true)
         }));

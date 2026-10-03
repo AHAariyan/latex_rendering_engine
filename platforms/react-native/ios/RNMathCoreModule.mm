@@ -36,6 +36,12 @@ static NSString *orThrow(NSString *result, NSError *error)
   return orThrow([RNMathCoreBridge mathml:tex displayMode:displayMode error:&error], error);
 }
 
+- (NSString *)nemeth:(NSString *)tex
+{
+  NSError *error = nil;
+  return orThrow([RNMathCoreBridge nemeth:tex error:&error], error);
+}
+
 - (NSString *)asciimathToTex:(NSString *)source
 {
   NSError *error = nil;

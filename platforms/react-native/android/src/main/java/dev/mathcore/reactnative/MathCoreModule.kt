@@ -20,6 +20,8 @@ class MathCoreModule(context: ReactApplicationContext) : NativeMathCoreSpec(cont
 
     override fun asciimathToTex(source: String): String = MathEngine.asciimathToTex(source)
 
+    override fun nemeth(tex: String): String = MathAccessibility.nemeth(tex)
+
     private fun level(v: Double) = SpeechVerbosity.entries.getOrElse(v.toInt()) { SpeechVerbosity.Brief }
 
     companion object {

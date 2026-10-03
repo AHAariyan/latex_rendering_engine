@@ -112,6 +112,11 @@ export function mathml(tex: string, displayMode = true): string {
   return NativeMathCore.mathml(tex, displayMode);
 }
 
+/** The formula in Nemeth braille (Unicode braille cells). */
+export function nemeth(tex: string): string {
+  return NativeMathCore.nemeth(tex);
+}
+
 /** AsciiMath (`sum_(i=1)^n i^2`) translated to TeX. */
 export function asciimathToTex(source: string): string {
   return NativeMathCore.asciimathToTex(source);

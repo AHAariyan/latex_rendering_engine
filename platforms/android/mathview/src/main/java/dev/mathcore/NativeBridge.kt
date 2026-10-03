@@ -25,6 +25,7 @@ internal object NativeBridge {
     external fun speechWith(tex: String, verbosity: Int): String?
     external fun speechTree(tex: String, verbosity: Int): String?
     external fun asciimathToTex(source: String): String?
+    external fun nemeth(tex: String): String?
     external fun setBudget(handle: Long, maxExpandedBytes: Long, maxNodes: Long, maxItems: Long)
     external fun setCacheCapacity(handle: Long, capacity: Int)
     external fun lastError(): String?

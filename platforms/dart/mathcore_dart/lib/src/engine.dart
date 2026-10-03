@@ -158,6 +158,9 @@ class MathEngine {
     return SpeechNode.fromJson(jsonDecode(json) as Map<String, dynamic>);
   }
 
+  /// The formula in Nemeth braille (Unicode braille cells), for braille displays.
+  static String nemeth(String tex) => _string(tex, (b, t) => b.nemeth(t, nullptr));
+
   /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for [render].
   static String asciimathToTex(String source) => _string(source, (b, t) => b.asciimathToTex(t));
 

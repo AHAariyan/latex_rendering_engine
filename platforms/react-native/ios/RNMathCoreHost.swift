@@ -91,6 +91,10 @@ public final class RNMathCoreBridge: NSObject {
         try MathEngine.mathml(tex, displayMode: displayMode)
     }
 
+    @objc public static func nemeth(_ tex: String) throws -> String {
+        try MathEngine.nemeth(tex)
+    }
+
     @objc public static func asciimathToTex(_ source: String) throws -> String {
         try MathEngine.asciimathToTex(source)
     }

@@ -62,6 +62,10 @@ object MathAccessibility {
         return SpeechJson(json).node()
     }
 
+    /** The formula in Nemeth braille (Unicode braille cells), for braille displays. */
+    fun nemeth(latex: String): String =
+        NativeBridge.nemeth(latex) ?: throw MathParseException(NativeBridge.lastError() ?: "braille failed")
+
     /** [speechTree] as the engine's JSON, for hosts that pass it on (React Native, a WebView). */
     fun speechTreeJson(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): String =
         NativeBridge.speechTree(latex, verbosity.level)

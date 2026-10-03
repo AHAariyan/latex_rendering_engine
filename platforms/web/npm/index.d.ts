@@ -4,6 +4,7 @@ export {
   speech,
   speechWith,
   asciimathToTex,
+  nemeth,
   version,
 } from "./wasm/mathwasm.js";
 export { speechTree as speechTreeJson } from "./wasm/mathwasm.js";
