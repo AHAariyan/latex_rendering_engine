@@ -191,6 +191,7 @@ fn lines_array(mut rows: Vec<Vec<Vec<Node>>>) -> Node {
         row_gaps: gaps,
         pitch: RowPitch::Normal,
         stretch: 1.0,
+        outer_sep: false,
     }))
 }
 
@@ -512,6 +513,28 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_command(&mut self, name: &'a str, pos: usize) -> Result<Node> {
+        // amsmath: \implies is \;\Longrightarrow\;, a relation padded by thick spaces.
+        if let Some(ch) = match name {
+            "implies" => Some('⟹'),
+            "impliedby" => Some('⟸'),
+            "iff" => Some('⟺'),
+            _ => None,
+        } {
+            let thick = || Node::Space { mu: 5.0 };
+            return Ok(Node::Class {
+                atom: AtomType::Rel,
+                body: Box::new(Node::Row(vec![
+                    thick(),
+                    Node::Symbol {
+                        ch,
+                        atom: AtomType::Rel,
+                        variant: Variant::Normal,
+                    },
+                    thick(),
+                ])),
+                limits: Limits::NoLimits,
+            });
+        }
         // `\` followed by a tab or a line break is a control space, like `\ `.
         if name.chars().all(char::is_whitespace) {
             return Ok(Node::Space { mu: 6.0 });
@@ -564,7 +587,11 @@ impl<'a> Parser<'a> {
         }
         match name {
             "frac" | "dfrac" | "tfrac" | "cfrac" => {
-                let num = self.parse_arg()?;
+                let mut num = self.parse_arg()?;
+                if name == "cfrac" {
+                    // amsmath sets a continued fraction's numerator on a strut.
+                    num = Node::Row(vec![strut(), num]);
+                }
                 let den = self.parse_arg()?;
                 let style = match name {
                     "dfrac" | "cfrac" => Some(MathStyle::Display),
@@ -792,7 +819,8 @@ impl<'a> Parser<'a> {
                     kind,
                 })
             }
-            "mathstrut" | "strut" => Ok(Node::Phantom {
+            "strut" => Ok(strut()),
+            "mathstrut" => Ok(Node::Phantom {
                 body: Box::new(Node::Symbol {
                     ch: '(',
                     atom: AtomType::Ord,
@@ -1263,6 +1291,7 @@ impl<'a> Parser<'a> {
             row_gaps: vec![],
             pitch,
             stretch: 1.0,
+            outer_sep: false,
         })))
     }
 
@@ -1452,6 +1481,7 @@ impl<'a> Parser<'a> {
             row_gaps,
             pitch,
             stretch,
+            outer_sep: matches!(env, "array" | "darray"),
         }));
         if left.is_some() || right.is_some() {
             Ok(Node::LeftRight {
@@ -1476,6 +1506,16 @@ impl<'a> Parser<'a> {
             }
             _ => Err(Error::parse(pos, format!("missing \\end{{{env}}}"))),
         }
+    }
+}
+
+/// LaTeX's \\strut: no width, 0.7 and 0.3 of a 1.2 em baselineskip above
+/// and below the baseline.
+fn strut() -> Node {
+    Node::Rule {
+        width: 0.0,
+        height: 1.2,
+        raise: -0.36,
     }
 }
 

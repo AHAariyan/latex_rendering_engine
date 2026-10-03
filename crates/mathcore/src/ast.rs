@@ -148,6 +148,9 @@ pub struct Array {
     pub pitch: RowPitch,
     /// LaTeX `\arraystretch`: multiplies row struts and pitch (`cases` uses 1.2).
     pub stretch: f32,
+    /// LaTeX's `array` keeps `\arraycolsep` outside the first and last
+    /// columns; amsmath's matrices and the other environments drop it.
+    pub outer_sep: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

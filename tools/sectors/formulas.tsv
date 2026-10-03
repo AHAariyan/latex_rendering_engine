@@ -1,0 +1,244 @@
+algebra	quadratic	x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+algebra	binomial_theorem	(a+b)^n = \sum_{k=0}^{n} \binom{n}{k} a^{n-k} b^{k}
+algebra	difference_squares	a^2 - b^2 = (a-b)(a+b)
+algebra	cubic_sum	a^3 + b^3 = (a+b)(a^2 - ab + b^2)
+algebra	geometric_series	\sum_{k=0}^{n-1} ar^k = a\,\frac{1-r^n}{1-r}
+algebra	log_rules	\log_b(xy) = \log_b x + \log_b y
+algebra	exponent_rules	\frac{a^m}{a^n} = a^{m-n}, \quad (a^m)^n = a^{mn}
+algebra	absolute_value	|x - a| < \varepsilon \iff a - \varepsilon < x < a + \varepsilon
+algebra	rational_function	f(x) = \frac{x^2 + 3x - 4}{x^2 - 1}
+algebra	nested_radical	\sqrt{2 + \sqrt{2 + \sqrt{2}}}
+algebra	cube_root	\sqrt[3]{x^3 + y^3}
+algebra	system	\begin{cases} 2x + 3y = 7 \\ x - y = 1 \end{cases}
+algebra	piecewise	f(x) = \begin{cases} x^2 & \text{if } x \ge 0 \\ -x & \text{if } x < 0 \end{cases}
+algebra	complex_number	z = r(\cos\theta + i\sin\theta) = re^{i\theta}
+algebra	de_moivre	(\cos\theta + i\sin\theta)^n = \cos n\theta + i \sin n\theta
+algebra	vieta	x_1 + x_2 = -\frac{b}{a}, \qquad x_1 x_2 = \frac{c}{a}
+algebra	continued_fraction	x = a_0 + \cfrac{1}{a_1 + \cfrac{1}{a_2 + \cfrac{1}{a_3}}}
+algebra	inequality_am_gm	\frac{a_1 + a_2 + \cdots + a_n}{n} \ge \sqrt[n]{a_1 a_2 \cdots a_n}
+algebra	polynomial	p(x) = a_n x^n + a_{n-1} x^{n-1} + \cdots + a_1 x + a_0
+algebra	partial_fractions	\frac{1}{x(x+1)} = \frac{1}{x} - \frac{1}{x+1}
+calculus	derivative_def	f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}
+calculus	product_rule	\frac{d}{dx}\bigl(f(x)g(x)\bigr) = f'(x)g(x) + f(x)g'(x)
+calculus	chain_rule	\frac{dy}{dx} = \frac{dy}{du} \cdot \frac{du}{dx}
+calculus	ftc	\int_a^b f'(x)\,dx = f(b) - f(a)
+calculus	gaussian	\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+calculus	integration_parts	\int u\,dv = uv - \int v\,du
+calculus	taylor	f(x) = \sum_{n=0}^{\infty} \frac{f^{(n)}(a)}{n!}(x-a)^n
+calculus	euler_limit	e = \lim_{n \to \infty} \left(1 + \frac{1}{n}\right)^n
+calculus	partial_derivative	\frac{\partial^2 f}{\partial x \, \partial y} = \frac{\partial^2 f}{\partial y \, \partial x}
+calculus	double_integral	\iint_D f(x,y)\,dA = \int_a^b \int_{g_1(x)}^{g_2(x)} f(x,y)\,dy\,dx
+calculus	triple_integral	\iiint_V \rho\,dV
+calculus	gradient	\nabla f = \left(\frac{\partial f}{\partial x}, \frac{\partial f}{\partial y}, \frac{\partial f}{\partial z}\right)
+calculus	divergence_theorem	\oint_S \mathbf{F} \cdot d\mathbf{S} = \iiint_V \nabla \cdot \mathbf{F}\,dV
+calculus	stokes	\oint_{\partial S} \mathbf{F} \cdot d\mathbf{r} = \iint_S (\nabla \times \mathbf{F}) \cdot d\mathbf{S}
+calculus	lhopital	\lim_{x \to c} \frac{f(x)}{g(x)} = \lim_{x \to c} \frac{f'(x)}{g'(x)}
+calculus	basel	\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+calculus	ode	\frac{d^2 y}{dt^2} + 2\zeta\omega_0 \frac{dy}{dt} + \omega_0^2 y = 0
+calculus	laplace_eq	\nabla^2 u = \frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} = 0
+calculus	riemann_sum	\int_a^b f(x)\,dx = \lim_{n \to \infty} \sum_{i=1}^{n} f(x_i^*)\,\Delta x
+calculus	evaluated	\left. \frac{d}{dx} x^3 \right|_{x=2} = 12
+linear_algebra	matrix_product	(AB)_{ij} = \sum_{k=1}^{n} a_{ik} b_{kj}
+linear_algebra	determinant	\det A = \begin{vmatrix} a & b \\ c & d \end{vmatrix} = ad - bc
+linear_algebra	inverse	A^{-1} = \frac{1}{ad - bc}\begin{pmatrix} d & -b \\ -c & a \end{pmatrix}
+linear_algebra	eigen	A\mathbf{v} = \lambda \mathbf{v}
+linear_algebra	identity3	I_3 = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}
+linear_algebra	general_matrix	A = \begin{pmatrix} a_{11} & a_{12} & \cdots & a_{1n} \\ a_{21} & a_{22} & \cdots & a_{2n} \\ \vdots & \vdots & \ddots & \vdots \\ a_{m1} & a_{m2} & \cdots & a_{mn} \end{pmatrix}
+linear_algebra	dot_product	\mathbf{u} \cdot \mathbf{v} = \|\mathbf{u}\| \, \|\mathbf{v}\| \cos\theta
+linear_algebra	cross_product	\mathbf{u} \times \mathbf{v} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathbf{k} \\ u_1 & u_2 & u_3 \\ v_1 & v_2 & v_3 \end{vmatrix}
+linear_algebra	transpose	(AB)^{\mathsf{T}} = B^{\mathsf{T}} A^{\mathsf{T}}
+linear_algebra	characteristic	\det(A - \lambda I) = 0
+linear_algebra	svd	A = U \Sigma V^{*}
+linear_algebra	norm	\|\mathbf{x}\|_2 = \sqrt{\sum_{i=1}^{n} x_i^2}
+linear_algebra	projection	\operatorname{proj}_{\mathbf{u}} \mathbf{v} = \frac{\mathbf{u} \cdot \mathbf{v}}{\mathbf{u} \cdot \mathbf{u}}\,\mathbf{u}
+linear_algebra	rank_nullity	\operatorname{rank} A + \operatorname{nullity} A = n
+linear_algebra	augmented	\left[\begin{array}{cc|c} 1 & 2 & 3 \\ 4 & 5 & 6 \end{array}\right]
+linear_algebra	trace	\operatorname{tr}(A) = \sum_{i=1}^{n} a_{ii}
+linear_algebra	block_matrix	\begin{pmatrix} A & B \\ 0 & D \end{pmatrix}
+linear_algebra	gram_schmidt	\mathbf{u}_k = \mathbf{v}_k - \sum_{j=1}^{k-1} \frac{\langle \mathbf{v}_k, \mathbf{u}_j \rangle}{\langle \mathbf{u}_j, \mathbf{u}_j \rangle}\,\mathbf{u}_j
+linear_algebra	kronecker	\delta_{ij} = \begin{cases} 1 & i = j \\ 0 & i \neq j \end{cases}
+linear_algebra	small_matrix	\left(\begin{smallmatrix} a & b \\ c & d \end{smallmatrix}\right)
+statistics	normal_pdf	f(x) = \frac{1}{\sigma\sqrt{2\pi}}\, e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}
+statistics	mean	\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i
+statistics	variance	s^2 = \frac{1}{n-1} \sum_{i=1}^{n} (x_i - \bar{x})^2
+statistics	bayes	P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
+statistics	expectation	\mathbb{E}[X] = \sum_{x} x\,P(X = x)
+statistics	variance_def	\operatorname{Var}(X) = \mathbb{E}\left[(X - \mu)^2\right]
+statistics	binomial_pmf	P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}
+statistics	poisson	P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
+statistics	correlation	\rho_{X,Y} = \frac{\operatorname{cov}(X,Y)}{\sigma_X \sigma_Y}
+statistics	clt	\frac{\bar{X}_n - \mu}{\sigma/\sqrt{n}} \xrightarrow{d} \mathcal{N}(0,1)
+statistics	regression	\hat{\beta} = (X^{\mathsf{T}} X)^{-1} X^{\mathsf{T}} \mathbf{y}
+statistics	chi_square	\chi^2 = \sum_{i=1}^{k} \frac{(O_i - E_i)^2}{E_i}
+statistics	confidence	\bar{x} \pm z_{\alpha/2} \frac{\sigma}{\sqrt{n}}
+statistics	likelihood	\mathcal{L}(\theta) = \prod_{i=1}^{n} f(x_i \mid \theta)
+statistics	entropy	H(X) = -\sum_{i} p_i \log_2 p_i
+statistics	conditional_exp	\mathbb{E}[X] = \mathbb{E}\bigl[\mathbb{E}[X \mid Y]\bigr]
+statistics	t_statistic	t = \frac{\bar{x} - \mu_0}{s/\sqrt{n}}
+statistics	covariance_matrix	\Sigma = \begin{pmatrix} \sigma_1^2 & \sigma_{12} \\ \sigma_{21} & \sigma_2^2 \end{pmatrix}
+statistics	gamma_function	\Gamma(z) = \int_0^\infty t^{z-1} e^{-t}\,dt
+statistics	kl_divergence	D_{\mathrm{KL}}(P \parallel Q) = \sum_{x} P(x) \log \frac{P(x)}{Q(x)}
+physics	newton	\mathbf{F} = m\mathbf{a} = \frac{d\mathbf{p}}{dt}
+physics	energy	E = mc^2
+physics	lorentz	\gamma = \frac{1}{\sqrt{1 - \frac{v^2}{c^2}}}
+physics	schrodinger	i\hbar \frac{\partial}{\partial t} \Psi(\mathbf{r},t) = \left[-\frac{\hbar^2}{2m}\nabla^2 + V(\mathbf{r},t)\right]\Psi(\mathbf{r},t)
+physics	maxwell_gauss	\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}
+physics	maxwell_faraday	\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t}
+physics	maxwell_ampere	\nabla \times \mathbf{B} = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+physics	gravitation	F = G\frac{m_1 m_2}{r^2}
+physics	heisenberg	\Delta x \, \Delta p \ge \frac{\hbar}{2}
+physics	planck	E = h\nu = \frac{hc}{\lambda}
+physics	ideal_gas	PV = nRT
+physics	bra_ket	\langle \psi | \hat{H} | \psi \rangle
+physics	einstein_field	R_{\mu\nu} - \frac{1}{2} R g_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4} T_{\mu\nu}
+physics	wave_equation	\frac{\partial^2 u}{\partial t^2} = c^2 \nabla^2 u
+physics	kinetic_energy	K = \tfrac{1}{2} m v^2
+physics	boltzmann	S = k_B \ln \Omega
+physics	lagrangian	\frac{d}{dt}\left(\frac{\partial L}{\partial \dot{q}_i}\right) - \frac{\partial L}{\partial q_i} = 0
+physics	dirac	(i\gamma^\mu \partial_\mu - m)\psi = 0
+physics	coulomb	F = \frac{1}{4\pi\varepsilon_0} \frac{q_1 q_2}{r^2}
+physics	momentum_operator	\hat{p} = -i\hbar \frac{\partial}{\partial x}
+physics	blackbody	B_\nu(T) = \frac{2h\nu^3}{c^2} \frac{1}{e^{h\nu/k_B T} - 1}
+physics	tensor_index	\Gamma^{\lambda}_{\mu\nu} = \tfrac{1}{2} g^{\lambda\sigma}\left(\partial_\mu g_{\sigma\nu} + \partial_\nu g_{\sigma\mu} - \partial_\sigma g_{\mu\nu}\right)
+physics	harmonic_oscillator	E_n = \hbar\omega\left(n + \frac{1}{2}\right)
+physics	vector_hat	\hat{\mathbf{n}} = \frac{\mathbf{r}}{|\mathbf{r}|}
+chemistry	water	\ce{2H2 + O2 -> 2H2O}
+chemistry	photosynthesis	\ce{6CO2 + 6H2O -> C6H12O6 + 6O2}
+chemistry	equilibrium	\ce{N2 + 3H2 <=> 2NH3}
+chemistry	ions	\ce{Na+ + Cl- -> NaCl}
+chemistry	redox	\ce{MnO4- + 8H+ + 5e- -> Mn^2+ + 4H2O}
+chemistry	precipitate	\ce{Ag+ + Cl- -> AgCl v}
+chemistry	gas	\ce{CaCO3 -> CaO + CO2 ^}
+chemistry	hydrate	\ce{CuSO4*5H2O}
+chemistry	sulfate	\ce{SO4^2-}
+chemistry	complex_ion	\ce{[Cu(NH3)4]^2+}
+chemistry	isotope	\ce{^{14}_{6}C}
+chemistry	arrow_label	\ce{A ->[\Delta] B}
+chemistry	combustion	\ce{CH4 + 2O2 -> CO2 + 2H2O}
+chemistry	acid_base	\ce{HCl + NaOH -> NaCl + H2O}
+chemistry	states	\ce{NaCl(s) -> Na+(aq) + Cl-(aq)}
+chemistry	equilibrium_constant	K_c = \frac{[\ce{NH3}]^2}{[\ce{N2}][\ce{H2}]^3}
+chemistry	ph	\mathrm{pH} = -\log_{10} [\ce{H+}]
+chemistry	ammonium_sulfate	\ce{(NH4)2SO4}
+chemistry	nuclear	\ce{^{235}_{92}U + ^{1}_{0}n -> ^{141}_{56}Ba + ^{92}_{36}Kr + 3^{1}_{0}n}
+chemistry	rate_law	r = k[\mathrm{A}]^m [\mathrm{B}]^n
+engineering	fourier_transform	\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x)\, e^{-2\pi i x \xi}\, dx
+engineering	laplace_transform	F(s) = \int_0^\infty f(t) e^{-st}\, dt
+engineering	transfer_function	H(s) = \frac{Y(s)}{X(s)} = \frac{b_0 s^2 + b_1 s + b_2}{s^2 + a_1 s + a_2}
+engineering	z_transform	X(z) = \sum_{n=-\infty}^{\infty} x[n] z^{-n}
+engineering	convolution	(f * g)(t) = \int_{-\infty}^{\infty} f(\tau) g(t - \tau)\, d\tau
+engineering	ohm	V = IR
+engineering	rlc	L\frac{d^2 q}{dt^2} + R\frac{dq}{dt} + \frac{1}{C} q = V(t)
+engineering	impedance	Z = R + j\left(\omega L - \frac{1}{\omega C}\right)
+engineering	pid	u(t) = K_p e(t) + K_i \int_0^t e(\tau)\,d\tau + K_d \frac{de(t)}{dt}
+engineering	bernoulli	p + \frac{1}{2}\rho v^2 + \rho g h = \text{constant}
+engineering	navier_stokes	\rho\left(\frac{\partial \mathbf{u}}{\partial t} + \mathbf{u} \cdot \nabla \mathbf{u}\right) = -\nabla p + \mu \nabla^2 \mathbf{u} + \mathbf{f}
+engineering	stress_strain	\sigma = E \varepsilon
+engineering	beam_deflection	EI \frac{d^4 w}{dx^4} = q(x)
+engineering	nyquist	f_s \ge 2 f_{\max}
+engineering	db	L = 10 \log_{10}\left(\frac{P}{P_0}\right)\ \mathrm{dB}
+engineering	state_space	\dot{\mathbf{x}} = A\mathbf{x} + B\mathbf{u}, \qquad \mathbf{y} = C\mathbf{x} + D\mathbf{u}
+engineering	dft	X_k = \sum_{n=0}^{N-1} x_n e^{-\frac{2\pi i}{N} kn}
+engineering	heat_equation	\frac{\partial u}{\partial t} = \alpha \nabla^2 u
+engineering	shannon	C = B \log_2\left(1 + \frac{S}{N}\right)
+engineering	power	P = VI\cos\phi
+cs_logic	big_o	T(n) = O(n \log n)
+cs_logic	master_theorem	T(n) = aT\!\left(\frac{n}{b}\right) + f(n)
+cs_logic	set_builder	S = \{ x \in \mathbb{Z} \mid x^2 < 10 \}
+cs_logic	de_morgan	\neg(P \land Q) \equiv \neg P \lor \neg Q
+cs_logic	quantifiers	\forall \varepsilon > 0\ \exists \delta > 0 : |x - a| < \delta \implies |f(x) - f(a)| < \varepsilon
+cs_logic	set_ops	A \cup (B \cap C) = (A \cup B) \cap (A \cup C)
+cs_logic	power_set	|\mathcal{P}(S)| = 2^{|S|}
+cs_logic	floor_ceil	\left\lfloor \frac{n}{2} \right\rfloor + \left\lceil \frac{n}{2} \right\rceil = n
+cs_logic	summation_bound	\sum_{i=1}^{n} i = \frac{n(n+1)}{2} = \Theta(n^2)
+cs_logic	lambda	(\lambda x.\, x\,x)(\lambda x.\, x\,x)
+cs_logic	inference	\frac{P \to Q \quad P}{Q}
+cs_logic	function_type	f : A \to B, \quad x \mapsto f(x)
+cs_logic	modular	a \equiv b \pmod{n}
+cs_logic	cardinality	|\mathbb{N}| = \aleph_0 < 2^{\aleph_0} = |\mathbb{R}|
+cs_logic	turing	\delta : Q \times \Gamma \to Q \times \Gamma \times \{L, R\}
+cs_logic	probability_amortized	\Pr\left[\bigcup_{i} A_i\right] \le \sum_{i} \Pr[A_i]
+cs_logic	hoare	\{P\}\; C \;\{Q\}
+cs_logic	xor	A \oplus B = (A \land \neg B) \lor (\neg A \land B)
+cs_logic	recurrence	F_n = F_{n-1} + F_{n-2}, \quad F_0 = 0,\ F_1 = 1
+cs_logic	sigmoid	\sigma(x) = \frac{1}{1 + e^{-x}}
+finance	compound_interest	A = P\left(1 + \frac{r}{n}\right)^{nt}
+finance	continuous_compound	A = Pe^{rt}
+finance	present_value	PV = \frac{FV}{(1+r)^n}
+finance	annuity	PV = C \cdot \frac{1 - (1+r)^{-n}}{r}
+finance	npv	\mathrm{NPV} = \sum_{t=0}^{T} \frac{C_t}{(1+r)^t}
+finance	black_scholes	C = S_0 N(d_1) - K e^{-rT} N(d_2)
+finance	d1	d_1 = \frac{\ln(S_0/K) + (r + \sigma^2/2)T}{\sigma\sqrt{T}}
+finance	capm	\mathbb{E}[R_i] = R_f + \beta_i\left(\mathbb{E}[R_m] - R_f\right)
+finance	sharpe	S = \frac{\mathbb{E}[R_p - R_f]}{\sigma_p}
+finance	gbm	dS_t = \mu S_t\, dt + \sigma S_t\, dW_t
+finance	portfolio_variance	\sigma_p^2 = \sum_{i}\sum_{j} w_i w_j \sigma_{ij}
+finance	irr	\sum_{t=0}^{T} \frac{C_t}{(1+\mathrm{IRR})^t} = 0
+finance	loan_payment	M = P\,\frac{r(1+r)^n}{(1+r)^n - 1}
+finance	rule_72	t \approx \frac{72}{100\,r}
+finance	ito	df = \left(\frac{\partial f}{\partial t} + \mu \frac{\partial f}{\partial x} + \frac{\sigma^2}{2}\frac{\partial^2 f}{\partial x^2}\right) dt + \sigma \frac{\partial f}{\partial x}\, dW
+geometry	pythagoras	a^2 + b^2 = c^2
+geometry	circle_area	A = \pi r^2
+geometry	sphere_volume	V = \frac{4}{3}\pi r^3
+geometry	law_cosines	c^2 = a^2 + b^2 - 2ab\cos\gamma
+geometry	law_sines	\frac{a}{\sin\alpha} = \frac{b}{\sin\beta} = \frac{c}{\sin\gamma}
+geometry	trig_identity	\sin^2\theta + \cos^2\theta = 1
+geometry	angle_sum	\sin(\alpha \pm \beta) = \sin\alpha\cos\beta \pm \cos\alpha\sin\beta
+geometry	tan_double	\tan 2\theta = \frac{2\tan\theta}{1 - \tan^2\theta}
+geometry	distance	d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
+geometry	heron	A = \sqrt{s(s-a)(s-b)(s-c)}, \quad s = \frac{a+b+c}{2}
+geometry	angle_notation	\angle ABC = 90^\circ
+geometry	triangle_sim	\triangle ABC \sim \triangle DEF
+geometry	vector_line	\overrightarrow{AB} = \mathbf{b} - \mathbf{a}
+geometry	ellipse	\frac{x^2}{a^2} + \frac{y^2}{b^2} = 1
+geometry	euler_polyhedron	V - E + F = 2
+geometry	arc_length	s = r\theta
+geometry	segment	\overline{AB} \parallel \overline{CD}, \quad \overline{AB} \perp \overline{BC}
+geometry	inverse_trig	\arcsin x + \arccos x = \frac{\pi}{2}
+geometry	half_angle	\cos\frac{\theta}{2} = \pm\sqrt{\frac{1 + \cos\theta}{2}}
+geometry	hyperbolic	\cosh^2 x - \sinh^2 x = 1
+number_theory	fermat_little	a^{p-1} \equiv 1 \pmod{p}
+number_theory	euler_totient	\varphi(n) = n \prod_{p \mid n} \left(1 - \frac{1}{p}\right)
+number_theory	zeta	\zeta(s) = \sum_{n=1}^{\infty} \frac{1}{n^s} = \prod_{p} \frac{1}{1 - p^{-s}}
+number_theory	gcd	\gcd(a, b) \cdot \operatorname{lcm}(a, b) = |ab|
+number_theory	prime_counting	\pi(x) \sim \frac{x}{\ln x}
+number_theory	divisor_sum	\sigma(n) = \sum_{d \mid n} d
+number_theory	legendre	\left(\frac{a}{p}\right) \equiv a^{\frac{p-1}{2}} \pmod{p}
+number_theory	fermat_last	x^n + y^n \neq z^n
+number_theory	euler_identity	e^{i\pi} + 1 = 0
+number_theory	wilson	(p-1)! \equiv -1 \pmod{p}
+number_theory	pell	x^2 - Dy^2 = 1
+number_theory	mobius	\sum_{d \mid n} \mu(d) = [n = 1]
+number_theory	floor_sum	\sum_{k=1}^{n} \left\lfloor \frac{n}{k} \right\rfloor
+number_theory	congruence_system	\begin{aligned} x &\equiv 2 \pmod{3} \\ x &\equiv 3 \pmod{5} \end{aligned}
+number_theory	golden_ratio	\varphi = \frac{1 + \sqrt{5}}{2}
+discrete	permutations	P(n, k) = \frac{n!}{(n-k)!}
+discrete	combinations	\binom{n}{k} = \frac{n!}{k!\,(n-k)!}
+discrete	pascal	\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}
+discrete	stirling	n! \sim \sqrt{2\pi n}\left(\frac{n}{e}\right)^n
+discrete	inclusion_exclusion	|A \cup B \cup C| = |A| + |B| + |C| - |A \cap B| - |A \cap C| - |B \cap C| + |A \cap B \cap C|
+discrete	handshake	\sum_{v \in V} \deg(v) = 2|E|
+discrete	catalan	C_n = \frac{1}{n+1}\binom{2n}{n}
+discrete	multinomial	\binom{n}{k_1, k_2, \ldots, k_m} = \frac{n!}{k_1!\,k_2! \cdots k_m!}
+discrete	pigeonhole	\left\lceil \frac{n}{k} \right\rceil
+discrete	generating_function	\sum_{n \ge 0} F_n x^n = \frac{x}{1 - x - x^2}
+discrete	derangements	!n = n! \sum_{k=0}^{n} \frac{(-1)^k}{k!}
+discrete	vandermonde	\sum_{k} \binom{m}{k}\binom{n}{r-k} = \binom{m+n}{r}
+discrete	graph_notation	G = (V, E), \quad E \subseteq \binom{V}{2}
+discrete	euler_formula_graph	|V| - |E| + |F| = 2
+discrete	binomial_sum	\sum_{k=0}^{n} \binom{n}{k} = 2^n
+education	fraction_addition	\frac{1}{2} + \frac{1}{3} = \frac{5}{6}
+education	mixed_number	2\tfrac{3}{4} = \frac{11}{4}
+education	percent	25\% \text{ of } 80 = 20
+education	order_of_operations	3 + 4 \times 2 = 11
+education	slope	m = \frac{y_2 - y_1}{x_2 - x_1}
+education	line	y = mx + b
+education	long_division	\frac{144}{12} = 12
+education	inequality_solve	2x - 5 > 3 \implies x > 4
+education	area_rectangle	A = l \times w
+education	speed	v = \frac{d}{t}
+education	ratio	a : b = c : d
+education	decimal	0.75 = \frac{3}{4} = 75\%
+education	exponent	2^{10} = 1024
+education	square_root	\sqrt{144} = 12
+education	text_mixed	\text{The area is } A = \pi r^2 \text{ square units.}

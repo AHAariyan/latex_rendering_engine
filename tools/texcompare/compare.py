@@ -72,8 +72,10 @@ def render_tex(tex, display, size, path, tmp):
     r"""Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
     \fboxsep, \jot, \delimitershortfall...) mean what they mean in a normal
     document, then rasterizes at the DPI that makes 1 em = `size` px."""
-    body = ("$\\displaystyle " + tex + "$") if display else ("$" + tex + "$")
-    doc = r"""\documentclass[border=1pt,10pt]{standalone}
+    # Real display math (\[...\], which needs varwidth in standalone), so
+    # amsmath's display-only choices (\pmod's 18mu) apply as in a document.
+    body = ("\\[" + tex + "\\]") if display else ("$" + tex + "$")
+    doc = r"""\documentclass[varwidth=40cm,border=1pt,10pt]{standalone}
 \usepackage{amsmath,amssymb,amscd,mathtools,cancel,xcolor}
 \usepackage[version=4]{mhchem}
 \usepackage{unicode-math}

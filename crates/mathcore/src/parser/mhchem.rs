@@ -131,7 +131,14 @@ impl Translator<'_> {
 
     /// End of a formula: what may follow a charge.
     fn boundary(&self, k: usize) -> bool {
-        matches!(self.peek(k), None | Some(' ' | '}' | ')' | ']' | '$'))
+        matches!(self.peek(k), None | Some(' ' | '}' | ')' | ']' | '$')) || self.state_ahead(k)
+    }
+
+    /// A physical state in brackets: `Na+(aq)`, `Cl-(s)`.
+    fn state_ahead(&self, k: usize) -> bool {
+        ["(aq)", "(s)", "(l)", "(g)", "(sln)", "(cr)"]
+            .iter()
+            .any(|s| s.chars().enumerate().all(|(j, c)| self.peek(k + j) == Some(c)))
     }
 
     /// A balanced `{...}` starting at the current position, without braces.
@@ -187,10 +194,15 @@ impl Translator<'_> {
                 self.i += tok.chars().count();
                 let above = self.bracket()?.map(|s| ce_to_tex(&s)).transpose()?.unwrap_or_default();
                 let below = self.bracket()?.map(|s| ce_to_tex(&s)).transpose()?;
-                self.out.push(' ');
+                // mhchem gives an arrow a little more room than a relation.
+                self.out.push_str(r" \,");
                 self.out.push_str(cmd);
                 // mhchem's arrows are long even without labels.
-                let above = if above.is_empty() { r"\hphantom{MM}".to_string() } else { above };
+                let above = if above.is_empty() {
+                    r"\hphantom{M}\mkern10mu".to_string()
+                } else {
+                    above
+                };
                 if let Some(b) = below {
                     self.out.push('[');
                     self.out.push_str(&b);
@@ -198,7 +210,7 @@ impl Translator<'_> {
                 }
                 self.out.push('{');
                 self.out.push_str(&above);
-                self.out.push_str("} ");
+                self.out.push_str(r"}\, ");
                 self.in_formula = false;
                 continue;
             }
@@ -304,7 +316,9 @@ impl Translator<'_> {
                         }
                     }
                     if self.in_formula {
-                        self.out.push_str("_{");
+                        // mhchem hangs every subscript off an invisible capital,
+                        // so they all sit at one depth whatever the letter.
+                        self.out.push_str(r"{\vphantom{A}}_{");
                         self.out.push_str(&num);
                         self.out.push('}');
                     } else if self.peek(0) == Some('/') && self.peek(1).is_some_and(|d| d.is_ascii_digit()) {
@@ -319,7 +333,10 @@ impl Translator<'_> {
                     } else {
                         self.out.push_str(&num);
                         // mhchem separates a coefficient from its formula.
-                        if self.peek(0).is_some_and(|c| c.is_ascii_alphabetic() || c == '(' || c == '[') {
+                        if self
+                            .peek(0)
+                            .is_some_and(|c| c.is_ascii_alphabetic() || matches!(c, '(' | '[' | '^' | '_'))
+                        {
                             self.out.push_str(r"\,");
                         }
                     }
@@ -336,29 +353,40 @@ impl Translator<'_> {
                 }
                 '^' | '_' => {
                     self.i += 1;
-                    // A prescript (`^{227}_{90}Th`) hangs off an empty base.
-                    if !self.in_formula && !self.out.ends_with('}') {
+                    let prescript = !self.in_formula && !self.out.ends_with('}');
+                    let body = self.script_body()?;
+                    // Mass and atomic number before a symbol (`^{227}_{90}Th`):
+                    // mhchem right-aligns them, so the shorter is padded on the left.
+                    let other = if ch == '^' { '_' } else { '^' };
+                    if prescript && self.peek(0) == Some(other) {
+                        self.i += 1;
+                        let second = self.script_body()?;
+                        let (sup, sub) = if ch == '^' { (body, second) } else { (second, body) };
+                        let (ls, lb) = (sup.chars().count(), sub.chars().count());
+                        let pad = |n: usize| {
+                            if n == 0 {
+                                String::new()
+                            } else {
+                                format!(r"\hphantom{{{}}}", "0".repeat(n))
+                            }
+                        };
+                        self.out.push_str(&format!(
+                            "{{}}^{{{}{}}}_{{{}{}}}",
+                            pad(lb.saturating_sub(ls)),
+                            script(&sup),
+                            pad(ls.saturating_sub(lb)),
+                            script(&sub)
+                        ));
+                        continue;
+                    }
+                    if prescript {
                         self.out.push_str("{}");
                     } else if ch == '^' && self.in_formula {
                         self.stagger();
                     }
                     self.out.push(ch);
                     self.out.push('{');
-                    if self.peek(0) == Some('{') {
-                        let g = self.group()?;
-                        self.out.push_str(&script(&g));
-                    } else {
-                        let mut s = String::new();
-                        while let Some(c) = self.peek(0) {
-                            if c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.' {
-                                s.push(c);
-                                self.i += 1;
-                            } else {
-                                break;
-                            }
-                        }
-                        self.out.push_str(&script(&s));
-                    }
+                    self.out.push_str(&script(&body));
                     self.out.push('}');
                 }
                 '+' | '-' if self.in_formula && self.charge_ahead() => {
@@ -412,6 +440,23 @@ impl Translator<'_> {
         Ok(())
     }
 
+    /// What follows `^` or `_`: a braced group or a run of digits, letters and signs.
+    fn script_body(&mut self) -> Result<String, String> {
+        if self.peek(0) == Some('{') {
+            return self.group();
+        }
+        let mut s = String::new();
+        while let Some(c) = self.peek(0) {
+            if c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.' {
+                s.push(c);
+                self.i += 1;
+            } else {
+                break;
+            }
+        }
+        Ok(s)
+    }
+
     /// A charge after a subscript sits to its right, as mhchem sets it
     /// (`SO4^2-` is SO₄²⁻ side by side, not stacked).
     fn stagger(&mut self) {
@@ -446,34 +491,37 @@ mod tests {
 
     #[test]
     fn formulas_and_charges() {
-        assert_eq!(ce_to_tex("H2O").unwrap(), r"\mathrm{H}_{2}\mathrm{O}");
+        assert_eq!(ce_to_tex("H2O").unwrap(), r"\mathrm{H}{\vphantom{A}}_{2}\mathrm{O}");
         assert_eq!(ce_to_tex("Na+").unwrap(), r"\mathrm{Na}^{{+}}");
-        assert_eq!(ce_to_tex("SO4^2-").unwrap(), r"\mathrm{S}\mathrm{O}_{4}{}^{2{-}}");
-        assert_eq!(ce_to_tex("NO3-").unwrap(), r"\mathrm{N}\mathrm{O}_{3}{}^{{-}}");
+        assert_eq!(ce_to_tex("SO4^2-").unwrap(), r"\mathrm{S}\mathrm{O}{\vphantom{A}}_{4}{}^{2{-}}");
+        assert!(ce_to_tex("Na+(aq)").unwrap().starts_with(r"\mathrm{Na}^{{+}}("));
+        assert_eq!(ce_to_tex("NO3-").unwrap(), r"\mathrm{N}\mathrm{O}{\vphantom{A}}_{3}{}^{{-}}");
         assert_eq!(ce_to_tex("Fe^{III}").unwrap(), r"\mathrm{Fe}^{\mathrm{III}}");
         assert_eq!(
             ce_to_tex("(NH4)2SO4").unwrap(),
-            r"(\mathrm{N}\mathrm{H}_{4})_{2}\mathrm{S}\mathrm{O}_{4}"
+            r"(\mathrm{N}\mathrm{H}{\vphantom{A}}_{4}){\vphantom{A}}_{2}\mathrm{S}\mathrm{O}{\vphantom{A}}_{4}"
         );
-        assert_eq!(ce_to_tex("2H2").unwrap(), r"2\,\mathrm{H}_{2}");
+        assert_eq!(ce_to_tex("2H2").unwrap(), r"2\,\mathrm{H}{\vphantom{A}}_{2}");
         assert_eq!(ce_to_tex("5e-").unwrap(), r"5\,\mathrm{e}^{{-}}");
         assert_eq!(
             ce_to_tex("CuSO4*5H2O").unwrap(),
-            r"\mathrm{Cu}\mathrm{S}\mathrm{O}_{4}\cdot 5\,\mathrm{H}_{2}\mathrm{O}"
+            r"\mathrm{Cu}\mathrm{S}\mathrm{O}{\vphantom{A}}_{4}\cdot 5\,\mathrm{H}{\vphantom{A}}_{2}\mathrm{O}"
         );
     }
 
     #[test]
     fn arrows_and_marks() {
-        assert!(ce_to_tex("A -> B").unwrap().contains(r"\xrightarrow{\hphantom{MM}}"));
-        assert!(ce_to_tex("A <=> B").unwrap().contains(r"\xrightleftharpoons{\hphantom{MM}}"));
+        assert!(ce_to_tex("A -> B").unwrap().contains(r"\xrightarrow{\hphantom{M}\mkern10mu}"));
+        assert!(ce_to_tex("A <=> B")
+            .unwrap()
+            .contains(r"\xrightleftharpoons{\hphantom{M}\mkern10mu}"));
         assert!(ce_to_tex("A ->[\\Delta][cat] B")
             .unwrap()
-            .contains(r"\xrightarrow[\mathrm{cat}]{\Delta }"));
+            .contains(r"\xrightarrow[\mathrm{cat}]{\Delta }\,"));
         assert!(ce_to_tex("CO2 ^").unwrap().contains(r"\uparrow"));
         assert!(ce_to_tex("AgCl v").unwrap().contains(r"\downarrow"));
         assert!(ce_to_tex("CH3-CH3").unwrap().contains("{-}"));
-        assert!(ce_to_tex("^{227}_{90}Th").unwrap().starts_with("{}^{227}"));
+        assert!(ce_to_tex("^{227}_{90}Th").unwrap().starts_with("{}^{227}_{\\hphantom{0}90}"));
     }
 
     #[test]
