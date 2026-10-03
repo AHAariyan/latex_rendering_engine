@@ -44,7 +44,8 @@ class BindingTest {
     @Test fun speechInOtherLanguages() {
         assertEquals("x al cuadrado", MathAccessibility.speech("x^2", language = "es"))
         assertEquals("x এর বর্গ", MathAccessibility.speech("x^2", language = "bn-BD"))
-        assertEquals("x squared", MathAccessibility.speech("x^2", language = "ja"))
+        assertEquals("xの二乗", MathAccessibility.speech("x^2", language = "ja"))
+        assertEquals("x squared", MathAccessibility.speech("x^2", language = "xx"))
         assertEquals("⠭⠘⠆", MathAccessibility.nemeth("x^2"))
     }
 

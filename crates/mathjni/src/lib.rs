@@ -13,7 +13,7 @@
 //! `kind` is 0 glyph, 1 rule, 2 line (same as the C ABI). `colorBits` is the
 //! 0xAARRGGBB Android color reinterpreted as a float (`Float.fromBits`).
 
-use jni::objects::{JByteArray, JClass, JString};
+use jni::objects::{JByteArray, JByteBuffer, JClass, JString};
 use jni::sys::{jboolean, jfloat, jfloatArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use mathcore::{Color, LineBreak, Macros, MathFont, RenderOptions};
@@ -402,6 +402,119 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_setBudget(
         max_items: pick(max_items, d.max_items),
     };
     eng.cache.clear();
+}
+
+/// Adds a text font (Bengali, Arabic, CJK...) to the end of the chain for
+/// characters no earlier font has; `index` picks the face in a `.ttc`.
+/// Returns the font's index in the chain, or -1 (see `lastError`). The
+/// caller must not render on this engine from another thread meanwhile.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_addFont(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    data: JByteArray,
+    index: jint,
+) -> jint {
+    guard(-1, || {
+        if handle == 0 || data.is_null() {
+            set_error("null argument");
+            return -1;
+        }
+        let Ok(bytes) = env.convert_byte_array(&data) else {
+            set_error("cannot read font bytes");
+            return -1;
+        };
+        let buf: *mut [u8] = Box::into_raw(bytes.into_boxed_slice());
+        // SAFETY: handles come from Box::into_raw; the buffer is owned by the
+        // engine from here and freed after its fonts.
+        let eng = unsafe { &mut *(handle as *mut Engine) };
+        match MathFont::from_text_bytes(unsafe { &*buf }, index.max(0) as u32) {
+            Ok(f) => {
+                eng.data.push(buf);
+                add_font(eng, f)
+            }
+            Err(e) => {
+                unsafe { drop(Box::from_raw(buf)) };
+                set_error(e.to_string());
+                -1
+            }
+        }
+    })
+}
+
+/// `addFont` without a copy, for a font file the caller has memory-mapped
+/// (`FileChannel.map`). The direct buffer must stay reachable, unchanged,
+/// for as long as the engine lives.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_addFontBuffer(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    buffer: JByteBuffer,
+    index: jint,
+) -> jint {
+    guard(-1, || {
+        if handle == 0 || buffer.is_null() {
+            set_error("null argument");
+            return -1;
+        }
+        let (Ok(ptr), Ok(len)) = (env.get_direct_buffer_address(&buffer), env.get_direct_buffer_capacity(&buffer)) else {
+            set_error("not a direct buffer");
+            return -1;
+        };
+        // SAFETY: the caller keeps the mapped buffer alive with the engine.
+        let bytes: &'static [u8] = unsafe { std::slice::from_raw_parts(ptr, len) };
+        let eng = unsafe { &mut *(handle as *mut Engine) };
+        match MathFont::from_text_bytes(bytes, index.max(0) as u32) {
+            Ok(f) => add_font(eng, f),
+            Err(e) => {
+                set_error(e.to_string());
+                -1
+            }
+        }
+    })
+}
+
+fn add_font(eng: &mut Engine, font: MathFont<'static>) -> jint {
+    let i = eng.font.add_fallback(font);
+    eng.cache.clear();
+    i as jint
+}
+
+/// The languages spoken math is available in, comma-separated BCP 47 tags.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speechLanguages(env: JNIEnv, _class: JClass) -> jstring {
+    let tags: Vec<&str> = mathcore::Language::ALL.iter().map(|l| l.tag()).collect();
+    env.new_string(tags.join(",")).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
+}
+
+/// The characters of `tex` no font in the chain can draw ("" when covered).
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_missingChars(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    tex: JString,
+    display: jboolean,
+) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(eng) = engine(handle) else {
+            return std::ptr::null_mut();
+        };
+        let Some(tex) = get(&mut env, &tex) else {
+            return std::ptr::null_mut();
+        };
+        let opts = RenderOptions {
+            display_mode: display != 0,
+            budget: *eng.budget.lock().unwrap_or_else(|p| p.into_inner()),
+            ..RenderOptions::default()
+        };
+        string_result(
+            &env,
+            mathcore::missing_chars(&eng.font, &tex, &opts).map(|c| c.into_iter().collect()),
+        )
+    })
 }
 
 #[no_mangle]

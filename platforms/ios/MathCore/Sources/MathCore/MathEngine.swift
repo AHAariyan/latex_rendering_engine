@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 import MathCoreFFI
 
@@ -158,6 +159,68 @@ public final class MathEngine {
 
     deinit { math_engine_free(handle) }
 
+    /// Before each render, find system fonts for characters the engine's own
+    /// fonts lack — Bengali, Arabic, Chinese, Thai and every other script
+    /// the system can display — so `\text{বাংলা}` draws instead of boxes.
+    /// On by default; turn off to use only fonts you add.
+    public var usesSystemFonts = true
+
+    /// Memory-mapped font files the engine borrows; kept for its lifetime.
+    private var mappedFonts: [NSData] = []
+    /// System fonts already added, or found not to help, by "path#name".
+    private var triedFonts: Set<String> = []
+
+    /// Adds a font (any OpenType or TrueType file; `index` picks the face in
+    /// a collection) for characters the fonts before it lack.
+    public func addFont(_ data: Data, index: Int = 0) throws {
+        lock.lock(); defer { lock.unlock() }
+        let r = data.withUnsafeBytes { math_engine_add_font(handle, $0.bindMemory(to: UInt8.self).baseAddress, $0.count, UInt32(index)) }
+        if r < 0 { throw MathEngine.lastError() }
+    }
+
+    /// The characters of `tex` no loaded font can draw ("" when all can).
+    public func missingCharacters(_ tex: String, displayMode: Bool = true) throws -> String {
+        lock.lock(); defer { lock.unlock() }
+        return try missing(tex, displayMode: displayMode, macros: nil)
+    }
+
+    private func missing(_ tex: String, displayMode: Bool, macros: String?) throws -> String {
+        let p: UnsafeMutablePointer<CChar>? = tex.withCString { t in
+            if let m = macros { return m.withCString { math_engine_missing_chars(handle, t, displayMode, $0) } }
+            return math_engine_missing_chars(handle, t, displayMode, nil)
+        }
+        guard let p else { throw MathEngine.lastError() }
+        defer { math_string_free(p) }
+        return String(cString: p)
+    }
+
+    /// Adds system fonts until every character of `tex` is covered or no
+    /// system font has the rest. Called with the lock held.
+    private func coverWithSystemFonts(_ tex: String, displayMode: Bool, macros: String?) {
+        guard usesSystemFonts else { return }
+        for _ in 0..<12 {
+            guard let chars = try? missing(tex, displayMode: displayMode, macros: macros), !chars.isEmpty else { return }
+            // CoreText's own fallback: the font the system would draw the
+            // first missing character with.
+            let base = CTFontCreateWithName("Helvetica" as CFString, 12, nil)
+            let font = CTFontCreateForString(base, chars as CFString, CFRange(location: 0, length: (chars as NSString).length))
+            guard let url = CTFontCopyAttribute(font, kCTFontURLAttribute) as? URL else { return }
+            let name = CTFontCopyPostScriptName(font) as String
+            let key = url.path + "#" + name
+            guard !triedFonts.contains(key) else { return }
+            triedFonts.insert(key)
+            guard let data = try? NSData(contentsOf: url, options: .alwaysMapped) else { return }
+            let bytes = data.bytes.assumingMemoryBound(to: UInt8.self)
+            let index = name.withCString { math_font_face_index(bytes, data.length, $0) }
+            if math_engine_add_font_borrowed(handle, bytes, data.length, UInt32(max(index, 0))) >= 0 {
+                mappedFonts.append(data)
+                upem.removeAll()
+            } else {
+                return
+            }
+        }
+    }
+
     private static func lastError() -> MathParseError {
         MathParseError(message: math_last_error().map { String(cString: $0) } ?? "unknown native error")
     }
@@ -172,6 +235,7 @@ public final class MathEngine {
         let rgba = ((color & 0x00FF_FFFF) << 8) | ((color >> 24) & 0xFF)
         let macroText: String? = macros.isEmpty ? nil : macros.map { "\($0.key)=\($0.value)" }.joined(separator: "\n")
         let width = Float(maxWidth ?? 0)
+        coverWithSystemFonts(tex, displayMode: displayMode, macros: macroText)
         let result: UnsafeMutablePointer<MathResult>? = tex.withCString { texP in
             if let m = macroText {
                 return m.withCString {
@@ -223,9 +287,9 @@ public final class MathEngine {
         try speech(tex, verbosity: .brief)
     }
 
-    /// Languages spoken math is available in, as BCP 47 tags. Any other
-    /// language reads in English.
-    public static let speechLanguages = ["en", "es", "fr", "de", "pt", "bn", "hi"]
+    /// Languages spoken math is available in, as BCP 47 tags (35, from
+    /// Arabic to Chinese). Any other language reads in English.
+    public static let speechLanguages: [String] = String(cString: math_speech_languages()).split(separator: ",").map(String.init)
 
     /// The user's preferred language, which speech follows unless told otherwise.
     public static var deviceLanguage: String { Locale.preferredLanguages.first ?? "en" }

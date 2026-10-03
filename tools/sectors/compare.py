@@ -27,6 +27,46 @@ SIZE = 40
 # Sectors whose formulas need a package beyond the standard preamble. Loaded
 # only there: physics redefines \div, \Re and the trig functions.
 PACKAGES = {"siunitx": ("siunitx",), "physicspkg": ("physics",)}
+
+# The `scripts` sector: prose in other writing systems inside \text{}. The
+# formula's name starts with a language code that picks the font (the same
+# file for both renderers) and how LaTeX must be told to set it: HarfBuzz
+# shaping, the OpenType script, right to left. These are macOS system fonts,
+# so this sector runs on a Mac.
+SYS, SUP = "/System/Library/Fonts/", "/System/Library/Fonts/Supplemental/"
+SCRIPTS = {
+    "bn": (SYS, "KohinoorBangla.ttc", "Bengali", False),
+    "hi": (SYS, "Kohinoor.ttc", "Devanagari", False),
+    "mr": (SYS, "Kohinoor.ttc", "Devanagari", False),
+    "gu": (SYS, "KohinoorGujarati.ttc", "Gujarati", False),
+    "pa": (SUP, "Gurmukhi MN.ttc", "Gurmukhi", False),
+    "ta": (SUP, "Tamil Sangam MN.ttc", "Tamil", False),
+    "te": (SYS, "KohinoorTelugu.ttc", "Telugu", False),
+    "kn": (SYS, "NotoSansKannada.ttc", "Kannada", False),
+    "ml": (SUP, "Malayalam Sangam MN.ttc", "Malayalam", False),
+    "ar": (SYS, "GeezaPro.ttc", "Arabic", True),
+    "fa": (SYS, "GeezaPro.ttc", "Arabic", True),
+    "ur": (SYS, "NotoNastaliq.ttc", "Arabic", True),
+    "he": (SYS, "SFHebrew.ttf", "Hebrew", True),
+    "zh": (SYS, "Hiragino Sans GB.ttc", "CJK", False),
+    "ja": (SYS, "Hiragino Sans GB.ttc", "CJK", False),
+    "ko": (SYS, "AppleSDGothicNeo.ttc", "Hangul", False),
+    "th": (SUP, "Thonburi.ttc", "Thai", False),
+    "ru": (SUP, "Times New Roman.ttf", "Cyrillic", False),
+    "uk": (SUP, "Times New Roman.ttf", "Cyrillic", False),
+    "el": (SUP, "Times New Roman.ttf", "Greek", False),
+    "vi": (SUP, "Times New Roman.ttf", "Latin", False),
+}
+
+
+def script_setup(sector, name, tex):
+    """mathcli font arguments, LaTeX preamble and LaTeX source for a formula."""
+    if sector != "scripts":
+        return [], "", tex
+    path, file, script, rtl = SCRIPTS[name.split("_")[0]]
+    preamble = f"\\newfontfamily\\langfont{{{file}}}[Path={path},Renderer=HarfBuzz,Script={script}]\n"
+    switch = "\\langfont{}" + ("\\textdir TRT " if rtl else "")
+    return ["--text-font", path + file], preamble, tex.replace("\\text{", "\\text{" + switch)
 TOLERANCE = 2
 
 
@@ -103,8 +143,9 @@ def main():
         for (sector, name, tex), kx in zip(rows, katex):
             ours_png = os.path.join(out, f"{sector}-{name}-ours.png")
             tex_png = os.path.join(out, f"{sector}-{name}-tex.png")
-            ours_ok = subprocess.run([mathcli, "--size", str(SIZE), "--scale", "1", tex, "-o", ours_png], capture_output=True).returncode == 0
-            tex_ok = texcompare.render_tex(tex, True, SIZE, tex_png, tmp, PACKAGES.get(sector, ()))
+            fonts, preamble, latex = script_setup(sector, name, tex)
+            ours_ok = subprocess.run([mathcli, "--size", str(SIZE), "--scale", "1", *fonts, tex, "-o", ours_png], capture_output=True).returncode == 0
+            tex_ok = texcompare.render_tex(latex, True, SIZE, tex_png, tmp, PACKAGES.get(sector, ()), preamble)
             entry = {"sector": sector, "name": name, "tex": tex, "ours": ours_ok, "latex": tex_ok, "katex": kx}
             if ours_ok and tex_ok:
                 a, b = ink(ours_png), ink(tex_png)

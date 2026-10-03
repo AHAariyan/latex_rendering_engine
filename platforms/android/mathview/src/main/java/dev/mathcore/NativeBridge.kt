@@ -30,4 +30,8 @@ internal object NativeBridge {
     external fun setCacheCapacity(handle: Long, capacity: Int)
     external fun lastError(): String?
     external fun glyphOutline(handle: Long, font: Int, glyph: Int): FloatArray?
+    external fun addFont(handle: Long, data: ByteArray, index: Int): Int
+    external fun addFontBuffer(handle: Long, buffer: java.nio.ByteBuffer, index: Int): Int
+    external fun missingChars(handle: Long, tex: String, display: Boolean): String?
+    external fun speechLanguages(): String
 }

@@ -55,6 +55,33 @@ impl MathEngine {
         })
     }
 
+    /// Adds a text font (Noto Sans Bengali, an Arabic or CJK face...) to the
+    /// end of the chain for characters no earlier font has. `index` picks the
+    /// face in a collection. The bytes are copied and kept for the page
+    /// lifetime. Returns the font's index in the chain.
+    #[wasm_bindgen(js_name = addFont)]
+    pub fn add_font(&mut self, bytes: &[u8], index: Option<u32>) -> Result<u32, JsError> {
+        let leaked: &'static [u8] = Box::leak(bytes.to_vec().into_boxed_slice());
+        let font = MathFont::from_text_bytes(leaked, index.unwrap_or(0)).map_err(|e| JsError::new(&e.to_string()))?;
+        let i = self.font.add_fallback(font);
+        self.cache.clear();
+        Ok(i as u32)
+    }
+
+    /// The characters of `tex` no font in the chain can draw, as a string
+    /// ("" when every character is covered).
+    #[wasm_bindgen(js_name = missingChars)]
+    pub fn missing_chars(&self, tex: &str, display_mode: bool, macros: Option<String>) -> Result<String, JsError> {
+        let opts = RenderOptions {
+            display_mode,
+            macros: macros_from(macros),
+            ..RenderOptions::default()
+        };
+        mathcore::missing_chars(&self.font, tex, &opts)
+            .map(|c| c.into_iter().collect())
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Font units per em of one font of the chain; a fallback may differ.
     #[wasm_bindgen(js_name = unitsPerEm)]
     pub fn units_per_em(&self, font: Option<u16>) -> f32 {
@@ -158,6 +185,13 @@ impl MathEngine {
 }
 
 /// Presentation MathML for a formula, for a screen reader. Needs no font.
+/// The languages spoken math is available in, comma-separated BCP 47 tags.
+#[wasm_bindgen(js_name = speechLanguages)]
+pub fn speech_languages() -> String {
+    let tags: Vec<&str> = mathcore::Language::ALL.iter().map(|l| l.tag()).collect();
+    tags.join(",")
+}
+
 #[wasm_bindgen]
 pub fn mathml(tex: &str, display_mode: bool, macros: Option<String>) -> Result<String, JsError> {
     mathcore::render_mathml(tex, display_mode, &macros_from(macros)).map_err(|e| JsError::new(&e.to_string()))

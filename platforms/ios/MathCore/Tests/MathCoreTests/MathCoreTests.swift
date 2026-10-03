@@ -72,8 +72,23 @@ final class MathCoreFeatureTests: XCTestCase {
     func testSpeechInOtherLanguagesAndBraille() throws {
         XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "es"), "x al cuadrado")
         XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "fr-CA"), "x au carré")
-        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "ja"), "x squared")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "ja"), "xの二乗")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "xx"), "x squared")
+        XCTAssertEqual(MathEngine.speechLanguages.count, 35)
+        XCTAssertTrue(MathEngine.speechLanguages.contains("zh-Hant"))
         XCTAssertEqual(try MathEngine.nemeth("x^2"), "⠭⠘⠆")
+    }
+
+    func testSystemFontsDrawOtherScripts() throws {
+        let tex = #"x = \text{বাংলা 你好 مرحبا ไทย}"#
+        let e = try MathEngine()
+        e.usesSystemFonts = false
+        XCTAssertFalse(try e.missingCharacters(tex).isEmpty)
+        _ = try e.render(tex, fontSize: 20)
+        e.usesSystemFonts = true
+        let layout = try e.render(tex, fontSize: 20)
+        XCTAssertEqual(try e.missingCharacters(tex), "")
+        XCTAssertTrue(layout.items.contains { if case .glyph(let f, _, _, _, _, _) = $0 { return f > 1 } else { return false } })
     }
 
     func testHighlightCoversAPart() throws {

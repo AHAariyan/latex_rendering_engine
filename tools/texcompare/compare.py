@@ -68,7 +68,7 @@ def render_ours(tex, display, size, path):
     if not display: args.append("--inline")
     subprocess.run(args, check=True)
 
-def render_tex(tex, display, size, path, tmp, packages=()):
+def render_tex(tex, display, size, path, tmp, packages=(), preamble=""):
     r"""Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
     \fboxsep, \jot, \delimitershortfall...) mean what they mean in a normal
     document, then rasterizes at the DPI that makes 1 em = `size` px."""
@@ -84,7 +84,7 @@ def render_tex(tex, display, size, path, tmp, packages=()):
 \begin{document}
 %s
 \end{document}
-""" % ("".join("\\usepackage{%s}\n" % p for p in packages), body)
+""" % ("".join("\\usepackage{%s}\n" % p for p in packages), preamble + body)
     src = os.path.join(tmp, "f.tex")
     open(src, "w").write(doc)
     r = subprocess.run(["lualatex", "-interaction=nonstopmode", "-halt-on-error", "-output-directory", tmp, src],

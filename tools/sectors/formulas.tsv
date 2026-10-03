@@ -291,3 +291,27 @@ physicspkg	trace	\tr{\rho} = 1
 physicspkg	matrix	\mqty(a & b \\ c & d)
 physicspkg	unit_vector	\vu{r}
 physicspkg	cross	\vb{L} = \vb{r} \cross \vb{p}
+scripts	bn_area	A = \pi r^2 \quad \text{(বৃত্তের ক্ষেত্রফল)}
+scripts	bn_cases	f(x) = \begin{cases} x^2 & \text{যদি } x \ge 0 \\ -x & \text{অন্যথায়} \end{cases}
+scripts	hi_speed	v = \frac{d}{t} \quad \text{जहाँ } d \text{ दूरी है}
+scripts	mr_sum	\sum_{i=1}^{n} i \quad \text{ही बेरीज आहे}
+scripts	gu_area	A = l \times b \quad \text{લંબચોરસનું ક્ષેત્રફળ}
+scripts	pa_mean	\bar{x} = \frac{1}{n}\sum x_i \quad \text{ਔਸਤ}
+scripts	ta_area	A = \pi r^2 \quad \text{வட்டத்தின் பரப்பளவு}
+scripts	te_speed	v = \frac{d}{t} \quad \text{వేగం}
+scripts	kn_area	A = \pi r^2 \quad \text{ವೃತ್ತದ ವಿಸ್ತೀರ್ಣ}
+scripts	ml_area	A = \pi r^2 \quad \text{വൃത്തത്തിന്റെ വിസ്തീർണ്ണം}
+scripts	ar_area	A = \pi r^2 \quad \text{مساحة الدائرة}
+scripts	ar_cases	f(x) = \begin{cases} x^2 & \text{إذا كان } x \ge 0 \\ -x & \text{خلاف ذلك} \end{cases}
+scripts	fa_area	A = \pi r^2 \quad \text{مساحت دایره}
+scripts	ur_area	A = \pi r^2 \quad \text{دائرے کا رقبہ}
+scripts	he_area	A = \pi r^2 \quad \text{שטח המעגל}
+scripts	zh_area	A = \pi r^2 \quad \text{（圆的面积）}
+scripts	zh_cases	f(x) = \begin{cases} x^2 & \text{当 } x \ge 0 \\ -x & \text{其他情况} \end{cases}
+scripts	ja_area	A = \pi r^2 \quad \text{円の面積}
+scripts	ko_area	A = \pi r^2 \quad \text{원의 넓이}
+scripts	th_area	A = \pi r^2 \quad \text{พื้นที่ของวงกลม}
+scripts	ru_area	A = \pi r^2 \quad \text{площадь круга}
+scripts	uk_cases	f(x) = \begin{cases} x^2 & \text{якщо } x \ge 0 \\ -x & \text{інакше} \end{cases}
+scripts	el_area	A = \pi r^2 \quad \text{εμβαδόν κύκλου}
+scripts	vi_area	A = \pi r^2 \quad \text{diện tích hình tròn}

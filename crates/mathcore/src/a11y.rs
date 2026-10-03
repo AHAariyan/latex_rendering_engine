@@ -515,17 +515,22 @@ impl Speaker {
         let mut i = 0;
         while i < nodes.len() {
             if let Some((len, number)) = number_run(&nodes[i..]) {
-                word(out, &number);
-                // `90^\circ`: TeX hangs the script on the last digit alone.
+                // `90^\circ`: TeX hangs the script on the last digit alone; the
+                // whole number is its base, wherever the language puts it.
                 if let (Some(_), Node::Scripts { sup, sub, .. }) = (scripted_digit(&nodes[i + len - 1]), peel(&nodes[i + len - 1])) {
                     self.say(
                         out,
                         &Node::Scripts {
-                            base: Box::new(Node::Row(vec![])),
+                            base: Box::new(Node::Text {
+                                text: number,
+                                variant: Variant::Normal,
+                            }),
                             sup: sup.clone(),
                             sub: sub.clone(),
                         },
                     );
+                } else {
+                    word(out, &number);
                 }
                 i += len;
             } else {
@@ -562,13 +567,11 @@ impl Speaker {
         word(out, &crate::speech_lang::translate(self.lang, english));
     }
 
-    /// A phrase with numbers or words in it: `{}` in the template, filled in order.
+    /// A phrase with parts in it: `{0}`, `{1}`... in the template, filled
+    /// with `args`. Each language places the slots where its grammar wants
+    /// them: "{0} over {1}" is "{1}分の{0}" in Japanese.
     fn template(&self, out: &mut String, english: &str, args: &[&str]) {
-        let mut t = crate::speech_lang::translate(self.lang, english);
-        for a in args {
-            t = t.replacen("{}", a, 1);
-        }
-        word(out, &t);
+        word(out, &crate::speech_lang::fill(self.lang, english, args));
     }
 
     fn close(&self, out: &mut String, simple: bool, end: &str) {
@@ -585,83 +588,108 @@ impl Speaker {
             Node::Symbol { ch, variant, .. } => self.w(out, &symbol_name(styled_char(*ch, *variant))),
             Node::Row(v) => self.say_list(out, v),
             Node::Scripts { base, sup, sub } => {
-                let limits = matches!(**base, Node::BigOp { .. } | Node::FnName { .. } | Node::HBrace { .. });
+                // Sums, integrals and \lim-like names take limits; sin, cos and
+                // log take powers and bases like any other base.
+                let limits = match base.bare() {
+                    Node::BigOp { .. } | Node::HBrace { .. } => true,
+                    Node::FnName { limits, .. } => *limits != Limits::NoLimits,
+                    _ => false,
+                };
+                if let (Node::FnName { name, .. }, Some(s), None) = (base.bare(), sub, sup) {
+                    if !limits && matches!(name.as_str(), "log" | "lg" | "ln") {
+                        self.template(out, "{0} base {1},", &[&self.said(base), &self.said(s)]);
+                        return;
+                    }
+                }
                 if limits {
-                    self.say_one(out, base);
-                    if let Some(s) = sub {
-                        self.w(out, "from");
-                        self.say_one(out, s);
+                    let op = self.said(base);
+                    let lo = sub.as_deref().map(|s| self.said(s));
+                    let hi = sup.as_deref().map(|s| self.said(s));
+                    let is_lim = matches!(base.bare(), Node::FnName { name, .. } if name.starts_with("lim"));
+                    match (lo, hi) {
+                        (Some(lo), _) if is_lim => self.template(out, "{0} as {1} of", &[&op, &lo]),
+                        (Some(lo), Some(hi)) => self.template(out, "{0} from {1} to {2} of", &[&op, &lo, &hi]),
+                        (Some(lo), None) => self.template(out, "{0} over {1} of", &[&op, &lo]),
+                        (None, Some(hi)) => self.template(out, "{0} to {1} of", &[&op, &hi]),
+                        (None, None) => word(out, &op),
                     }
-                    if let Some(s) = sup {
-                        self.w(out, "to");
-                        self.say_one(out, s);
-                    }
-                    self.w(out, "of");
                     return;
                 }
-                self.say_one(out, base);
+                let mut b = self.said(base);
                 if let Some(s) = sub {
-                    self.w(out, "sub");
-                    self.say_one(out, s);
+                    b = crate::speech_lang::fill(self.lang, "{0} sub {1}", &[&b, &self.said(s)]);
                     if self.verbose() && sup.is_none() {
-                        self.w(out, ", end sub");
+                        b.push(' ');
+                        b.push_str(&crate::speech_lang::translate(self.lang, ", end sub"));
                     }
                 }
-                if let Some(s) = sup {
-                    match self.said(s).as_str() {
-                        _ if single_char(s) == Some('∘') => self.w(out, "degrees"),
-                        // f′ is "f prime", not "f to the prime".
-                        _ if matches!(single_char(s), Some('′' | '″' | '‴')) => self.say_one(out, s),
-                        "2" => self.w(out, "squared"),
-                        "3" => self.w(out, "cubed"),
-                        _ if self.simple(s) => {
-                            self.w(out, "to the");
-                            self.say_one(out, s);
-                        }
-                        _ => {
-                            self.w(out, if self.superbrief() { "to the" } else { "to the power of" });
-                            self.say_one(out, s);
-                            self.close(out, false, "end power");
-                        }
+                let Some(s) = sup else {
+                    word(out, &b);
+                    return;
+                };
+                match self.said(s).as_str() {
+                    _ if single_char(s) == Some('∘') => self.template(out, "{0} degrees", &[&b]),
+                    // f′ is "f prime", not "f to the prime".
+                    _ if matches!(single_char(s), Some('′' | '″' | '‴')) => {
+                        let mark = symbol_name(single_char(s).unwrap());
+                        self.template(out, &format!("{{0}} {mark}"), &[&b])
+                    }
+                    "2" => self.template(out, "{0} squared", &[&b]),
+                    "3" => self.template(out, "{0} cubed", &[&b]),
+                    e if self.simple(s) => self.template(out, "{0} to the {1}", &[&b, e]),
+                    e => {
+                        let key = if self.superbrief() {
+                            "{0} to the {1}"
+                        } else {
+                            "{0} to the power of {1}"
+                        };
+                        self.template(out, key, &[&b, e]);
+                        self.close(out, false, "end power");
                     }
                 }
             }
             Node::BigOp { ch, .. } => self.w(out, self.the(&big_op_name(*ch))),
-            Node::FnName { name, .. } => word(out, name),
+            Node::FnName { name, .. } => match fn_name(name) {
+                Some(spoken) => self.w(out, self.the(spoken)),
+                None => word(out, name),
+            },
             Node::Frac {
                 num, den, rule, delims, ..
             } => {
+                let (n, d) = (self.said(num), self.said(den));
                 if delims.is_some() && *rule == FracRule::None {
-                    self.say_one(out, num);
-                    self.w(out, "choose");
-                    self.say_one(out, den);
+                    self.template(out, "{0} choose {1}", &[&n, &d]);
                     return;
                 }
                 let short = self.simple(num) && self.simple(den);
                 if self.verbose() || (!short && !self.superbrief()) {
-                    self.w(out, "the fraction");
+                    self.template(out, "the fraction {0} over {1}", &[&n, &d]);
+                } else {
+                    self.template(out, "{0} over {1}", &[&n, &d]);
                 }
-                self.say_one(out, num);
-                self.w(out, "over");
-                self.say_one(out, den);
                 self.close(out, short, "end fraction");
             }
             Node::Sqrt { radicand, index } => {
-                match index {
-                    Some(i) => {
-                        let index = self.said(i);
-                        if index == "3" {
-                            self.w(out, self.the("the cube root of"));
-                        } else {
-                            self.template(out, self.the("the {}th root of"), &[&index]);
-                        }
-                    }
-                    None => self.w(out, self.the("the square root of")),
+                let r = self.said(radicand);
+                match index.as_deref().map(|i| self.said(i)) {
+                    Some(i) if i == "3" => self.template(out, self.the("the cube root of {0}"), &[&r]),
+                    Some(i) => self.template(out, self.the("the {0}th root of {1}"), &[&i, &r]),
+                    None => self.template(out, self.the("the square root of {0}"), &[&r]),
                 }
-                self.say_one(out, radicand);
                 self.close(out, self.simple(radicand), "end root");
             }
             Node::LeftRight { left, body, right } => {
+                // |x|, ‖x‖, ⌊x⌋, ⌈x⌉ are functions of what they enclose.
+                if let Some(key) = left.and_then(enclosure_template) {
+                    let mut inner = String::new();
+                    self.say_list(&mut inner, body);
+                    self.template(out, self.the(key), &[tidy(&inner).as_str()]);
+                    if self.verbose() {
+                        let name = crate::speech_lang::translate(self.lang, delimited_name(left.unwrap()));
+                        self.template(out, ", end {0}", &[&name]);
+                    }
+                    return;
+                }
                 if let Some(c) = left {
                     self.w(out, self.the(open_name(*c)));
                 }
@@ -672,29 +700,22 @@ impl Speaker {
                         self.w(out, close);
                     } else if self.verbose() {
                         let name = crate::speech_lang::translate(self.lang, delimited_name(left.unwrap_or(*c)));
-                        self.template(out, ", end {}", &[&name]);
+                        self.template(out, ", end {0}", &[&name]);
                     }
                 }
             }
             Node::Middle(ch) | Node::SizedDelim { ch, .. } => self.w(out, &symbol_name(*ch)),
-            Node::Accent { ch, base, .. } => {
-                self.say_one(out, base);
-                self.w(out, accent_name(*ch));
-            }
-            Node::Overline(inner) => {
-                self.say_one(out, inner);
-                self.w(out, "bar");
-            }
-            Node::Underline(inner) => {
-                self.say_one(out, inner);
-                self.w(out, "underlined");
-            }
+            Node::Accent { ch, base, .. } => self.template(out, accent_name(*ch), &[&self.said(base)]),
+            Node::Overline(inner) => self.template(out, "{0} bar", &[&self.said(inner)]),
+            Node::Underline(inner) => self.template(out, "{0} underlined", &[&self.said(inner)]),
             Node::Style { body, .. } | Node::Size { body, .. } => self.say_list(out, body),
             Node::Tagged { body, tag } => {
                 self.say_list(out, body);
-                self.template(out, ", equation {}", &[self.text_of(tag).trim_matches(['(', ')', ' '])]);
+                self.template(out, ", equation {0}", &[self.text_of(tag).trim_matches(['(', ')', ' '])]);
             }
             Node::Color { body, .. } => self.say_list(out, body),
+            // `\bmod` and `\pmod` set "mod" as text; it is spoken in the language.
+            Node::Text { text, .. } if text.trim() == "mod" => self.w(out, "mod"),
             Node::Text { text, .. } => word(out, text.trim()),
             Node::Space { .. } => {}
             Node::Array(a) => {
@@ -702,12 +723,12 @@ impl Speaker {
                 let cols = a.rows.iter().map(|r| r.len()).max().unwrap_or(0);
                 if cols > 1 {
                     let (r, c) = (rows.to_string(), cols.to_string());
-                    self.template(out, self.the("the {} by {} matrix,"), &[&r, &c]);
+                    self.template(out, self.the("the {0} by {1} matrix,"), &[&r, &c]);
                 } else {
-                    self.template(out, "{} rows,", &[&rows.to_string()]);
+                    self.template(out, "{0} rows,", &[&rows.to_string()]);
                 }
                 for (i, r) in a.rows.iter().enumerate() {
-                    self.template(out, "row {},", &[&(i + 1).to_string()]);
+                    self.template(out, "row {0},", &[&(i + 1).to_string()]);
                     for (j, cell) in r.iter().enumerate() {
                         if j > 0 {
                             word(out, ",");
@@ -808,7 +829,7 @@ impl Speaker {
     fn branch(&self, role: &'static str, label: String, n: &Node, parts: Vec<(&str, &Node)>) -> SpeechNode {
         let children = parts
             .into_iter()
-            .map(|(l, c)| self.tree(c, l.to_string()))
+            .map(|(l, c)| self.tree(c, crate::speech_lang::translate(self.lang, l)))
             .filter(|c| !c.text.is_empty())
             .collect();
         with_children(self.leaf(role, label, n), children)
@@ -870,9 +891,10 @@ impl Speaker {
             Node::Style { body, .. } | Node::Color { body, .. } | Node::Size { body, .. } => self.tree_list(body, label),
             Node::Tagged { body, tag } => {
                 let mut formula = self.tree_list(body, String::new());
-                let mut number = self.tree(tag, "equation number".to_string());
+                let mut number = self.tree(tag, crate::speech_lang::translate(self.lang, "equation number"));
                 number.text = number.text.trim_matches(['(', ')', ' ']).to_string();
-                let text = tidy(&format!("{}, equation {}", formula.text, number.text));
+                let equation = crate::speech_lang::fill(self.lang, ", equation {0}", &[&number.text]);
+                let text = tidy(&format!("{} {equation}", formula.text));
                 if formula.role == "row" {
                     formula.children.push(number);
                     formula.text = text;
@@ -899,7 +921,11 @@ impl Speaker {
             | Node::Lap { body, .. } => self.tree(body, label),
             Node::Choice(b) => self.tree(&b[0], label),
             Node::Scripts { base, sup, sub } => {
-                let limits = matches!(**base, Node::BigOp { .. } | Node::FnName { .. } | Node::HBrace { .. });
+                let limits = match base.bare() {
+                    Node::BigOp { .. } | Node::HBrace { .. } => true,
+                    Node::FnName { limits, .. } => *limits != Limits::NoLimits,
+                    _ => false,
+                };
                 let (lo, hi) = if limits {
                     ("lower limit", "upper limit")
                 } else {
@@ -924,7 +950,7 @@ impl Speaker {
                 self.branch("root", label, n, parts)
             }
             Node::LeftRight { body, .. } => {
-                let inner = self.tree_list(body, "contents".to_string());
+                let inner = self.tree_list(body, crate::speech_lang::translate(self.lang, "contents"));
                 let parts = if inner.text.is_empty() { Vec::new() } else { vec![inner] };
                 with_children(self.leaf("delimited", label, n), parts)
             }
@@ -962,10 +988,11 @@ impl Speaker {
                             .iter()
                             .enumerate()
                             .map(|(j, cell)| {
-                                let mut c = self.tree_list(cell, format!("column {}", j + 1));
+                                let column = crate::speech_lang::fill(self.lang, "column {0}", &[&(j + 1).to_string()]);
+                                let mut c = self.tree_list(cell, column);
                                 c.role = "cell";
                                 if c.text.is_empty() {
-                                    c.text = "blank".to_string();
+                                    c.text = crate::speech_lang::translate(self.lang, "blank");
                                 }
                                 c
                             })
@@ -974,7 +1001,7 @@ impl Speaker {
                         with_children(
                             SpeechNode {
                                 role: "table row",
-                                label: format!("row {}", i + 1),
+                                label: crate::speech_lang::fill(self.lang, "row {0}", &[&(i + 1).to_string()]),
                                 text,
                                 start: 0,
                                 end: 0,
@@ -1114,10 +1141,6 @@ fn open_name(c: char) -> &'static str {
         '[' => "open bracket",
         '{' => "open brace",
         '⟨' => "open angle bracket",
-        '|' => "the absolute value of",
-        '‖' => "the norm of",
-        '⌊' => "the floor of",
-        '⌈' => "the ceiling of",
         _ => "open",
     }
 }
@@ -1135,19 +1158,69 @@ fn close_name(c: char) -> &'static str {
 
 fn accent_name(c: char) -> &'static str {
     match c {
-        '\u{0302}' => "hat",
-        '\u{0303}' => "tilde",
-        '\u{0304}' => "bar",
-        '\u{20D7}' => "vector",
-        '\u{0307}' => "dot",
-        '\u{0308}' => "double dot",
-        '\u{0301}' => "acute",
-        '\u{0300}' => "grave",
-        '\u{030C}' => "check",
-        '\u{0306}' => "breve",
-        '\u{030A}' => "ring",
-        _ => "accent",
+        '\u{0302}' => "{0} hat",
+        '\u{0303}' => "{0} tilde",
+        '\u{0304}' => "{0} bar",
+        '\u{20D7}' => "{0} vector",
+        '\u{0307}' => "{0} dot",
+        '\u{0308}' => "{0} double dot",
+        '\u{0301}' => "{0} acute",
+        '\u{0300}' => "{0} grave",
+        '\u{030C}' => "{0} check",
+        '\u{0306}' => "{0} breve",
+        '\u{030A}' => "{0} ring",
+        _ => "{0} accent",
     }
+}
+
+/// `|x|` and its kin read as a function of what they enclose.
+fn enclosure_template(c: char) -> Option<&'static str> {
+    Some(match c {
+        '|' => "the absolute value of {0}",
+        '‖' => "the norm of {0}",
+        '⌊' => "the floor of {0}",
+        '⌈' => "the ceiling of {0}",
+        _ => return None,
+    })
+}
+
+/// Spoken names of the standard functions: `\sin` is "sine".
+fn fn_name(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "sin" => "sine",
+        "cos" => "cosine",
+        "tan" => "tangent",
+        "cot" => "cotangent",
+        "sec" => "secant",
+        "csc" => "cosecant",
+        "arcsin" => "arc sine",
+        "arccos" => "arc cosine",
+        "arctan" => "arc tangent",
+        "sinh" => "hyperbolic sine",
+        "cosh" => "hyperbolic cosine",
+        "tanh" => "hyperbolic tangent",
+        "coth" => "hyperbolic cotangent",
+        "log" => "log",
+        "ln" => "natural log",
+        "lg" => "log base 10",
+        "exp" => "exponential",
+        "lim" => "the limit",
+        "limsup" | "lim sup" => "the limit superior",
+        "liminf" | "lim inf" => "the limit inferior",
+        "max" => "the maximum",
+        "min" => "the minimum",
+        "sup" => "the supremum",
+        "inf" => "the infimum",
+        "det" => "the determinant",
+        "gcd" => "the greatest common divisor",
+        "deg" => "the degree",
+        "dim" => "the dimension",
+        "ker" => "the kernel",
+        "arg" => "the argument",
+        "Pr" => "the probability",
+        "mod" | "bmod" => "mod",
+        _ => return None,
+    })
 }
 
 fn big_op_name(c: char) -> String {
@@ -1250,7 +1323,89 @@ fn symbol_name(c: char) -> String {
         '}' => "close brace",
         '°' => "degrees",
         '%' => "percent",
-        '√' => "the square root of",
+        '√' => "square root",
+        '≪' => "is much less than",
+        '≫' => "is much greater than",
+        '⊥' => "is perpendicular to",
+        '∥' => "is parallel to",
+        '∣' => "divides",
+        '∤' => "does not divide",
+        '∠' => "angle",
+        '△' => "triangle",
+        '≃' => "is asymptotically equal to",
+        '≍' => "is equivalent to",
+        '≐' => "approaches",
+        '≢' => "is not equivalent to",
+        '≉' => "is not approximately",
+        '⊄' => "is not a subset of",
+        '⊊' => "is a proper subset of",
+        '⊢' => "proves",
+        '⊨' => "models",
+        '⊤' => "top",
+        '≺' => "precedes",
+        '≻' => "succeeds",
+        '⪯' => "precedes or equals",
+        '⪰' => "succeeds or equals",
+        '⊓' => "square cap",
+        '⊔' => "square cup",
+        '⊙' => "circled dot",
+        '⊖' => "circled minus",
+        '⊘' => "circled slash",
+        '∙' | '•' => "dot",
+        '⋆' => "star",
+        '†' => "dagger",
+        '‡' => "double dagger",
+        '⋄' | '◇' | '♢' => "diamond",
+        '◯' | '○' => "circle",
+        '▷' | '◁' | '▽' => "triangle",
+        '⌣' => "smile",
+        '♭' => "flat",
+        '♮' => "natural",
+        '♯' => "sharp",
+        'ℓ' => "ell",
+        'ℵ' => "aleph",
+        '℘' => "Weierstrass p",
+        'ı' => "i",
+        'ȷ' => "j",
+        '⁗' => "quadruple prime",
+        '∫' => "integral",
+        '⨿' => "coproduct",
+        '⟨' => "open angle bracket",
+        '⟩' => "close angle bracket",
+        '⟮' => "open paren",
+        '⟯' => "close paren",
+        '⌊' => "open floor",
+        '⌋' => "close floor",
+        '⌈' => "open ceiling",
+        '⌉' => "close ceiling",
+        '⟶' => "goes to",
+        '⟹' => "implies",
+        '⟵' => "comes from",
+        '⟸' => "is implied by",
+        '⟷' | '⟺' => "if and only if",
+        '⟼' => "maps to",
+        '↪' => "injects into",
+        '⇀' => "harpoon",
+        '⇌' => "is in equilibrium with",
+        '↑' => "up arrow",
+        '↓' => "down arrow",
+        '⇑' => "double up arrow",
+        '⇓' => "double down arrow",
+        '↗' | '↖' | '↘' | '↙' => "diagonal arrow",
+        '§' => "section",
+        '¶' => "paragraph",
+        '$' => "dollars",
+        '£' => "pounds",
+        '¥' => "yen",
+        '€' => "euros",
+        '#' => "number",
+        '&' => "and",
+        '@' => "at",
+        '?' => "question mark",
+        '/' => "divided by",
+        '\\' => "backslash",
+        '_' => "underscore",
+        'µ' => "micro",
         _ => return greek_name(c).unwrap_or_else(|| c.to_string()),
     };
     name.to_string()

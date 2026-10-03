@@ -49,6 +49,17 @@ struct Args {
     /// Macro definition `\name=body`, repeatable. `#1`..`#9` are arguments.
     #[arg(long = "macro", value_name = "NAME=BODY")]
     macros: Vec<String>,
+    /// A text font for characters the math font lacks (Bengali, Arabic,
+    /// CJK...), repeatable; `PATH#INDEX` picks a face in a collection.
+    #[arg(long = "font", value_name = "PATH[#INDEX]")]
+    fonts: Vec<String>,
+    /// The font `\text{}` prose is set in (the math stays in the math font);
+    /// `PATH#INDEX` picks a face in a collection.
+    #[arg(long = "text-font", value_name = "PATH[#INDEX]")]
+    text_font: Option<String>,
+    /// Print the characters no loaded font can draw, and exit.
+    #[arg(long)]
+    missing: bool,
 }
 
 fn main() -> Result<()> {
@@ -60,7 +71,22 @@ fn main() -> Result<()> {
     } else {
         args.tex.clone()
     };
-    let font = mathcore::bundled::font().map_err(|e| anyhow!("{e}"))?;
+    let mut font = mathcore::bundled::font().map_err(|e| anyhow!("{e}"))?;
+    let load = |spec: &str| -> Result<mathcore::MathFont<'static>> {
+        let (path, index) = match spec.rsplit_once('#') {
+            Some((p, i)) => (p, i.parse().context("font index")?),
+            None => (spec, 0),
+        };
+        // The font lives as long as the process.
+        let data: &'static [u8] = Box::leak(std::fs::read(path).with_context(|| format!("reading {path}"))?.into_boxed_slice());
+        mathcore::MathFont::from_text_bytes(data, index).map_err(|e| anyhow!("{path}: {e}"))
+    };
+    if let Some(spec) = &args.text_font {
+        font = font.with_text_font(load(spec)?);
+    }
+    for spec in &args.fonts {
+        font.add_fallback(load(spec)?);
+    }
     let mut macros = mathcore::Macros::new();
     for m in &args.macros {
         let (name, body) = m.split_once('=').ok_or_else(|| anyhow!("--macro expects NAME=BODY, got `{m}`"))?;
@@ -78,6 +104,11 @@ fn main() -> Result<()> {
         budget: mathcore::Budget::default(),
         hit_testing: false,
     };
+    if args.missing {
+        let missing = mathcore::missing_chars(&font, tex.trim(), &opts).map_err(|e| anyhow!("{e}"))?;
+        println!("{}", missing.into_iter().collect::<String>());
+        return Ok(());
+    }
     let dl = mathcore::render(&font, tex.trim(), &opts).map_err(|e| anyhow!("{e}"))?;
     if args.dump {
         println!("width={} ascent={} descent={}", dl.width, dl.ascent, dl.descent);

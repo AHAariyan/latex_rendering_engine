@@ -8,7 +8,7 @@ use crate::error::{Error, Result};
 use ttf_parser::{math, Face, GlyphId, OutlineBuilder};
 
 /// MATH table constants, extracted once into plain floats (font units).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Constants {
     pub script_percent_scale_down: f32,
     pub script_script_percent_scale_down: f32,
@@ -75,11 +75,6 @@ pub struct GlyphMetrics {
     pub italic_correction: f32,
 }
 
-/// True for a character written right to left.
-fn is_rtl(c: char) -> bool {
-    matches!(c as u32, 0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF | 0x1E800..=0x1EFFF)
-}
-
 /// Corner of a glyph for math kerning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KernCorner {
@@ -122,6 +117,21 @@ pub struct ShapedGlyph {
     pub x_advance: f32,
     pub x_offset: f32,
     pub y_offset: f32,
+}
+
+/// The index of the face named `postscript_name` in a font file, for
+/// collections (`.ttc`) where a system font API names a face but not its
+/// index. 0 for a single font; `None` when no face has that name.
+pub fn face_index(data: &[u8], postscript_name: &str) -> Option<u32> {
+    let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
+    (0..count).find(|&i| {
+        Face::parse(data, i).is_ok_and(|f| {
+            f.names()
+                .into_iter()
+                .filter(|n| n.name_id == ttf_parser::name_id::POST_SCRIPT_NAME)
+                .any(|n| n.to_string().is_some_and(|s| s == postscript_name))
+        })
+    })
 }
 
 impl<'a> MathFont<'a> {
@@ -196,10 +206,38 @@ impl<'a> MathFont<'a> {
         })
     }
 
+    /// A plain text font (no MATH table), such as Noto Sans Bengali or a
+    /// system CJK face, to stand in a chain as a fallback or text font.
+    /// `index` picks the face in a collection (`.ttc`); 0 for a single font.
+    /// Its MATH constants are zero, which is safe because layout only ever
+    /// reads the primary's.
+    pub fn from_text_bytes(data: &'a [u8], index: u32) -> Result<Self> {
+        let face = Face::parse(data, index).map_err(|e| Error::Font(format!("cannot parse font: {e}")))?;
+        let upem = face.units_per_em() as f32;
+        let x_height = face.x_height().map(|x| x as f32).unwrap_or(upem * 0.45);
+        Ok(MathFont {
+            #[cfg(feature = "complex-text")]
+            shaper: rustybuzz::Face::from_face(face.clone()),
+            face,
+            upem,
+            consts: Constants::default(),
+            x_height,
+            fallbacks: Vec::new(),
+            text_font: None,
+        })
+    }
+
     /// Adds a font to consult for characters this one lacks.
     pub fn with_fallback(mut self, next: MathFont<'a>) -> Self {
         self.fallbacks.push(next);
         self
+    }
+
+    /// `with_fallback` in place, for fonts a host finds once it knows which
+    /// characters are missing. Returns the new font's index in the chain.
+    pub fn add_fallback(&mut self, next: MathFont<'a>) -> usize {
+        self.fallbacks.push(next);
+        self.fallbacks.len()
     }
 
     /// Adds a font and marks it as the one `\text{}` should use. Math still
@@ -409,16 +447,19 @@ impl<'a> MathFont<'a> {
     /// for a non-joining script such as Hebrew. Arabic and the Indic scripts
     /// need joining forms and reordering, which a real shaper does; see the
     /// `complex-text` feature.
+    ///
+    /// `rtl` is the run's direction from the bidi algorithm; the glyphs come
+    /// back in visual order, left to right.
     #[cfg(feature = "complex-text")]
-    pub fn shape(&self, text: &str) -> Vec<ShapedGlyph> {
+    pub fn shape(&self, text: &str, rtl: bool) -> Vec<ShapedGlyph> {
         let mut buf = rustybuzz::UnicodeBuffer::new();
         buf.push_str(text);
-        buf.set_direction(if text.chars().any(is_rtl) {
+        buf.guess_segment_properties();
+        buf.set_direction(if rtl {
             rustybuzz::Direction::RightToLeft
         } else {
             rustybuzz::Direction::LeftToRight
         });
-        buf.guess_segment_properties();
         let out = rustybuzz::shape(&self.shaper, &[], buf);
         out.glyph_infos()
             .iter()
@@ -433,8 +474,7 @@ impl<'a> MathFont<'a> {
     }
 
     #[cfg(not(feature = "complex-text"))]
-    pub fn shape(&self, text: &str) -> Vec<ShapedGlyph> {
-        let rtl = text.chars().any(is_rtl);
+    pub fn shape(&self, text: &str, rtl: bool) -> Vec<ShapedGlyph> {
         let mut glyphs: Vec<GlyphId> = text.chars().map(|c| self.face.glyph_index(c).unwrap_or(GlyphId(0))).collect();
         if rtl {
             glyphs.reverse();
@@ -699,13 +739,13 @@ mod tests {
         const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
         let f = MathFont::from_bytes(LIB).unwrap();
         let word = "שלום";
-        let shaped = f.shape(word);
+        let shaped = f.shape(word, true);
         assert_eq!(shaped.len(), word.chars().count());
         // The last letter of the word is drawn first.
         let last = f.glyph_index(word.chars().next_back().unwrap()).unwrap();
         assert_eq!(shaped[0].glyph, last);
         // Latin is untouched.
-        let latin = f.shape("abc");
+        let latin = f.shape("abc", false);
         assert_eq!(latin[0].glyph, f.glyph_index('a').unwrap());
     }
 
@@ -713,15 +753,15 @@ mod tests {
     fn shaping_applies_kerning_and_ligatures() {
         // Latin Modern Math carries no kerning for upright Latin, so use the other fonts.
         let stix = MathFont::from_bytes(include_bytes!("../../../assets/fonts/STIXTwoMath-Regular.otf")).unwrap();
-        let av = stix.shape("AV");
+        let av = stix.shape("AV", false);
         assert_eq!(av.len(), 2);
-        let plain: f32 = ["A", "V"].iter().map(|c| stix.shape(c)[0].x_advance).sum();
+        let plain: f32 = ["A", "V"].iter().map(|c| stix.shape(c, false)[0].x_advance).sum();
         let shaped: f32 = av.iter().map(|g| g.x_advance).sum();
         assert!(shaped < plain, "AV must be kerned: {shaped} vs {plain}");
         let lib = MathFont::from_bytes(include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf")).unwrap();
-        assert_eq!(lib.shape("fi").len(), 1, "fi ligature");
+        assert_eq!(lib.shape("fi", false).len(), 1, "fi ligature");
         let lm = MathFont::from_bytes(FONT).unwrap();
-        assert_eq!(lm.shape("otherwise").len(), 9);
+        assert_eq!(lm.shape("otherwise", false).len(), 9);
     }
 
     #[test]

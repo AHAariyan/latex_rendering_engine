@@ -12,6 +12,9 @@ crate-type = ["cdylib", "rlib"]
 [features]
 # Passes through to mathcore: full shaping for Arabic and the Indic scripts.
 complex-text = ["mathcore/complex-text"]
+# On by default: Arabic, Urdu, Persian and the Indic scripts are unreadable
+# without it.
+default = ["complex-text"]
 
 [dependencies]
 mathcore = { path = "../mathcore" }

@@ -76,6 +76,31 @@ MathEngine* math_engine_new_with_text_font(const uint8_t* math_data, size_t math
                                            const uint8_t* text_data, size_t text_len);
 void math_engine_free(MathEngine* engine);
 
+/* Adds a text font (any OpenType/TrueType font, `index` picks the face in a
+ * collection) to the end of the engine's chain, for characters no earlier
+ * font has: Bengali, Arabic, CJK, Thai... Returns its index in the chain, or
+ * -1 (see math_last_error). Not thread-safe with renders on the same engine.
+ * The _borrowed variant does not copy: the bytes must outlive the engine. */
+int32_t math_engine_add_font(MathEngine* engine, const uint8_t* data, size_t len, uint32_t index);
+int32_t math_engine_add_font_borrowed(MathEngine* engine, const uint8_t* data, size_t len, uint32_t index);
+
+/* The characters of `tex` no font in the chain can draw (UTF-8, empty when
+ * all are covered). Free with math_string_free; NULL on error. */
+char* math_engine_missing_chars(const MathEngine* engine, const char* tex, bool display_mode, const char* macros);
+
+/* Index of the face named `postscript_name` in a font file (0 for a single
+ * font), or -1: system font APIs name a .ttc face but not its index. */
+int32_t math_font_face_index(const uint8_t* data, size_t len, const char* postscript_name);
+
+/* Adds fonts from the system's font folders (memory-mapped) until every
+ * character of `tex` can be drawn: Bengali, Arabic, CJK, Thai... Returns how
+ * many were added, or -1 on a parse error. For hosts without a font API of
+ * their own (Dart, Flutter, C on Linux and Windows). */
+int32_t math_engine_use_system_fonts(MathEngine* engine, const char* tex, bool display_mode, const char* macros);
+
+/* Languages spoken math is available in: comma-separated BCP 47 tags. Static. */
+const char* math_speech_languages(void);
+
 /* Font units per em of one font of the chain, needed to scale its outlines:
  * px = units * (item.w / upem). A fallback font may differ from the primary. */
 float math_engine_units_per_em(const MathEngine* engine, uint16_t font);

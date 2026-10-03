@@ -92,6 +92,12 @@ typedef BudgetD = void Function(Pointer<MathEngineOpaque>, int, int, int);
 typedef CacheC = Void Function(Pointer<MathEngineOpaque>, Size);
 typedef CacheD = void Function(Pointer<MathEngineOpaque>, int);
 typedef LastErrorC = Pointer<Utf8> Function();
+typedef AddFontC = Int32 Function(Pointer<MathEngineOpaque>, Pointer<Uint8>, Size, Uint32);
+typedef AddFontD = int Function(Pointer<MathEngineOpaque>, Pointer<Uint8>, int, int);
+typedef MissingC = Pointer<Utf8> Function(Pointer<MathEngineOpaque>, Pointer<Utf8>, Bool, Pointer<Utf8>);
+typedef MissingD = Pointer<Utf8> Function(Pointer<MathEngineOpaque>, Pointer<Utf8>, bool, Pointer<Utf8>);
+typedef SystemFontsC = Int32 Function(Pointer<MathEngineOpaque>, Pointer<Utf8>, Bool, Pointer<Utf8>);
+typedef SystemFontsD = int Function(Pointer<MathEngineOpaque>, Pointer<Utf8>, bool, Pointer<Utf8>);
 typedef VersionC = Pointer<Utf8> Function();
 
 class MathBindings {
@@ -117,7 +123,11 @@ class MathBindings {
         setCacheCapacity = lib.lookupFunction<CacheC, CacheD>('math_engine_set_cache_capacity'),
         stringFree = lib.lookupFunction<StringFreeC, StringFreeD>('math_string_free'),
         lastError = lib.lookupFunction<LastErrorC, LastErrorC>('math_last_error'),
-        version = lib.lookupFunction<VersionC, VersionC>('math_version');
+        version = lib.lookupFunction<VersionC, VersionC>('math_version'),
+        addFont = lib.lookupFunction<AddFontC, AddFontD>('math_engine_add_font'),
+        missingChars = lib.lookupFunction<MissingC, MissingD>('math_engine_missing_chars'),
+        useSystemFonts = lib.lookupFunction<SystemFontsC, SystemFontsD>('math_engine_use_system_fonts'),
+        speechLanguages = lib.lookupFunction<VersionC, VersionC>('math_speech_languages');
 
   final NewD engineNew;
   final NewBundledC engineNewBundled;
@@ -138,6 +148,10 @@ class MathBindings {
   final SpeechLangD speechTreeLang;
   final BudgetD setBudget;
   final CacheD setCacheCapacity;
+  final AddFontD addFont;
+  final MissingD missingChars;
+  final SystemFontsD useSystemFonts;
+  final VersionC speechLanguages;
   final StringFreeD stringFree;
   final LastErrorC lastError;
   final VersionC version;

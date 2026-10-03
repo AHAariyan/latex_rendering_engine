@@ -82,10 +82,16 @@ Working today:
 - **Prose in your own font**: `\text{}` can be set in a font you supply while
   the maths stays in the math font, which is what makes a formula look like it
   belongs in the app. Text is shaped by whichever font sets it, so it gets that
-  font's kerning and ligatures, and a right-to-left run such as Hebrew comes out
-  in the right visual order. Arabic and the Indic scripts need joining forms and
-  reordering: turn on the `complex-text` feature for those, which brings in a
-  full shaper at a cost of about 600 KB.
+  font's kerning and ligatures.
+- **Every writing system**: `\text{বৃত্তের ক্ষেত্রফল}`, `\text{مساحة الدائرة}`,
+  `\text{圆的面积}`. Text goes through the Unicode bidi algorithm and a full
+  shaper (HarfBuzz's rules, via rustybuzz), so Arabic and Urdu join, Indic
+  conjuncts form, and right-to-left runs read in order with their numbers.
+  The SDKs find fonts for any script on their own: CoreText on Apple
+  systems, Android's system fonts, the system font folders for Dart, Flutter
+  and C, and Noto from a CDN on the web (`setFontSource` to change or turn
+  off). Checked against LuaLaTeX with HarfBuzz and the same font files: 24
+  formulas in 21 scripts, 23 matching at >= 0.95 (`tools/sectors`, `scripts`).
 - **Font fallback**: a font can carry a chain, and a character the primary
   lacks comes from the next one. Latin Modern Math predates 27 of the AMS
   symbols, so every binding ships a 5 KB slice of STIX Two alongside it and the
@@ -115,8 +121,14 @@ Android (AAR), Flutter (Android, iOS, macOS), web (`mathcore` npm package
 with a `<math-tex>` element) and React Native (`react-native-mathcore`), all
 at one version, released by one workflow.
 
-- **Speech in seven languages** (English, Spanish, French, German,
-  Portuguese, Bengali, Hindi), following the device or page language.
+- **Speech in 35 languages**, following the device or page language: Arabic,
+  Bengali, Chinese (Simplified and Traditional), Dutch, English, French,
+  German, Greek, Gujarati, Hebrew, Hindi, Indonesian, Italian, Japanese,
+  Kannada, Korean, Malay, Malayalam, Marathi, Persian, Polish, Portuguese,
+  Punjabi, Russian, Spanish, Swahili, Swedish, Tamil, Telugu, Thai, Turkish,
+  Ukrainian, Urdu and Vietnamese. Structures read in each language's own
+  order (Japanese and Chinese read a fraction's denominator first), and
+  numbers read as numbers.
 - **Nemeth braille** output for refreshable braille displays.
 - **Commutative diagrams** (`\begin{CD}`) and line breaks inside groups.
 

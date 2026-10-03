@@ -12,6 +12,23 @@ void main() {
     expect(MathEngine.nemeth('x^2'), '⠭⠘⠆');
   });
 
+  test('35 speech languages, word order per language', () {
+    expect(MathEngine.speechLanguages, hasLength(35));
+    expect(MathEngine.speechWith(r'\frac{a}{b}', SpeechVerbosity.brief, language: 'ja'), 'b分のa');
+    expect(MathEngine.speechWith(r'\frac{a}{b}', SpeechVerbosity.brief, language: 'zh-TW'), contains('分之'));
+  });
+
+  test('text in other scripts draws with system fonts', () {
+    const tex = r'x = \text{বাংলা 你好}';
+    final engine = MathEngine.bundled()..usesSystemFonts = false;
+    expect(engine.missingCharacters(tex), isNotEmpty);
+    engine.usesSystemFonts = true;
+    engine.render(tex, 32);
+    // Machines without these scripts' fonts (a bare CI image) skip the rest.
+    if (engine.missingCharacters(tex).isNotEmpty) return;
+    expect(engine.render(tex, 32).items.whereType<MathGlyph>().any((g) => g.font > 1), isTrue);
+  });
+
   test('speech verbosity and tree', () {
     expect(MathEngine.speechWith(r'\frac{1}{2}', SpeechVerbosity.verbose, language: 'en'), 'the fraction 1 over 2, end fraction');
     final tree = MathEngine.speechTree(r'\frac{a+b}{c} = 1', language: 'en');

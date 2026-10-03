@@ -8,8 +8,9 @@
 // (the content is AsciiMath), `size` (px; defaults to the surrounding font
 // size), `verbosity` (verbose | brief | superbrief). The element inherits the
 // text colour and reads the formula to screen readers in the page's language
-// (the nearest `lang` attribute): en, es, fr, de, pt, bn or hi.
-import { load, MathEngine, asciimathToTex, speechWith, Verbosity } from "./index.js";
+// (the nearest `lang` attribute), in any of 35 languages. Text in other
+// scripts (\text{বাংলা}, \text{مرحبا}, \text{你好}) fetches its font on first use.
+import { load, MathEngine, asciimathToTex, speechWith, Verbosity, loadFontsFor } from "./index.js";
 
 let engine = null;
 const ready = load().then(() => {
@@ -96,6 +97,11 @@ export class MathTexElement extends HTMLElement {
       const level = Verbosity[this.getAttribute("verbosity")] ?? Verbosity.brief;
       // The element's language, as the page declares it, else the browser's.
       const language = this.closest("[lang]")?.getAttribute("lang") || navigator.language || "en";
+      // Prose in another script needs its font: fetch it, then draw again.
+      if (engine.missingChars(tex, display).length > 0 && this._fontsFor !== tex) {
+        this._fontsFor = tex;
+        loadFontsFor(engine, tex, display, language).then((added) => added && this.render());
+      }
       this.setAttribute("aria-label", speechWith(tex, level, null, language));
       this.removeAttribute("data-error");
     } catch (e) {

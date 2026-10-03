@@ -14,6 +14,7 @@ android {
     minSdk = 24
     ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     consumerProguardFiles("consumer-rules.pro")
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -84,4 +85,7 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.customview)
   testImplementation(libs.junit)
+  androidTestImplementation(libs.junit)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.androidx.test.ext.junit)
 }

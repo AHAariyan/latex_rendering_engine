@@ -97,11 +97,18 @@ works: C++, Python (ctypes, cffi), Go (cgo), C# (P/Invoke), Java (FFM).
 | Line breaking to a width | yes | yes | yes | yes | yes | yes |
 | Hit testing, highlight | yes | yes | yes | yes | yes | taps |
 | Speech, verbosity, speech tree | yes | yes | yes | yes | yes | yes |
-| Speech languages (en es fr de pt bn hi) | yes | device | device | app locale | page `lang` | device |
+| Speech in 35 languages | yes | device | device | app locale | page `lang` | device |
+| Text in any script (bidi, full shaping) | yes | yes | yes | yes | yes | yes |
+| Fonts for other scripts found automatically | `math_engine_use_system_fonts` | CoreText | system fonts | font folders | Noto CDN | native |
 | Nemeth braille | yes | yes | yes | yes | yes | yes |
 | Screen-reader navigation of parts | (host) | VoiceOver | TalkBack | both | aria-label | both |
 | Budgets for untrusted input | yes | yes | yes | yes | (defaults) | (defaults) |
 | Layout cache | yes | yes | yes | yes | yes | yes |
+
+Every SDK can also add a font of your own (`addFont` / `math_engine_add_font`)
+and list what a formula still lacks (`missingCharacters` / `missingChars`).
+Automatic fonts are on by default: `usesSystemFonts = false` on Swift,
+Kotlin and Dart, `setFontSource(null)` on the web.
 
 ## Releases
 

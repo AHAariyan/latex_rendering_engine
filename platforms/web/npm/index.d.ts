@@ -38,3 +38,13 @@ export declare const speechLanguages: readonly string[];
 
 /** The formula as a tree a screen reader can walk part by part. `language` is a BCP 47 tag. */
 export function speechTree(tex: string, verbosity?: 0 | 1 | 2, macros?: string, language?: string): SpeechNode;
+
+/** The default font for a code point: a Noto face by script (CJK by `language`), or null. */
+export function defaultFontSource(codePoint: number, language?: string): string | null;
+/** Where fonts for other scripts come from; null turns downloads off. */
+export function setFontSource(source: ((codePoint: number, language: string) => string | null) | null): void;
+/**
+ * Adds fonts to `engine` until every character of `tex` can be drawn (Bengali,
+ * Arabic, CJK...). Resolves to true when fonts were added: render again.
+ */
+export function loadFontsFor(engine: import("./wasm/mathwasm.js").MathEngine, tex: string, displayMode?: boolean, language?: string): Promise<boolean>;

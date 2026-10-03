@@ -24,7 +24,7 @@ pub use ast::Node;
 pub use cache::{CacheStats, LayoutCache};
 pub use display::{Color, DisplayList, Item};
 pub use error::{Error, Result};
-pub use font::MathFont;
+pub use font::{face_index, MathFont};
 pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
@@ -132,6 +132,23 @@ pub fn render(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<Di
         });
     }
     Ok(dl)
+}
+
+/// The characters of a formula that no font in `font`'s chain can draw,
+/// such as Bengali or Chinese in `\text{}` with only the math font loaded.
+/// A host finds a font that has them (a system font, a download), adds it
+/// with `MathFont::add_fallback`, and renders again.
+pub fn missing_chars(font: &MathFont<'_>, tex: &str, opts: &RenderOptions) -> Result<Vec<char>> {
+    // ASCII source draws from the math font alone (prose in another script
+    // can only come from non-ASCII text), which is the common case: skip
+    // the layout. Macros may expand to anything, so they get the full check.
+    if tex.is_ascii() && opts.macros.is_empty() {
+        return Ok(Vec::new());
+    }
+    let nodes = parser::parse_with_budget(tex, &opts.macros, opts.budget)?;
+    let layouter = Layouter::new(font, opts);
+    layouter.layout(&nodes, opts.display_mode);
+    Ok(layouter.missing_chars())
 }
 
 #[cfg(test)]

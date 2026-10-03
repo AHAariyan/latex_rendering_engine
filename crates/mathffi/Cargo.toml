@@ -13,10 +13,13 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 [features]
 # Passes through to mathcore: full shaping for Arabic and the Indic scripts.
 complex-text = ["mathcore/complex-text"]
-default = ["bundled-font"]
+# On by default: Arabic, Urdu, Persian and the Indic scripts are unreadable
+# without it.
+default = ["bundled-font", "complex-text"]
 # Embed Latin Modern Math so callers need no font file.
 bundled-font = []
 
 [dependencies]
 mathcore = { path = "../mathcore" }
+memmap2 = "0.9"
 ttf-parser = { workspace = true }

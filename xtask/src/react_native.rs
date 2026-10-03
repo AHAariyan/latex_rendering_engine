@@ -19,6 +19,7 @@ const KOTLIN: &[&str] = &[
     "MathLayout.kt",
     "Accessibility.kt",
     "MathView.kt",
+    "SystemFontFinder.kt",
 ];
 
 pub fn build(verify: bool) -> Result {

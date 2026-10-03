@@ -1299,6 +1299,8 @@ impl<'a> Parser<'a> {
     fn parse_delimiter(&mut self, pos: usize) -> Result<Delim> {
         match self.lx.advance()? {
             Tok::Char('.') => Ok(None),
+            // `\left\|` is the double bar of a norm; `\left|` the single one.
+            Tok::Cmd("|") => Ok(Some('‖')),
             Tok::Char(c) => symbols::delimiter(&c.to_string())
                 .map(Some)
                 .ok_or_else(|| Error::parse(pos, format!("`{c}` is not a delimiter"))),

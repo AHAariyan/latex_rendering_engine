@@ -2,7 +2,8 @@
 import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
-const { MathEngine, version, mathml, speech } = require("./pkg-node/mathwasm.js");
+const { MathEngine, version, mathml, speech, speechLanguages, speechWith } = require("./pkg-node/mathwasm.js");
+import { readFileSync } from "node:fs";
 
 const engine = new MathEngine();
 assert.equal(engine.unitsPerEm(0), 1000);
@@ -49,6 +50,15 @@ assert.ok(a11yThrew, "accessibility reports parse errors");
 
 const outline = engine.glyphOutline(0, flat[5]);
 assert.ok(outline && outline.length > 3 && outline[0] === 0, "outline starts with move");
+
+// Other scripts: the engine names what it cannot draw; a font fills it in.
+const hebrew = "x = \\text{שלום}";
+assert.equal([...engine.missingChars(hebrew, true)].length, 4, "Hebrew is missing from the math font");
+const lib = readFileSync(new URL("../../assets/fonts/LibertinusMath-Regular.otf", import.meta.url));
+assert.ok(engine.addFont(lib) > 0, "font added");
+assert.equal(engine.missingChars(hebrew, true), "", "covered after adding a font");
+assert.equal(speechLanguages().split(",").length, 35, "35 speech languages");
+assert.equal(speechWith("\\frac{a}{b}", 1, null, "ja"), "b分のa", "Japanese reads the denominator first");
 
 const N = 200, t0 = performance.now();
 for (let i = 0; i < N; i++) engine.render("x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}", 32, true, 0xff000000, null, 0);

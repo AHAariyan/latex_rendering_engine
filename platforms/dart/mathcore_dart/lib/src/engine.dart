@@ -148,9 +148,9 @@ class MathEngine {
   /// A spoken sentence for [tex], for a semantics label. Needs no engine.
   static String speech(String tex) => speechWith(tex, SpeechVerbosity.brief);
 
-  /// Languages spoken math is available in, as BCP 47 tags. Any other
-  /// language reads in English.
-  static const speechLanguages = ['en', 'es', 'fr', 'de', 'pt', 'bn', 'hi'];
+  /// Languages spoken math is available in, as BCP 47 tags (35, from Arabic
+  /// to Chinese). Any other language reads in English.
+  static final List<String> speechLanguages = bindings.speechLanguages().toDartString().split(',');
 
   /// The system's language (`bn_BD` becomes `bn-BD`).
   static String get systemLanguage => Platform.localeName.split('.').first.replaceAll('_', '-');
@@ -181,6 +181,41 @@ class MathEngine {
 
   /// AsciiMath (`sum_(i=1)^n i^2`) translated to TeX for [render].
   static String asciimathToTex(String source) => _string(source, (b, t) => b.asciimathToTex(t));
+
+  /// Before each render, find fonts on the device for characters the
+  /// engine's own fonts lack (Bengali, Arabic, Chinese, Thai...), so
+  /// `\text{বাংলা}` draws instead of boxes. On by default; fonts are
+  /// memory-mapped from the system's font folders.
+  bool usesSystemFonts = true;
+
+  /// Adds a font (any OpenType or TrueType file; [index] picks the face in a
+  /// collection) for characters the fonts before it lack.
+  void addFont(Uint8List font, {int index = 0}) {
+    _check();
+    final p = malloc<Uint8>(font.length);
+    try {
+      p.asTypedList(font.length).setAll(0, font);
+      if (_b.addFont(_handle, p, font.length, index) < 0) throw ArgumentError(_lastError(_b));
+    } finally {
+      malloc.free(p);
+    }
+    _upem.clear();
+  }
+
+  /// The characters of [tex] no loaded font can draw ('' when all can).
+  String missingCharacters(String tex, {bool displayMode = true}) {
+    _check();
+    final texP = tex.toNativeUtf8();
+    try {
+      final p = _b.missingChars(_handle, texP, displayMode, nullptr);
+      if (p == nullptr) throw MathParseException(_lastError(_b));
+      final s = p.toDartString();
+      _b.stringFree(p);
+      return s;
+    } finally {
+      malloc.free(texP);
+    }
+  }
 
   /// Caps the work one formula may cost, for input from strangers. Null keeps
   /// a limit's default (256 KB expanded source, 50,000 nodes, 200,000 items).
@@ -225,6 +260,7 @@ class MathEngine {
         ? nullptr
         : macros.entries.map((e) => '${e.key}=${e.value}').join('\n').toNativeUtf8();
     try {
+      if (usesSystemFonts && _b.useSystemFonts(_handle, texP, displayMode, macroP.cast()) > 0) _upem.clear();
       // The C ABI takes 0xRRGGBBAA.
       final rgba = ((argb & 0x00FFFFFF) << 8) | ((argb >> 24) & 0xFF);
       final r = _b.render(_handle, texP, fontSizePx, displayMode, rgba, macroP.cast(), maxWidth ?? 0, hitTesting);

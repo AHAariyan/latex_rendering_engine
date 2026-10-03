@@ -130,3 +130,5 @@ jobs:
           npm install --no-save playwright@1
           npx playwright install --with-deps chromium firefox webkit
           node check.mjs ../../../dist/web/package
+          cp scripts.html ../../../dist/web/package/
+          node scripts.mjs ../../../dist/web/package

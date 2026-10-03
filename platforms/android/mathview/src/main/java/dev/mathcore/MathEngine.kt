@@ -17,9 +17,6 @@ import java.io.Closeable
  */
 class MathEngine private constructor(private var handle: Long) : Closeable {
     companion object {
-        /** The primary plus a small number of fallbacks; more than this is not a font stack. */
-        private const val MAX_FONTS = 8
-
         /** Engine with the bundled font, created on first use. */
         val shared: MathEngine by lazy { bundled() }
 
@@ -46,10 +43,57 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         }
     }
 
-    private val unitsPerEm = FloatArray(MAX_FONTS) { NativeBridge.unitsPerEm(handle, it) }
+    private val unitsPerEm = HashMap<Int, Float>()
 
     /** Font units per em of one font of the chain; a fallback may differ. */
-    fun unitsPerEm(font: Int = 0): Float = unitsPerEm.getOrElse(font) { 0f }
+    @Synchronized
+    fun unitsPerEm(font: Int = 0): Float = unitsPerEm.getOrPut(font) { NativeBridge.unitsPerEm(handle, font) }
+
+    /**
+     * Before each render, find system fonts for characters the engine's own
+     * fonts lack — Bengali, Arabic, Chinese, Thai and every other script the
+     * device can display — so `\text{বাংলা}` draws instead of boxes. On by
+     * default; turn off to use only fonts you add.
+     */
+    @Volatile
+    var usesSystemFonts: Boolean = true
+
+    /** Memory-mapped font files the engine reads from; kept for its lifetime. */
+    private val mappedFonts = ArrayList<java.nio.ByteBuffer>()
+    private val triedFonts = HashSet<String>()
+
+    /**
+     * Adds a font (any OpenType or TrueType file; [index] picks the face in a
+     * collection) for characters the fonts before it lack.
+     */
+    @Synchronized
+    fun addFont(bytes: ByteArray, index: Int = 0) {
+        if (NativeBridge.addFont(handle, bytes, index) < 0) throw IllegalArgumentException(NativeBridge.lastError() ?: "bad font")
+    }
+
+    /** The characters of [tex] no loaded font can draw ("" when all can). */
+    @Synchronized
+    fun missingCharacters(tex: String, displayMode: Boolean = true): String =
+        NativeBridge.missingChars(handle, tex, displayMode) ?: throw MathParseException(NativeBridge.lastError() ?: "parse failed")
+
+    /** Adds system fonts until [tex] is covered or no system font has the rest. */
+    private fun coverWithSystemFonts(tex: String, displayMode: Boolean) {
+        if (!usesSystemFonts) return
+        repeat(12) {
+            val missing = NativeBridge.missingChars(handle, tex, displayMode)
+            if (missing.isNullOrEmpty()) return
+            val font = SystemFontFinder.find(missing.codePointAt(0), triedFonts) ?: return
+            triedFonts.add(font.key)
+            val buffer = try {
+                java.io.RandomAccessFile(font.file, "r").use { f ->
+                    f.channel.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, 0, f.length())
+                }
+            } catch (e: java.io.IOException) {
+                return@repeat
+            }
+            if (NativeBridge.addFontBuffer(handle, buffer, font.index) >= 0) mappedFonts.add(buffer)
+        }
+    }
 
     /** Keyed by font and glyph, since a formula may draw from more than one font. */
     private val paths = HashMap<Int, Path?>()
@@ -75,6 +119,7 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         hitTesting: Boolean = false,
     ): MathLayout {
         val macroText = if (macros.isEmpty()) null else macros.entries.joinToString("\n") { "${it.key}=${it.value}" }
+        coverWithSystemFonts(tex, displayMode)
         val data = NativeBridge.render(handle, tex, fontSizePx, displayMode, color, macroText, maxWidthPx, hitTesting)
             ?: throw MathParseException(NativeBridge.lastError() ?: "render failed")
         return MathLayout(data)

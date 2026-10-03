@@ -256,6 +256,26 @@ pub struct Layouter<'f, 'a> {
     color: Color,
     line_break: Option<LineBreak>,
     hit_testing: bool,
+    /// Characters no font in the chain has, for a host to find fonts for.
+    missing: std::cell::RefCell<std::collections::BTreeSet<char>>,
+}
+
+/// Which font sets a piece of text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Piece {
+    Font(usize),
+    Space,
+    Missing,
+}
+
+fn is_space(c: char) -> bool {
+    c == ' ' || c == '\u{a0}' || c == '\t'
+}
+
+/// Joiners, direction marks and variation selectors: shaped with the
+/// characters around them, never looked up on their own.
+fn is_ignorable(c: char) -> bool {
+    matches!(c as u32, 0x200B..=0x200F | 0x202A..=0x202E | 0x2060..=0x206F | 0xFE00..=0xFE0F | 0xFEFF)
 }
 
 impl<'f, 'a> Layouter<'f, 'a> {
@@ -266,7 +286,13 @@ impl<'f, 'a> Layouter<'f, 'a> {
             color: opts.color,
             line_break: opts.line_break,
             hit_testing: opts.hit_testing,
+            missing: Default::default(),
         }
+    }
+
+    /// Characters the last layouts needed and no font had, in order.
+    pub fn missing_chars(&self) -> Vec<char> {
+        self.missing.borrow().iter().copied().collect()
     }
 
     pub fn layout(&self, nodes: &[Node], display_mode: bool) -> DisplayList {
@@ -402,7 +428,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 let g = self.font.font_at(f).script_variant(g, Self::ssty_level(sty));
                 self.glyph_box_in(f, g, sty)
             }
-            None => self.missing_glyph(sty),
+            None => {
+                self.missing.borrow_mut().insert(ch);
+                self.missing_glyph(sty)
+            }
         }
     }
 
@@ -962,43 +991,147 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let variant = if variant == Variant::Normal { Variant::Roman } else { variant };
         let mut children = Vec::new();
         let mut x = 0.0;
-        for (i, word) in text.split(' ').enumerate() {
-            if i > 0 {
-                x += 0.33 * self.em(sty);
+        // Bold, italic and the other math alphabets exist for Latin, Greek
+        // and digits only; text in any other script is shaped upright.
+        let alphabetic = text.chars().all(|c| c.is_ascii() || styled_char(c, variant) != c || is_space(c));
+        if variant != Variant::Roman && alphabetic {
+            for ch in text.chars() {
+                if is_space(ch) {
+                    x += 0.33 * self.em(sty);
+                    continue;
+                }
+                let b = self.char_box(ch, variant, sty);
+                let w = b.w;
+                children.push(b.at(x, 0.0));
+                x += w;
             }
-            self.text_run(word, variant, sty, &mut x, &mut children);
+        } else {
+            self.shaped_text(text, sty, &mut x, &mut children);
         }
         let mut b = BBox::list(children);
         b.w = x;
         b
     }
 
-    /// Lays out one word. Upright prose is shaped by the font it is set in, so
-    /// it gets that font's kerning and ligatures and, for a right-to-left
-    /// script, its visual order. The other variants map character by character
-    /// through the math alphabets, which carry no shaping data.
-    fn text_run(&self, word: &str, variant: Variant, sty: Sty, x: &mut f32, out: &mut Vec<Placed>) {
-        if variant != Variant::Roman {
-            for ch in word.chars() {
-                let b = self.char_box(ch, variant, sty);
-                let w = b.w;
-                out.push(b.at(*x, 0.0));
-                *x += w;
+    /// Lays out prose the way a text engine does: the Unicode bidi algorithm
+    /// orders right-to-left runs (Arabic, Hebrew) and the numbers inside them;
+    /// each run is split where the font must change (Bengali in the middle
+    /// of English needs another face); each piece is shaped by its font, with
+    /// its kerning, ligatures and, with `complex-text`, joining and reordering.
+    fn shaped_text(&self, text: &str, sty: Sty, x: &mut f32, out: &mut Vec<Placed>) {
+        let info = unicode_bidi::BidiInfo::new(text, None);
+        for para in &info.paragraphs {
+            let (levels, runs) = info.visual_runs(para, para.range.clone());
+            for run in runs {
+                let rtl = levels[run.start].is_rtl();
+                let mut pieces = self.font_pieces(&text[run]);
+                if rtl {
+                    pieces.reverse();
+                }
+                for (k, &(font, piece)) in pieces.iter().enumerate() {
+                    match font {
+                        Piece::Space => {
+                            // A space is as wide as the font around it makes it,
+                            // as TeX's interword glue is (\fontdimen2).
+                            let near = pieces[..k].iter().rev().chain(&pieces[k + 1..]).find_map(|p| match p.0 {
+                                Piece::Font(f) => Some(f),
+                                _ => None,
+                            });
+                            *x += self.space_width(near, sty) * piece.chars().count() as f32
+                        }
+                        Piece::Missing => {
+                            for ch in piece.chars() {
+                                self.missing.borrow_mut().insert(ch);
+                                let b = self.missing_glyph(sty);
+                                let w = b.w;
+                                out.push(b.at(*x, 0.0));
+                                *x += w + 0.05 * self.em(sty);
+                            }
+                        }
+                        Piece::Font(fi) => {
+                            let font = self.font.font_at(fi);
+                            let s = self.em(sty) / font.units_per_em();
+                            for g in font.shape(piece, rtl) {
+                                if g.glyph.0 != 0 {
+                                    let b = self.glyph_box_in(fi, g.glyph, sty);
+                                    out.push(b.at(*x + g.x_offset * s, g.y_offset * s));
+                                }
+                                *x += g.x_advance * s;
+                            }
+                        }
+                    }
+                }
             }
-            return;
         }
-        // Which font sets this word: the text font if it can, else whichever
-        // one has its first character.
-        let fi = word.chars().find_map(|c| self.font.resolve_text(c)).map(|(i, _)| i).unwrap_or(0);
-        let font = self.font.font_at(fi);
-        let s = self.em(sty) / font.units_per_em();
-        for g in font.shape(word) {
-            if g.glyph.0 != 0 {
-                let b = self.glyph_box_in(fi, g.glyph, sty);
-                out.push(b.at(*x + g.x_offset * s, g.y_offset * s));
+    }
+
+    /// The width of an interword space in font `f`, or a third of an em
+    /// (Latin Modern's) when the font has no space glyph.
+    fn space_width(&self, f: Option<usize>, sty: Sty) -> f32 {
+        f.and_then(|f| {
+            let font = self.font.font_at(f);
+            let g = font.glyph_index(' ')?;
+            let adv = font.face().glyph_hor_advance(g)? as f32;
+            (adv > 0.0).then(|| adv / font.units_per_em() * self.em(sty))
+        })
+        .unwrap_or(0.33 * self.em(sty))
+    }
+
+    /// The first font, in text order (the text font, then the chain), that
+    /// has every character of `word`.
+    fn whole_word_font(&self, word: &str) -> Option<usize> {
+        let has_all = |f: usize| {
+            let font = self.font.font_at(f);
+            word.chars().all(|c| is_ignorable(c) || font.glyph_index(c).is_some())
+        };
+        self.font
+            .text_font()
+            .into_iter()
+            .chain(0..=self.font.fallback_count())
+            .find(|&f| has_all(f))
+    }
+
+    /// Splits text into pieces set in one font each, in logical order. A
+    /// character stays in the current piece's font when that font has it, so
+    /// marks and digits keep to the script around them.
+    fn font_pieces<'t>(&self, text: &'t str) -> Vec<(Piece, &'t str)> {
+        let mut out: Vec<(Piece, &'t str)> = Vec::new();
+        let mut start = 0;
+        let mut current: Option<Piece> = None;
+        // A word one font can set entirely is set in that font, so "diện"
+        // does not switch faces at its ệ.
+        let mut word_font: Option<usize> = None;
+        let mut at_word_start = true;
+        for (i, c) in text.char_indices() {
+            if is_space(c) {
+                at_word_start = true;
+            } else if at_word_start {
+                at_word_start = false;
+                let end = text[i..].find(is_space).map_or(text.len(), |e| i + e);
+                word_font = self.whole_word_font(&text[i..end]);
             }
-            *x += g.x_advance * s;
+            let piece = if is_space(c) {
+                Piece::Space
+            } else if is_ignorable(c) {
+                current.unwrap_or(Piece::Missing)
+            } else if let Some(f) = word_font {
+                Piece::Font(f)
+            } else {
+                match current {
+                    Some(Piece::Font(f)) if self.font.font_at(f).glyph_index(c).is_some() => Piece::Font(f),
+                    _ => self.font.resolve_text(c).map_or(Piece::Missing, |(f, _)| Piece::Font(f)),
+                }
+            };
+            if current.is_some_and(|p| p != piece) {
+                out.push((current.unwrap(), &text[start..i]));
+                start = i;
+            }
+            current = Some(piece);
         }
+        if let Some(p) = current {
+            out.push((p, &text[start..]));
+        }
+        out
     }
 
     fn big_op(&self, ch: char, sty: Sty) -> BBox {

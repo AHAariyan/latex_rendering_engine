@@ -39,10 +39,10 @@ data class SpeechNode(
  */
 object MathAccessibility {
     /**
-     * Languages spoken math is available in, as BCP 47 tags. Any other
-     * language reads in English.
+     * Languages spoken math is available in, as BCP 47 tags (35, from Arabic
+     * to Chinese). Any other language reads in English.
      */
-    val languages: List<String> = listOf("en", "es", "fr", "de", "pt", "bn", "hi")
+    val languages: List<String> by lazy { NativeBridge.speechLanguages().split(",") }
 
     /** The device's language, which speech follows unless told otherwise. */
     fun deviceLanguage(): String = Locale.getDefault().toLanguageTag()

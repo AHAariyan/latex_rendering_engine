@@ -6,6 +6,8 @@
 
 use mathcore::{Color, Item, LineBreak, Macros, MathFont, RenderOptions};
 use std::cell::RefCell;
+mod system_fonts;
+
 use std::ffi::{c_char, CStr, CString};
 use ttf_parser::OutlineBuilder;
 
@@ -39,6 +41,12 @@ pub struct MathEngine {
     /// Leaked font bytes; reclaimed in `math_engine_free` after the font is
     /// dropped. Empty when every font is one of the static bundled ones.
     data: Vec<*mut [u8]>,
+    /// System font files mapped by `math_engine_use_system_fonts`, which the
+    /// fonts borrow; unmapped after them.
+    #[cfg(not(target_family = "wasm"))]
+    maps: Vec<memmap2::Mmap>,
+    /// System font files already tried.
+    tried: std::collections::HashSet<std::path::PathBuf>,
     font: MathFont<'static>,
     cache: mathcore::LayoutCache,
     budget: std::sync::Mutex<mathcore::Budget>,
@@ -48,6 +56,9 @@ impl MathEngine {
     fn new(data: Vec<*mut [u8]>, font: MathFont<'static>) -> Self {
         MathEngine {
             data,
+            #[cfg(not(target_family = "wasm"))]
+            maps: Vec::new(),
+            tried: Default::default(),
             font,
             cache: mathcore::LayoutCache::default(),
             budget: std::sync::Mutex::new(mathcore::Budget::default()),
@@ -216,10 +227,223 @@ pub unsafe extern "C" fn math_engine_free(engine: *mut MathEngine) {
     }
     let mut engine = Box::from_raw(engine);
     let data = std::mem::take(&mut engine.data);
+    let maps = std::mem::take(&mut engine.maps);
     drop(engine); // the fonts borrow the buffers, so they go first
+    drop(maps);
     for buf in data {
         drop(Box::from_raw(buf));
     }
+}
+
+/// Adds a text font to the end of the engine's chain, for characters no
+/// font before it has: Bengali, Arabic, CJK, Thai... `index` picks the face
+/// in a collection (`.ttc`), 0 otherwise. The bytes are copied. Returns the
+/// font's index in the chain, or -1 with `math_last_error` set.
+///
+/// Typical use: render, ask `math_engine_missing_chars`, find a system font
+/// that has them, add it, render again.
+///
+/// # Safety
+/// `engine` must be a live engine not in use on another thread during the
+/// call; `data` must point to `len` readable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_add_font(engine: *mut MathEngine, data: *const u8, len: usize, index: u32) -> i32 {
+    clear_error();
+    guard(-1, || {
+        if engine.is_null() {
+            set_error("null engine");
+            return -1;
+        }
+        let Some(buf) = owned(data, len) else {
+            set_error("empty font data");
+            return -1;
+        };
+        match MathFont::from_text_bytes(&*buf, index) {
+            Ok(f) => {
+                (*engine).data.push(buf);
+                add(&mut *engine, f)
+            }
+            Err(e) => {
+                drop(Box::from_raw(buf));
+                set_error(e.to_string());
+                -1
+            }
+        }
+    })
+}
+
+/// `math_engine_add_font` without the copy, for large fonts the host maps
+/// from disk (a 20 MB CJK face).
+///
+/// # Safety
+/// As `math_engine_add_font`, and the `len` bytes at `data` must stay valid
+/// and unchanged until the engine is freed.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_add_font_borrowed(engine: *mut MathEngine, data: *const u8, len: usize, index: u32) -> i32 {
+    clear_error();
+    guard(-1, || {
+        if engine.is_null() || data.is_null() || len == 0 {
+            set_error("null argument");
+            return -1;
+        }
+        let bytes: &'static [u8] = std::slice::from_raw_parts(data, len);
+        match MathFont::from_text_bytes(bytes, index) {
+            Ok(f) => add(&mut *engine, f),
+            Err(e) => {
+                set_error(e.to_string());
+                -1
+            }
+        }
+    })
+}
+
+/// Adds fonts from the system's font folders until every character of
+/// `tex` can be drawn or no system font has the rest: Bengali, Arabic, CJK,
+/// Thai... Returns how many fonts were added, or -1 on a parse error. Fonts
+/// are memory-mapped, not copied. For Dart, Flutter and C hosts; the iOS
+/// and Android SDKs use the platform font APIs instead.
+///
+/// # Safety
+/// As `math_engine_add_font`; `tex` and `macros` as `math_engine_render`.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_use_system_fonts(
+    engine: *mut MathEngine,
+    tex: *const c_char,
+    display_mode: bool,
+    macros: *const c_char,
+) -> i32 {
+    clear_error();
+    guard(-1, || {
+        if engine.is_null() || tex.is_null() {
+            set_error("null argument");
+            return -1;
+        }
+        let Ok(tex) = CStr::from_ptr(tex).to_str() else {
+            set_error("tex is not valid UTF-8");
+            return -1;
+        };
+        let eng = &mut *engine;
+        let opts = RenderOptions {
+            display_mode,
+            macros: macros_from_c(macros),
+            budget: *eng.budget.lock().unwrap_or_else(|p| p.into_inner()),
+            ..RenderOptions::default()
+        };
+        let mut added = 0;
+        for _ in 0..12 {
+            let missing = match mathcore::missing_chars(&eng.font, tex, &opts) {
+                Ok(m) => m,
+                Err(e) => {
+                    set_error(e.to_string());
+                    return -1;
+                }
+            };
+            let Some(&first) = missing.first() else { break };
+            let mut found = false;
+            for path in system_fonts::candidates(first as u32) {
+                if !eng.tried.insert(path.to_path_buf()) {
+                    continue;
+                }
+                let Some((map, index)) = system_fonts::open(path, first as u32) else {
+                    continue;
+                };
+                // SAFETY: the map is kept in the engine and dropped after its fonts.
+                let bytes: &'static [u8] = std::slice::from_raw_parts(map.as_ptr(), map.len());
+                if let Ok(f) = MathFont::from_text_bytes(bytes, index) {
+                    eng.maps.push(map);
+                    add(eng, f);
+                    added += 1;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                break;
+            }
+        }
+        added
+    })
+}
+
+/// The index of the face with this PostScript name in a font file (0 for
+/// a single font), or -1. CoreText and Android name a system font's face but
+/// not its index in a `.ttc`.
+///
+/// # Safety
+/// `data` must point to `len` readable bytes; `postscript_name` must be a
+/// NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_font_face_index(data: *const u8, len: usize, postscript_name: *const c_char) -> i32 {
+    guard(-1, || {
+        if data.is_null() || postscript_name.is_null() {
+            return -1;
+        }
+        let Ok(name) = CStr::from_ptr(postscript_name).to_str() else {
+            return -1;
+        };
+        mathcore::face_index(std::slice::from_raw_parts(data, len), name).map_or(-1, |i| i as i32)
+    })
+}
+
+/// The languages spoken math is available in, as comma-separated BCP 47
+/// tags (`en,es,...,zh-Hans,zh-Hant,...`). Static; do not free.
+#[no_mangle]
+pub extern "C" fn math_speech_languages() -> *const c_char {
+    static TAGS: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
+    TAGS.get_or_init(|| {
+        let tags: Vec<&str> = mathcore::Language::ALL.iter().map(|l| l.tag()).collect();
+        CString::new(tags.join(",")).unwrap()
+    })
+    .as_ptr()
+}
+
+fn add(engine: &mut MathEngine, font: MathFont<'static>) -> i32 {
+    let i = engine.font.add_fallback(font);
+    // Layouts made before may have drawn missing-glyph boxes.
+    engine.cache.clear();
+    i as i32
+}
+
+/// The characters of `tex` that no font in the engine's chain can draw, as
+/// a UTF-8 string (empty when every character is covered). Free it with
+/// `math_string_free`. NULL with `math_last_error` set on a parse error.
+///
+/// # Safety
+/// `engine` must be a live engine; `tex` a NUL-terminated UTF-8 string;
+/// `macros` null or a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_engine_missing_chars(
+    engine: *const MathEngine,
+    tex: *const c_char,
+    display_mode: bool,
+    macros: *const c_char,
+) -> *mut c_char {
+    clear_error();
+    guard(std::ptr::null_mut(), || {
+        if engine.is_null() || tex.is_null() {
+            set_error("null argument");
+            return std::ptr::null_mut();
+        }
+        let Ok(tex) = CStr::from_ptr(tex).to_str() else {
+            set_error("tex is not valid UTF-8");
+            return std::ptr::null_mut();
+        };
+        let opts = RenderOptions {
+            display_mode,
+            macros: macros_from_c(macros),
+            budget: *(*engine).budget.lock().unwrap_or_else(|p| p.into_inner()),
+            ..RenderOptions::default()
+        };
+        match mathcore::missing_chars(&(*engine).font, tex, &opts) {
+            Ok(chars) => CString::new(chars.into_iter().collect::<String>())
+                .map(|s| s.into_raw())
+                .unwrap_or(std::ptr::null_mut()),
+            Err(e) => {
+                set_error(e.to_string());
+                std::ptr::null_mut()
+            }
+        }
+    })
 }
 
 /// # Safety
@@ -765,6 +989,44 @@ mod tests {
             let e = math_engine_new_bundled();
             assert!(!e.is_null());
             assert_eq!(math_engine_units_per_em(e, 0), 1000.0);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn fonts_can_be_added_for_missing_characters() {
+        const NOTO: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        unsafe {
+            let e = math_engine_new_bundled();
+            let tex = CString::new(r"x = \text{שלום}").unwrap();
+            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+            assert_eq!(CStr::from_ptr(missing).to_str().unwrap().chars().count(), 4);
+            math_string_free(missing);
+            assert!(math_engine_add_font(e, NOTO.as_ptr(), NOTO.len(), 0) > 0);
+            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+            assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "");
+            math_string_free(missing);
+            assert_eq!(math_engine_add_font(e, NOTO.as_ptr(), 3, 0), -1);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn system_fonts_cover_other_scripts() {
+        unsafe {
+            let e = math_engine_new_bundled();
+            for text in ["বাংলা", "مرحبا", "你好", "ไทย", "हिन्दी"] {
+                let first = text.chars().next().unwrap() as u32;
+                // A machine without fonts for a script (a bare CI image) can only skip it.
+                if crate::system_fonts::candidates(first).is_empty() {
+                    continue;
+                }
+                let tex = CString::new(format!(r"x = \text{{{text}}}")).unwrap();
+                assert!(math_engine_use_system_fonts(e, tex.as_ptr(), true, std::ptr::null()) >= 1, "{text}");
+                let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+                assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "", "{text}");
+                math_string_free(missing);
+            }
             math_engine_free(e);
         }
     }

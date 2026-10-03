@@ -25,11 +25,16 @@ major platform. No WebView, no JavaScript in the layout path.
 
 ### Accessibility
 
-- Speech in English, Spanish, French, German, Portuguese, Bengali and
-  Hindi, following the device or page language, at three verbosity levels.
+- Speech in 35 languages, from Arabic and Bengali to Chinese, Japanese,
+  Swahili and Urdu, following the device or page language, at three
+  verbosity levels. Each formula structure is a template a language orders
+  its own way; every table is complete (a test enforces it) and was
+  back-translated against the English to catch reversed meanings.
 - A speech tree that VoiceOver and TalkBack users step through part by
   part, each part outlined where it is drawn.
 - Nemeth braille.
+- Text in any writing system inside formulas: bidi, full shaping, and
+  fonts found automatically on every platform.
 - Numbers read as numbers ("9.81", not "9 . 8 1"), `f'` as "f prime",
   `90^\circ` as "90 degrees", siunitx units by name.
 - MathML output.
@@ -47,8 +52,11 @@ major platform. No WebView, no JavaScript in the layout path.
 
 ### Known limitations
 
-- Speech in languages other than English has not yet been reviewed by
-  native speakers.
+- Speech in languages other than English has been machine-written and
+  cross-checked, not yet reviewed by native speakers. Languages that put
+  the verb last (Hindi, Bengali, Tamil, Japanese, Korean...) read
+  relations in a fixed infix form, which is correct but terse.
+- Hebrew word spacing differs slightly from LuaLaTeX's (the glyphs match).
 - Nemeth braille covers the code's core rules.
 - No editing model (a math input field) yet.
 - siunitx options (`[per-mode=symbol]` and the like) are read but not
