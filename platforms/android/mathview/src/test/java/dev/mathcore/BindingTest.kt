@@ -34,11 +34,18 @@ class BindingTest {
     }
 
     @Test fun speechTreeAndVerbosity() {
-        assertEquals("the fraction 1 over 2, end fraction", MathAccessibility.speech("\\frac{1}{2}", SpeechVerbosity.Verbose))
-        val tree = MathAccessibility.speechTree("\\frac{a+b}{c} = 1")
+        assertEquals("the fraction 1 over 2, end fraction", MathAccessibility.speech("\\frac{1}{2}", SpeechVerbosity.Verbose, "en"))
+        val tree = MathAccessibility.speechTree("\\frac{a+b}{c} = 1", language = "en")
         assertEquals("formula", tree.role)
         assertEquals("numerator", tree.children[0].children[0].label)
         assertEquals("numerator: a plus b", tree.children[0].children[0].announcement)
+    }
+
+    @Test fun speechInOtherLanguages() {
+        assertEquals("x al cuadrado", MathAccessibility.speech("x^2", language = "es"))
+        assertEquals("x এর বর্গ", MathAccessibility.speech("x^2", language = "bn-BD"))
+        assertEquals("x squared", MathAccessibility.speech("x^2", language = "ja"))
+        assertEquals("⠭⠘⠆", MathAccessibility.nemeth("x^2"))
     }
 
     @Test fun asciimathChemistryText() {

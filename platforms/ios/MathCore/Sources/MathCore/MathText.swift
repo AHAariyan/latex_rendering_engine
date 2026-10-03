@@ -70,7 +70,7 @@ public struct MathText: View {
             .modifier(TapModifier(layout: layout, onTap: onTap))
             .accessibilityElement()
             .accessibilityAddTraits(.isStaticText)
-            .accessibilityLabel(Text(verbatim: (try? MathEngine.speech(latex)) ?? latex))
+            .accessibilityLabel(Text(verbatim: (try? MathEngine.speech(latex, verbosity: .brief)) ?? latex))
         case .failure(let error):
             Text(verbatim: String(describing: error)).font(.caption).foregroundColor(.red)
         }

@@ -85,6 +85,8 @@ typedef StringFreeD = void Function(Pointer<Utf8>);
 typedef SpeechExC = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Int32);
 typedef SpeechExD = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, int);
 typedef AsciiC = Pointer<Utf8> Function(Pointer<Utf8>);
+typedef SpeechLangC = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Int32, Pointer<Utf8>);
+typedef SpeechLangD = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, int, Pointer<Utf8>);
 typedef BudgetC = Void Function(Pointer<MathEngineOpaque>, Size, Size, Size);
 typedef BudgetD = void Function(Pointer<MathEngineOpaque>, int, int, int);
 typedef CacheC = Void Function(Pointer<MathEngineOpaque>, Size);
@@ -109,6 +111,8 @@ class MathBindings {
         speechTree = lib.lookupFunction<SpeechExC, SpeechExD>('math_speech_tree'),
         asciimathToTex = lib.lookupFunction<AsciiC, AsciiC>('math_asciimath_to_tex'),
         nemeth = lib.lookupFunction<SpeechC, SpeechC>('math_nemeth'),
+        speechLang = lib.lookupFunction<SpeechLangC, SpeechLangD>('math_speech_lang'),
+        speechTreeLang = lib.lookupFunction<SpeechLangC, SpeechLangD>('math_speech_tree_lang'),
         setBudget = lib.lookupFunction<BudgetC, BudgetD>('math_engine_set_budget'),
         setCacheCapacity = lib.lookupFunction<CacheC, CacheD>('math_engine_set_cache_capacity'),
         stringFree = lib.lookupFunction<StringFreeC, StringFreeD>('math_string_free'),
@@ -130,6 +134,8 @@ class MathBindings {
   final SpeechExD speechTree;
   final AsciiC asciimathToTex;
   final SpeechC nemeth;
+  final SpeechLangD speechLang;
+  final SpeechLangD speechTreeLang;
   final BudgetD setBudget;
   final CacheD setCacheCapacity;
   final StringFreeD stringFree;

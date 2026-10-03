@@ -44,7 +44,10 @@ export function load(wasm) {
 /** Verbosity levels for speech: how much scaffolding a listener hears. */
 export const Verbosity = Object.freeze({ verbose: 0, brief: 1, superbrief: 2 });
 
+/** Languages speech is available in, as BCP 47 tags; any other reads in English. */
+export const speechLanguages = Object.freeze(["en", "es", "fr", "de", "pt", "bn", "hi"]);
+
 /** The formula as a tree a screen reader can walk; see index.d.ts. */
-export function speechTree(tex, verbosity = Verbosity.brief, macros) {
-  return JSON.parse(speechTreeJson(tex, verbosity, macros));
+export function speechTree(tex, verbosity = Verbosity.brief, macros, language) {
+  return JSON.parse(speechTreeJson(tex, verbosity, macros, language));
 }

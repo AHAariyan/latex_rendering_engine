@@ -16,6 +16,8 @@ public final class MathView: UIView {
     public var maxWidth: CGFloat = 0 { didSet { relayout() } }
     /// How much scaffolding VoiceOver hears.
     public var speechVerbosity: SpeechVerbosity = .brief { didSet { relayout() } }
+    /// The language VoiceOver hears the formula in (a BCP 47 tag); nil follows the user's.
+    public var speechLanguage: String? { didSet { relayout() } }
     /// Called with the smallest piece of source under a tap.
     public var onTap: ((MathSourceRegion) -> Void)? {
         didSet { tapRecognizer.isEnabled = onTap != nil }
@@ -65,8 +67,9 @@ public final class MathView: UIView {
     }
 
     private func rebuildAccessibility() {
-        let sentence = (try? MathEngine.speech(latex, verbosity: speechVerbosity)) ?? latex
-        guard let layout = layoutResult, let tree = try? MathEngine.speechTree(latex, verbosity: speechVerbosity),
+        let sentence = (try? MathEngine.speech(latex, verbosity: speechVerbosity, language: speechLanguage)) ?? latex
+        guard let layout = layoutResult,
+              let tree = try? MathEngine.speechTree(latex, verbosity: speechVerbosity, language: speechLanguage),
               tree.children.count > 1 else {
             isAccessibilityElement = true
             accessibilityTraits = .staticText
@@ -77,6 +80,7 @@ public final class MathView: UIView {
         isAccessibilityElement = false
         let whole = UIAccessibilityElement(accessibilityContainer: self)
         whole.accessibilityLabel = sentence
+        whole.accessibilityLanguage = speechLanguage ?? MathEngine.deviceLanguage
         whole.accessibilityTraits = .staticText
         whole.accessibilityFrameInContainerSpace = bounds
         var elements: [Any] = [whole]
@@ -85,6 +89,7 @@ public final class MathView: UIView {
             guard let first = rects.first else { continue }
             let e = UIAccessibilityElement(accessibilityContainer: self)
             e.accessibilityLabel = part.label.isEmpty ? part.text : "\(part.label): \(part.text)"
+            e.accessibilityLanguage = whole.accessibilityLanguage
             e.accessibilityTraits = .staticText
             e.accessibilityFrameInContainerSpace = rects.dropFirst().reduce(first) { $0.union($1) }.insetBy(dx: -2, dy: -2)
             elements.append(e)

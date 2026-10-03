@@ -161,7 +161,7 @@ Supports KaTeX's command set and more: text mode with `$...$`, sizes,
     .to_string()
 }
 
-const CHECK: &str = r#"import { load, MathEngine, speech, speechWith, speechTree, asciimathToTex, mathml, Verbosity, CanvasRenderer, version } from "mathcore";
+const CHECK: &str = r#"import { load, MathEngine, speech, speechWith, speechTree, asciimathToTex, mathml, nemeth, Verbosity, CanvasRenderer, version } from "mathcore";
 import assert from "node:assert/strict";
 await load();
 await load(); // idempotent
@@ -172,9 +172,12 @@ const layout = engine.render("\\ce{2H2 + O2 -> 2H2O}", 20, true, 0xff000000, nul
 assert.ok(CanvasRenderer.size(layout).width > 50);
 assert.equal(speech("x^2 + y^2 = z^2"), "x squared plus y squared equals z squared");
 assert.equal(speechWith("\\frac{1}{2}", Verbosity.verbose, null), "the fraction 1 over 2, end fraction");
+assert.equal(speechWith("x^2", Verbosity.brief, null, "de"), "x Quadrat");
+assert.equal(speechTree("x^2", Verbosity.brief, null, "es").text, "x al cuadrado");
 assert.equal(speechTree("\\frac{a+b}{c}").children[0].label, "numerator");
 assert.equal(asciimathToTex("x/y"), "\\frac{x}{y}");
 assert.match(mathml("x", true), /<math/);
+assert.equal(nemeth("x^2"), "⠭⠘⠆");
 assert.throws(() => engine.renderSvg("\\nosuch", 20, true, 0, null, 0), /unknown command/);
 console.log(`mathcore ${version()} OK from the packed tarball`);
 "#;

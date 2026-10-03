@@ -22,8 +22,8 @@ internal object NativeBridge {
     ): FloatArray?
     external fun mathml(tex: String, display: Boolean): String?
     external fun speech(tex: String): String?
-    external fun speechWith(tex: String, verbosity: Int): String?
-    external fun speechTree(tex: String, verbosity: Int): String?
+    external fun speechWith(tex: String, verbosity: Int, language: String?): String?
+    external fun speechTree(tex: String, verbosity: Int, language: String?): String?
     external fun asciimathToTex(source: String): String?
     external fun nemeth(tex: String): String?
     external fun setBudget(handle: Long, maxExpandedBytes: Long, maxNodes: Long, maxItems: Long)

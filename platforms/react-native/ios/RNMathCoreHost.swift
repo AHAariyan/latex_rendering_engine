@@ -79,12 +79,12 @@ public final class RNMathCoreHostView: UIView {
 public final class RNMathCoreBridge: NSObject {
     private static func level(_ v: Double) -> SpeechVerbosity { SpeechVerbosity(rawValue: Int32(v)) ?? .brief }
 
-    @objc public static func speech(_ tex: String, verbosity: Double) throws -> String {
-        try MathEngine.speech(tex, verbosity: level(verbosity))
+    @objc public static func speech(_ tex: String, verbosity: Double, language: String) throws -> String {
+        try MathEngine.speech(tex, verbosity: level(verbosity), language: language.isEmpty ? nil : language)
     }
 
-    @objc public static func speechTreeJson(_ tex: String, verbosity: Double) throws -> String {
-        try MathEngine.speechTreeJson(tex, verbosity: level(verbosity))
+    @objc public static func speechTreeJson(_ tex: String, verbosity: Double, language: String) throws -> String {
+        try MathEngine.speechTreeJson(tex, verbosity: level(verbosity), language: language.isEmpty ? nil : language)
     }
 
     @objc public static func mathml(_ tex: String, displayMode: Bool) throws -> String {

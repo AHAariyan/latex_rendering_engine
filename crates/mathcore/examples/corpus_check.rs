@@ -101,12 +101,19 @@ fn check(font: &MathFont<'_>, tex: &str) -> Result<(), Outcome> {
         mathcore::render(font, tex, &narrow).map_err(|e| Outcome::Violation(format!("line breaking rejects what plain accepts: {e}")))?;
     finite(&broken)?;
 
-    for verbosity in [
-        mathcore::Verbosity::Verbose,
-        mathcore::Verbosity::Brief,
-        mathcore::Verbosity::Superbrief,
-    ] {
-        let so = SpeechOptions { verbosity };
+    // Every verbosity in English, and every language at the default one.
+    let mut readings: Vec<SpeechOptions> = [mathcore::Verbosity::Verbose, mathcore::Verbosity::Superbrief]
+        .into_iter()
+        .map(|verbosity| SpeechOptions {
+            verbosity,
+            ..Default::default()
+        })
+        .collect();
+    readings.extend(mathcore::Language::ALL.map(|language| SpeechOptions {
+        language,
+        ..Default::default()
+    }));
+    for so in readings {
         let tree = mathcore::render_speech_tree(tex, &opts.macros, &so)
             .map_err(|e| Outcome::Violation(format!("speech rejects what layout accepts: {e}")))?;
         nests(&tree, tex.len() as u32)?;

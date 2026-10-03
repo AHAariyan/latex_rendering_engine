@@ -33,5 +33,8 @@ export interface SpeechNode {
   children: SpeechNode[];
 }
 
-/** The formula as a tree a screen reader can walk part by part. */
-export function speechTree(tex: string, verbosity?: 0 | 1 | 2, macros?: string): SpeechNode;
+/** Languages speech is available in, as BCP 47 tags; any other reads in English. */
+export declare const speechLanguages: readonly string[];
+
+/** The formula as a tree a screen reader can walk part by part. `language` is a BCP 47 tag. */
+export function speechTree(tex: string, verbosity?: 0 | 1 | 2, macros?: string, language?: string): SpeechNode;

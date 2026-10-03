@@ -29,7 +29,8 @@ import androidx.compose.ui.unit.sp
  * into lines before relations and binary operators. With it off the formula
  * keeps its natural width, which suits a horizontally scrollable row.
  *
- * TalkBack reads the whole formula, then lets the user step through its parts
+ * TalkBack reads the whole formula, in the device's language unless
+ * [speechLanguage] says otherwise, then lets the user step through its parts
  * (terms, fractions, scripts), each outlined where it is drawn.
  *
  * [onTap] receives the smallest sub-expression under the finger, whose `start`
@@ -48,6 +49,7 @@ fun MathText(
     macros: Map<String, String> = emptyMap(),
     engine: MathEngine = MathEngine.shared,
     speechVerbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+    speechLanguage: String? = null,
     onError: ((String) -> Unit)? = null,
     onTap: ((MathRegion) -> Unit)? = null,
 ) {
@@ -64,10 +66,11 @@ fun MathText(
         val error = (result.exceptionOrNull() as? MathParseException)?.message
         LaunchedEffect(error) { if (error != null) onError?.invoke(error) }
         val layout = result.getOrNull()
-        val spoken = remember(latex, speechVerbosity) { MathAccessibility.speechOrNull(latex, speechVerbosity) }
-        val parts = remember(latex, speechVerbosity, layout) {
+        val language = speechLanguage ?: MathAccessibility.deviceLanguage()
+        val spoken = remember(latex, speechVerbosity, language) { MathAccessibility.speechOrNull(latex, speechVerbosity, language) }
+        val parts = remember(latex, speechVerbosity, language, layout) {
             if (layout == null) emptyList()
-            else MathAccessibility.speechTreeOrNull(latex, speechVerbosity)?.children?.takeIf { it.size > 1 }.orEmpty()
+            else MathAccessibility.speechTreeOrNull(latex, speechVerbosity, language)?.children?.takeIf { it.size > 1 }.orEmpty()
         }
         val w = with(density) { (layout?.width ?: 0f).toDp() }
         val h = with(density) { (layout?.height ?: 0f).toDp() }

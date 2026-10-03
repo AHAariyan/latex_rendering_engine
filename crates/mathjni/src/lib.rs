@@ -314,36 +314,53 @@ fn get(env: &mut JNIEnv, s: &JString) -> Option<String> {
     }
 }
 
-fn verbosity(v: jint) -> mathcore::SpeechOptions {
+fn options(env: &mut JNIEnv, v: jint, language: &JString) -> mathcore::SpeechOptions {
+    let tag: String = if language.is_null() {
+        String::new()
+    } else {
+        env.get_string(language).map(Into::into).unwrap_or_default()
+    };
     mathcore::SpeechOptions {
         verbosity: match v {
             0 => mathcore::Verbosity::Verbose,
             2 => mathcore::Verbosity::Superbrief,
             _ => mathcore::Verbosity::Brief,
         },
+        language: mathcore::Language::from_tag(&tag),
     }
 }
 
 #[no_mangle]
-pub extern "system" fn Java_dev_mathcore_NativeBridge_speechWith(mut env: JNIEnv, _class: JClass, tex: JString, level: jint) -> jstring {
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speechWith(
+    mut env: JNIEnv,
+    _class: JClass,
+    tex: JString,
+    level: jint,
+    language: JString,
+) -> jstring {
     guard(std::ptr::null_mut(), || {
         let Some(tex) = get(&mut env, &tex) else {
             return std::ptr::null_mut();
         };
-        string_result(&env, mathcore::render_speech_with(&tex, &Macros::new(), &verbosity(level)))
+        let opts = options(&mut env, level, &language);
+        string_result(&env, mathcore::render_speech_with(&tex, &Macros::new(), &opts))
     })
 }
 
 #[no_mangle]
-pub extern "system" fn Java_dev_mathcore_NativeBridge_speechTree(mut env: JNIEnv, _class: JClass, tex: JString, level: jint) -> jstring {
+pub extern "system" fn Java_dev_mathcore_NativeBridge_speechTree(
+    mut env: JNIEnv,
+    _class: JClass,
+    tex: JString,
+    level: jint,
+    language: JString,
+) -> jstring {
     guard(std::ptr::null_mut(), || {
         let Some(tex) = get(&mut env, &tex) else {
             return std::ptr::null_mut();
         };
-        string_result(
-            &env,
-            mathcore::render_speech_tree(&tex, &Macros::new(), &verbosity(level)).map(|t| t.to_json()),
-        )
+        let opts = options(&mut env, level, &language);
+        string_result(&env, mathcore::render_speech_tree(&tex, &Macros::new(), &opts).map(|t| t.to_json()))
     })
 }
 

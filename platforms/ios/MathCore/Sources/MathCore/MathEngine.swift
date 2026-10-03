@@ -217,26 +217,40 @@ public final class MathEngine {
         try string { tex.withCString { math_mathml($0, displayMode, nil) } }
     }
 
-    /// A spoken sentence for a formula, for `accessibilityLabel`. Needs no engine.
+    /// A spoken sentence for a formula, for `accessibilityLabel`, in the
+    /// user's preferred language. Needs no engine.
     public static func speech(_ tex: String) throws -> String {
-        try string { tex.withCString { math_speech($0, nil) } }
+        try speech(tex, verbosity: .brief)
     }
 
-    /// `speech` at a chosen verbosity.
-    public static func speech(_ tex: String, verbosity: SpeechVerbosity) throws -> String {
-        try string { tex.withCString { math_speech_ex($0, nil, verbosity.rawValue) } }
+    /// Languages spoken math is available in, as BCP 47 tags. Any other
+    /// language reads in English.
+    public static let speechLanguages = ["en", "es", "fr", "de", "pt", "bn", "hi"]
+
+    /// The user's preferred language, which speech follows unless told otherwise.
+    public static var deviceLanguage: String { Locale.preferredLanguages.first ?? "en" }
+
+    /// `speech` at a chosen verbosity, in a language (a BCP 47 tag; the
+    /// user's preferred language when nil).
+    public static func speech(_ tex: String, verbosity: SpeechVerbosity, language: String? = nil) throws -> String {
+        let lang = language ?? deviceLanguage
+        return try string { tex.withCString { t in lang.withCString { math_speech_lang(t, nil, verbosity.rawValue, $0) } } }
     }
 
     /// The formula as a tree a screen reader can walk part by part. Each
     /// node's `start..<end` is the source range to pass to
     /// `MathLayout.highlight` while that part is read.
-    public static func speechTree(_ tex: String, verbosity: SpeechVerbosity = .brief) throws -> MathSpeechNode {
-        try JSONDecoder().decode(MathSpeechNode.self, from: Data(speechTreeJson(tex, verbosity: verbosity).utf8))
+    public static func speechTree(_ tex: String, verbosity: SpeechVerbosity = .brief,
+                                  language: String? = nil) throws -> MathSpeechNode {
+        try JSONDecoder().decode(MathSpeechNode.self,
+                                 from: Data(speechTreeJson(tex, verbosity: verbosity, language: language).utf8))
     }
 
     /// `speechTree` as the engine's JSON, for hosts that pass it on (React Native, a web view).
-    public static func speechTreeJson(_ tex: String, verbosity: SpeechVerbosity = .brief) throws -> String {
-        try string { tex.withCString { math_speech_tree($0, nil, verbosity.rawValue) } }
+    public static func speechTreeJson(_ tex: String, verbosity: SpeechVerbosity = .brief,
+                                      language: String? = nil) throws -> String {
+        let lang = language ?? deviceLanguage
+        return try string { tex.withCString { t in lang.withCString { math_speech_tree_lang(t, nil, verbosity.rawValue, $0) } } }
     }
 
     /// The formula in Nemeth braille (Unicode braille cells), for braille displays.

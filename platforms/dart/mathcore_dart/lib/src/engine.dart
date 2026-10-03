@@ -146,16 +146,34 @@ class MathEngine {
       _string(tex, (b, t) => b.mathml(t, displayMode, nullptr));
 
   /// A spoken sentence for [tex], for a semantics label. Needs no engine.
-  static String speech(String tex) => _string(tex, (b, t) => b.speech(t, nullptr));
+  static String speech(String tex) => speechWith(tex, SpeechVerbosity.brief);
 
-  /// [speech] at a chosen verbosity.
-  static String speechWith(String tex, SpeechVerbosity verbosity) =>
-      _string(tex, (b, t) => b.speechEx(t, nullptr, verbosity.index));
+  /// Languages spoken math is available in, as BCP 47 tags. Any other
+  /// language reads in English.
+  static const speechLanguages = ['en', 'es', 'fr', 'de', 'pt', 'bn', 'hi'];
+
+  /// The system's language (`bn_BD` becomes `bn-BD`).
+  static String get systemLanguage => Platform.localeName.split('.').first.replaceAll('_', '-');
+
+  /// [speech] at a chosen verbosity, in [language] (a BCP 47 tag; the
+  /// system's language by default).
+  static String speechWith(String tex, SpeechVerbosity verbosity, {String? language}) =>
+      _withLanguage(language, (lang) => _string(tex, (b, t) => b.speechLang(t, nullptr, verbosity.index, lang)));
 
   /// The formula as a tree a screen reader can walk part by part.
-  static SpeechNode speechTree(String tex, {SpeechVerbosity verbosity = SpeechVerbosity.brief}) {
-    final json = _string(tex, (b, t) => b.speechTree(t, nullptr, verbosity.index));
+  static SpeechNode speechTree(String tex, {SpeechVerbosity verbosity = SpeechVerbosity.brief, String? language}) {
+    final json = _withLanguage(
+        language, (lang) => _string(tex, (b, t) => b.speechTreeLang(t, nullptr, verbosity.index, lang)));
     return SpeechNode.fromJson(jsonDecode(json) as Map<String, dynamic>);
+  }
+
+  static String _withLanguage(String? language, String Function(Pointer<Utf8>) call) {
+    final p = (language ?? systemLanguage).toNativeUtf8();
+    try {
+      return call(p);
+    } finally {
+      malloc.free(p);
+    }
   }
 
   /// The formula in Nemeth braille (Unicode braille cells), for braille displays.

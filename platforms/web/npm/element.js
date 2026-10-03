@@ -7,7 +7,8 @@
 // Attributes: `display` (block, breaks to the container width), `asciimath`
 // (the content is AsciiMath), `size` (px; defaults to the surrounding font
 // size), `verbosity` (verbose | brief | superbrief). The element inherits the
-// text colour and reads the formula to screen readers.
+// text colour and reads the formula to screen readers in the page's language
+// (the nearest `lang` attribute): en, es, fr, de, pt, bn or hi.
 import { load, MathEngine, asciimathToTex, speechWith, Verbosity } from "./index.js";
 
 let engine = null;
@@ -83,7 +84,9 @@ export class MathTexElement extends HTMLElement {
         `<style>:host{display:${display ? "block" : "inline-block"};${display ? "text-align:center;margin:1em 0" : ""}}` +
         `svg{display:inline-block;vertical-align:${display ? "top" : `${-descent}px`};overflow:visible}</style>${svg}`;
       const level = Verbosity[this.getAttribute("verbosity")] ?? Verbosity.brief;
-      this.setAttribute("aria-label", speechWith(tex, level, null));
+      // The element's language, as the page declares it, else the browser's.
+      const language = this.closest("[lang]")?.getAttribute("lang") || navigator.language || "en";
+      this.setAttribute("aria-label", speechWith(tex, level, null, language));
       this.removeAttribute("data-error");
     } catch (e) {
       this._root.innerHTML = `<span part="error" style="color:#b00020;font:0.85em monospace">${String(e.message ?? e)

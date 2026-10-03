@@ -35,6 +35,7 @@ class MathText extends StatelessWidget {
     this.wrap = true,
     this.macros = const {},
     this.speechVerbosity = SpeechVerbosity.brief,
+    this.speechLanguage,
     this.errorBuilder,
     this.onTap,
   });
@@ -53,6 +54,10 @@ class MathText extends StatelessWidget {
 
   /// How much scaffolding a screen reader hears.
   final SpeechVerbosity speechVerbosity;
+
+  /// The language a screen reader hears the formula in (a BCP 47 tag);
+  /// null follows the app's locale.
+  final String? speechLanguage;
 
   /// Shown instead of the formula when parsing fails. Defaults to the message in red.
   final Widget Function(BuildContext, String message)? errorBuilder;
@@ -92,9 +97,10 @@ class MathText extends StatelessWidget {
     }
     String? spoken;
     List<SpeechNode> parts = const [];
+    final language = speechLanguage ?? Localizations.maybeLocaleOf(context)?.toLanguageTag();
     try {
-      spoken = MathEngine.speechWith(latex, speechVerbosity);
-      final tree = MathEngine.speechTree(latex, verbosity: speechVerbosity);
+      spoken = MathEngine.speechWith(latex, speechVerbosity, language: language);
+      final tree = MathEngine.speechTree(latex, verbosity: speechVerbosity, language: language);
       if (tree.children.length > 1) parts = tree.children;
     } on MathParseException {
       spoken = null;

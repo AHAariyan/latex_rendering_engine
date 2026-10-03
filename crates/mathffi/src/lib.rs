@@ -529,7 +529,55 @@ fn verbosity_from_c(v: i32) -> mathcore::SpeechOptions {
         2 => mathcore::Verbosity::Superbrief,
         _ => mathcore::Verbosity::Brief,
     };
-    mathcore::SpeechOptions { verbosity }
+    mathcore::SpeechOptions {
+        verbosity,
+        ..Default::default()
+    }
+}
+
+/// # Safety
+/// `language` is null or a NUL-terminated string.
+unsafe fn options_from_c(v: i32, language: *const c_char) -> mathcore::SpeechOptions {
+    let tag = if language.is_null() {
+        ""
+    } else {
+        CStr::from_ptr(language).to_str().unwrap_or("")
+    };
+    mathcore::SpeechOptions {
+        language: mathcore::Language::from_tag(tag),
+        ..verbosity_from_c(v)
+    }
+}
+
+/// `math_speech_ex` in a language: a BCP 47 tag such as "es", "pt-BR" or
+/// "bn" (English for null or an unsupported one).
+///
+/// # Safety
+/// `tex` must be a NUL-terminated UTF-8 string; `macros` and `language` that or null.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_lang(
+    tex: *const c_char,
+    macros: *const c_char,
+    verbosity: i32,
+    language: *const c_char,
+) -> *mut c_char {
+    let opts = options_from_c(verbosity, language);
+    string_out(tex, macros, |t, m| mathcore::render_speech_with(t, m, &opts))
+}
+
+/// `math_speech_tree` in a language, as `math_speech_lang`.
+///
+/// # Safety
+/// As `math_speech_lang`.
+#[no_mangle]
+pub unsafe extern "C" fn math_speech_tree_lang(
+    tex: *const c_char,
+    macros: *const c_char,
+    verbosity: i32,
+    language: *const c_char,
+) -> *mut c_char {
+    let opts = options_from_c(verbosity, language);
+    string_out(tex, macros, |t, m| mathcore::render_speech_tree(t, m, &opts).map(|n| n.to_json()))
 }
 
 /// `math_speech` at a verbosity: 0 verbose, 1 brief (the default), 2 superbrief.

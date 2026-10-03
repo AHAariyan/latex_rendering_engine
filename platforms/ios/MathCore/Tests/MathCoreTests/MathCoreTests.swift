@@ -63,10 +63,17 @@ final class MathCoreTests: XCTestCase {
 
 final class MathCoreFeatureTests: XCTestCase {
     func testSpeechVerbosityAndTree() throws {
-        XCTAssertEqual(try MathEngine.speech(#"\frac{1}{2}"#, verbosity: .verbose), "the fraction 1 over 2, end fraction")
-        let tree = try MathEngine.speechTree(#"\frac{a+b}{c} = 1"#)
+        XCTAssertEqual(try MathEngine.speech(#"\frac{1}{2}"#, verbosity: .verbose, language: "en"), "the fraction 1 over 2, end fraction")
+        let tree = try MathEngine.speechTree(#"\frac{a+b}{c} = 1"#, language: "en")
         XCTAssertEqual(tree.role, "formula")
         XCTAssertEqual(tree.children.first?.children.first?.label, "numerator")
+    }
+
+    func testSpeechInOtherLanguagesAndBraille() throws {
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "es"), "x al cuadrado")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "fr-CA"), "x au carré")
+        XCTAssertEqual(try MathEngine.speech("x^2", verbosity: .brief, language: "ja"), "x squared")
+        XCTAssertEqual(try MathEngine.nemeth("x^2"), "⠭⠘⠆")
     }
 
     func testHighlightCoversAPart() throws {

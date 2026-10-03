@@ -6,9 +6,15 @@ import 'support.dart';
 void main() {
   setUpAll(() => MathEngine.libraryPath = libraryForTests());
 
+  test('speech in other languages and braille', () {
+    expect(MathEngine.speechWith('x^2', SpeechVerbosity.brief, language: 'pt-BR'), 'x ao quadrado');
+    expect(MathEngine.speechWith('x^2', SpeechVerbosity.brief, language: 'hi'), 'x का वर्ग');
+    expect(MathEngine.nemeth('x^2'), '⠭⠘⠆');
+  });
+
   test('speech verbosity and tree', () {
-    expect(MathEngine.speechWith(r'\frac{1}{2}', SpeechVerbosity.verbose), 'the fraction 1 over 2, end fraction');
-    final tree = MathEngine.speechTree(r'\frac{a+b}{c} = 1');
+    expect(MathEngine.speechWith(r'\frac{1}{2}', SpeechVerbosity.verbose, language: 'en'), 'the fraction 1 over 2, end fraction');
+    final tree = MathEngine.speechTree(r'\frac{a+b}{c} = 1', language: 'en');
     expect(tree.role, 'formula');
     expect(tree.children.first.children.first.announcement, 'numerator: a plus b');
   });

@@ -115,6 +115,10 @@ char* math_speech_ex(const char* tex, const char* macros, int32_t verbosity);
  * {"role","label","text","start","end","children":[...]}. start..end is the
  * source byte range to pass to the highlight call while that part is read. */
 char* math_speech_tree(const char* tex, const char* macros, int32_t verbosity);
+/* Speech and the speech tree in a language: a BCP 47 tag such as "es", "fr",
+ * "de", "pt-BR", "bn" or "hi"; English for NULL or an unsupported tag. */
+char* math_speech_lang(const char* tex, const char* macros, int32_t verbosity, const char* language);
+char* math_speech_tree_lang(const char* tex, const char* macros, int32_t verbosity, const char* language);
 /* The formula in Nemeth braille, as Unicode braille cells (U+2800 block). */
 char* math_nemeth(const char* tex, const char* macros);
 /* AsciiMath input ("sum_(i=1)^n i^2") translated to TeX for the calls above. */

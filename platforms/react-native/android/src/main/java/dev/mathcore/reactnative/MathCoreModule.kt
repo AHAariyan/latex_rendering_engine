@@ -9,12 +9,12 @@ import dev.mathcore.SpeechVerbosity
 class MathCoreModule(context: ReactApplicationContext) : NativeMathCoreSpec(context) {
     override fun getName() = NAME
 
-    override fun speech(tex: String, verbosity: Double): String =
-        MathAccessibility.speech(tex, level(verbosity))
+    override fun speech(tex: String, verbosity: Double, language: String): String =
+        MathAccessibility.speech(tex, level(verbosity), language.ifEmpty { MathAccessibility.deviceLanguage() })
 
     // The engine's JSON, untouched: JavaScript parses it.
-    override fun speechTree(tex: String, verbosity: Double): String =
-        MathAccessibility.speechTreeJson(tex, level(verbosity))
+    override fun speechTree(tex: String, verbosity: Double, language: String): String =
+        MathAccessibility.speechTreeJson(tex, level(verbosity), language.ifEmpty { MathAccessibility.deviceLanguage() })
 
     override fun mathml(tex: String, displayMode: Boolean): String = MathAccessibility.mathml(tex, displayMode)
 

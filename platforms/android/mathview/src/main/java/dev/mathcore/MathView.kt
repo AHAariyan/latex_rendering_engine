@@ -50,6 +50,10 @@ open class MathView @JvmOverloads constructor(context: Context, attrs: Attribute
     var speechVerbosity: SpeechVerbosity = SpeechVerbosity.Brief
         set(value) { field = value; relayout() }
 
+    /** The language TalkBack hears the formula in (a BCP 47 tag); null follows the device. */
+    var speechLanguage: String? = null
+        set(value) { field = value; relayout() }
+
     /** Source regions are always recorded now; kept for compatibility. */
     @Deprecated("Regions are always recorded; regionAt works without it.")
     var hitTesting: Boolean = true
@@ -88,8 +92,9 @@ open class MathView @JvmOverloads constructor(context: Context, attrs: Attribute
             error = e.message
             null
         }
-        contentDescription = MathAccessibility.speechOrNull(latex, speechVerbosity) ?: latex
-        val tree = if (layoutResult == null) null else MathAccessibility.speechTreeOrNull(latex, speechVerbosity)
+        val language = speechLanguage ?: MathAccessibility.deviceLanguage()
+        contentDescription = MathAccessibility.speechOrNull(latex, speechVerbosity, language) ?: latex
+        val tree = if (layoutResult == null) null else MathAccessibility.speechTreeOrNull(latex, speechVerbosity, language)
         parts = tree?.children?.takeIf { it.size > 1 } ?: emptyList()
         explorer.invalidateRoot()
     }

@@ -16,6 +16,7 @@ pub mod layout;
 pub mod lexer;
 pub mod macros;
 pub mod parser;
+pub mod speech_lang;
 pub mod symbols;
 
 pub use a11y::{mathml, speech, speech_tree, speech_with, SpeechNode, SpeechOptions, Verbosity};
@@ -27,6 +28,7 @@ pub use font::MathFont;
 pub use layout::{Layouter, LineBreak, RenderOptions};
 pub use macros::Macros;
 pub use parser::{parse, parse_with};
+pub use speech_lang::Language;
 
 /// The fonts every binding embeds: Latin Modern Math, subset to what the
 /// parser can ask for, plus a 5 KB slice of STIX Two Math carrying the handful

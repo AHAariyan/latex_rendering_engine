@@ -18,16 +18,16 @@ static NSString *orThrow(NSString *result, NSError *error)
   return result;
 }
 
-- (NSString *)speech:(NSString *)tex verbosity:(double)verbosity
+- (NSString *)speech:(NSString *)tex verbosity:(double)verbosity language:(NSString *)language
 {
   NSError *error = nil;
-  return orThrow([RNMathCoreBridge speech:tex verbosity:verbosity error:&error], error);
+  return orThrow([RNMathCoreBridge speech:tex verbosity:verbosity language:language error:&error], error);
 }
 
-- (NSString *)speechTree:(NSString *)tex verbosity:(double)verbosity
+- (NSString *)speechTree:(NSString *)tex verbosity:(double)verbosity language:(NSString *)language
 {
   NSError *error = nil;
-  return orThrow([RNMathCoreBridge speechTreeJson:tex verbosity:verbosity error:&error], error);
+  return orThrow([RNMathCoreBridge speechTreeJson:tex verbosity:verbosity language:language error:&error], error);
 }
 
 - (NSString *)mathml:(NSString *)tex displayMode:(BOOL)displayMode

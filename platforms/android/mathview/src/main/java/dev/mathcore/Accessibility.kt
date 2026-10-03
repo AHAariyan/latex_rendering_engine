@@ -1,5 +1,7 @@
 package dev.mathcore
 
+import java.util.Locale
+
 /** How much scaffolding spoken math carries. */
 enum class SpeechVerbosity(internal val level: Int) {
     /** Every structure is opened and closed: "the fraction 1 over 2, end fraction". */
@@ -36,6 +38,15 @@ data class SpeechNode(
  * the engine drew.
  */
 object MathAccessibility {
+    /**
+     * Languages spoken math is available in, as BCP 47 tags. Any other
+     * language reads in English.
+     */
+    val languages: List<String> = listOf("en", "es", "fr", "de", "pt", "bn", "hi")
+
+    /** The device's language, which speech follows unless told otherwise. */
+    fun deviceLanguage(): String = Locale.getDefault().toLanguageTag()
+
     /** Presentation MathML, for assistive technology that consumes it. */
     fun mathml(latex: String, displayMode: Boolean = true): String =
         NativeBridge.mathml(latex, displayMode) ?: throw MathParseException(NativeBridge.lastError() ?: "mathml failed")
@@ -44,20 +55,32 @@ object MathAccessibility {
      * A spoken sentence for TalkBack, suitable for a `contentDescription`.
      * `x^2 + y^2 = z^2` becomes "x squared plus y squared equals z squared".
      */
-    fun speech(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): String =
-        NativeBridge.speechWith(latex, verbosity.level)
+    fun speech(
+        latex: String,
+        verbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+        language: String = deviceLanguage(),
+    ): String =
+        NativeBridge.speechWith(latex, verbosity.level, language)
             ?: throw MathParseException(NativeBridge.lastError() ?: "speech failed")
 
     /** [speech] for a formula that may not parse; null when it does not. */
-    fun speechOrNull(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): String? = try {
-        speech(latex, verbosity)
+    fun speechOrNull(
+        latex: String,
+        verbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+        language: String = deviceLanguage(),
+    ): String? = try {
+        speech(latex, verbosity, language)
     } catch (_: MathParseException) {
         null
     }
 
     /** The formula as a tree a screen reader can walk part by part. */
-    fun speechTree(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): SpeechNode {
-        val json = NativeBridge.speechTree(latex, verbosity.level)
+    fun speechTree(
+        latex: String,
+        verbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+        language: String = deviceLanguage(),
+    ): SpeechNode {
+        val json = NativeBridge.speechTree(latex, verbosity.level, language)
             ?: throw MathParseException(NativeBridge.lastError() ?: "speech failed")
         return SpeechJson(json).node()
     }
@@ -67,13 +90,21 @@ object MathAccessibility {
         NativeBridge.nemeth(latex) ?: throw MathParseException(NativeBridge.lastError() ?: "braille failed")
 
     /** [speechTree] as the engine's JSON, for hosts that pass it on (React Native, a WebView). */
-    fun speechTreeJson(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): String =
-        NativeBridge.speechTree(latex, verbosity.level)
+    fun speechTreeJson(
+        latex: String,
+        verbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+        language: String = deviceLanguage(),
+    ): String =
+        NativeBridge.speechTree(latex, verbosity.level, language)
             ?: throw MathParseException(NativeBridge.lastError() ?: "speech failed")
 
     /** [speechTree] for a formula that may not parse. */
-    fun speechTreeOrNull(latex: String, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): SpeechNode? = try {
-        speechTree(latex, verbosity)
+    fun speechTreeOrNull(
+        latex: String,
+        verbosity: SpeechVerbosity = SpeechVerbosity.Brief,
+        language: String = deviceLanguage(),
+    ): SpeechNode? = try {
+        speechTree(latex, verbosity, language)
     } catch (_: MathParseException) {
         null
     }

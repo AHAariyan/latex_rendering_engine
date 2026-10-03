@@ -86,9 +86,12 @@ export function MathText({
   );
 }
 
-/** A spoken sentence for a formula: "x squared plus y squared equals z squared". */
-export function speech(tex: string, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): string {
-  return NativeMathCore.speech(tex, verbosity);
+/**
+ * A spoken sentence for a formula: "x squared plus y squared equals z squared".
+ * `language` is a BCP 47 tag (en, es, fr, de, pt, bn, hi); the device's by default.
+ */
+export function speech(tex: string, verbosity: SpeechVerbosity = SpeechVerbosity.Brief, language = ''): string {
+  return NativeMathCore.speech(tex, verbosity, language);
 }
 
 /** One part of a formula for a screen reader to step through. */
@@ -103,8 +106,8 @@ export interface SpeechNode {
 }
 
 /** The formula as a tree a screen reader can walk part by part. */
-export function speechTree(tex: string, verbosity: SpeechVerbosity = SpeechVerbosity.Brief): SpeechNode {
-  return JSON.parse(NativeMathCore.speechTree(tex, verbosity));
+export function speechTree(tex: string, verbosity: SpeechVerbosity = SpeechVerbosity.Brief, language = ''): SpeechNode {
+  return JSON.parse(NativeMathCore.speechTree(tex, verbosity, language));
 }
 
 /** Presentation MathML for a formula. */

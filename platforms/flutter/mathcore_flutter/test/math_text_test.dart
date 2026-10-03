@@ -21,10 +21,17 @@ void main() {
 
   testWidgets('renders and reads the whole formula, then its parts', (tester) async {
     final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(app(const MathText(r'\frac{a+b}{c} = 1', fontSize: 24)));
+    await tester.pumpWidget(app(const MathText(r'\frac{a+b}{c} = 1', fontSize: 24, speechLanguage: 'en')));
     expect(find.bySemanticsLabel('the fraction a plus b over c, equals 1'), findsOneWidget);
     expect(find.bySemanticsLabel('equals'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('^the fraction a plus b over c')), findsWidgets);
+    semantics.dispose();
+  });
+
+  testWidgets('speaks the language asked for', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(app(const MathText('x^2', speechLanguage: 'fr')));
+    expect(find.bySemanticsLabel('x au carré'), findsOneWidget);
     semantics.dispose();
   });
 

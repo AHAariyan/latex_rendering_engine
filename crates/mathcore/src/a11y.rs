@@ -15,6 +15,7 @@
 //! it is read.
 
 use crate::ast::*;
+pub use crate::speech_lang::Language;
 use crate::symbols::styled_char;
 use std::fmt::Write;
 
@@ -353,6 +354,7 @@ pub enum Verbosity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SpeechOptions {
     pub verbosity: Verbosity,
+    pub language: Language,
 }
 
 /// One step of a spoken walk through a formula.
@@ -419,7 +421,10 @@ fn json_str(out: &mut String, s: &str) {
 
 /// A spoken rendering of a parsed formula at the given verbosity.
 pub fn speech_with(nodes: &[Node], opts: &SpeechOptions) -> String {
-    let sp = Speaker { v: opts.verbosity };
+    let sp = Speaker {
+        v: opts.verbosity,
+        lang: opts.language,
+    };
     let mut out = String::new();
     sp.say_list(&mut out, nodes);
     tidy(&out)
@@ -429,7 +434,10 @@ pub fn speech_with(nodes: &[Node], opts: &SpeechOptions) -> String {
 /// recorded when the nodes come from `parse_with_spans`; otherwise every
 /// range is `0..0`.
 pub fn speech_tree(nodes: &[Node], opts: &SpeechOptions) -> SpeechNode {
-    let sp = Speaker { v: opts.verbosity };
+    let sp = Speaker {
+        v: opts.verbosity,
+        lang: opts.language,
+    };
     let mut root = sp.tree_list(nodes, String::new());
     if root.role == "row" {
         root.role = "formula";
@@ -468,6 +476,7 @@ fn fill_spans(n: &mut SpeechNode, parent: (u32, u32)) {
 
 struct Speaker {
     v: Verbosity,
+    lang: Language,
 }
 
 fn word(out: &mut String, w: &str) {
@@ -523,10 +532,24 @@ impl Speaker {
 
     /// Closes a structure: always at verbose, after anything longer than a
     /// word at brief, never at superbrief.
+    /// Speaks an English phrase in the chosen language.
+    fn w(&self, out: &mut String, english: &str) {
+        word(out, &crate::speech_lang::translate(self.lang, english));
+    }
+
+    /// A phrase with numbers or words in it: `{}` in the template, filled in order.
+    fn template(&self, out: &mut String, english: &str, args: &[&str]) {
+        let mut t = crate::speech_lang::translate(self.lang, english);
+        for a in args {
+            t = t.replacen("{}", a, 1);
+        }
+        word(out, &t);
+    }
+
     fn close(&self, out: &mut String, simple: bool, end: &str) {
         if self.verbose() {
             word(out, ",");
-            word(out, end);
+            self.w(out, end);
         } else if !self.superbrief() && !simple {
             word(out, ",");
         }
@@ -534,114 +557,114 @@ impl Speaker {
 
     fn say(&self, out: &mut String, n: &Node) {
         match n {
-            Node::Symbol { ch, variant, .. } => word(out, &symbol_name(styled_char(*ch, *variant))),
+            Node::Symbol { ch, variant, .. } => self.w(out, &symbol_name(styled_char(*ch, *variant))),
             Node::Row(v) => self.say_list(out, v),
             Node::Scripts { base, sup, sub } => {
                 let limits = matches!(**base, Node::BigOp { .. } | Node::FnName { .. } | Node::HBrace { .. });
                 if limits {
                     self.say_one(out, base);
                     if let Some(s) = sub {
-                        word(out, "from");
+                        self.w(out, "from");
                         self.say_one(out, s);
                     }
                     if let Some(s) = sup {
-                        word(out, "to");
+                        self.w(out, "to");
                         self.say_one(out, s);
                     }
-                    word(out, "of");
+                    self.w(out, "of");
                     return;
                 }
                 self.say_one(out, base);
                 if let Some(s) = sub {
-                    word(out, "sub");
+                    self.w(out, "sub");
                     self.say_one(out, s);
                     if self.verbose() && sup.is_none() {
-                        word(out, ", end sub");
+                        self.w(out, ", end sub");
                     }
                 }
                 if let Some(s) = sup {
                     match self.said(s).as_str() {
-                        "2" => word(out, "squared"),
-                        "3" => word(out, "cubed"),
+                        "2" => self.w(out, "squared"),
+                        "3" => self.w(out, "cubed"),
                         _ if self.simple(s) => {
-                            word(out, "to the");
+                            self.w(out, "to the");
                             self.say_one(out, s);
                         }
                         _ => {
-                            word(out, if self.superbrief() { "to the" } else { "to the power of" });
+                            self.w(out, if self.superbrief() { "to the" } else { "to the power of" });
                             self.say_one(out, s);
                             self.close(out, false, "end power");
                         }
                     }
                 }
             }
-            Node::BigOp { ch, .. } => word(out, self.the(&big_op_name(*ch))),
+            Node::BigOp { ch, .. } => self.w(out, self.the(&big_op_name(*ch))),
             Node::FnName { name, .. } => word(out, name),
             Node::Frac {
                 num, den, rule, delims, ..
             } => {
                 if delims.is_some() && *rule == FracRule::None {
                     self.say_one(out, num);
-                    word(out, "choose");
+                    self.w(out, "choose");
                     self.say_one(out, den);
                     return;
                 }
                 let short = self.simple(num) && self.simple(den);
                 if self.verbose() || (!short && !self.superbrief()) {
-                    word(out, "the fraction");
+                    self.w(out, "the fraction");
                 }
                 self.say_one(out, num);
-                word(out, "over");
+                self.w(out, "over");
                 self.say_one(out, den);
                 self.close(out, short, "end fraction");
             }
             Node::Sqrt { radicand, index } => {
                 match index {
                     Some(i) => {
-                        if !self.superbrief() {
-                            word(out, "the");
+                        let index = self.said(i);
+                        if index == "3" {
+                            self.w(out, self.the("the cube root of"));
+                        } else {
+                            self.template(out, self.the("the {}th root of"), &[&index]);
                         }
-                        self.say_one(out, i);
-                        word(out, "th root of");
                     }
-                    None => word(out, self.the("the square root of")),
+                    None => self.w(out, self.the("the square root of")),
                 }
                 self.say_one(out, radicand);
                 self.close(out, self.simple(radicand), "end root");
             }
             Node::LeftRight { left, body, right } => {
                 if let Some(c) = left {
-                    word(out, self.the(open_name(*c)));
+                    self.w(out, self.the(open_name(*c)));
                 }
                 self.say_list(out, body);
                 if let Some(c) = right {
                     let close = close_name(*c);
                     if !close.is_empty() {
-                        word(out, close);
+                        self.w(out, close);
                     } else if self.verbose() {
-                        word(out, ", end");
-                        word(out, delimited_name(left.unwrap_or(*c)));
+                        let name = crate::speech_lang::translate(self.lang, delimited_name(left.unwrap_or(*c)));
+                        self.template(out, ", end {}", &[&name]);
                     }
                 }
             }
-            Node::Middle(ch) | Node::SizedDelim { ch, .. } => word(out, &symbol_name(*ch)),
+            Node::Middle(ch) | Node::SizedDelim { ch, .. } => self.w(out, &symbol_name(*ch)),
             Node::Accent { ch, base, .. } => {
                 self.say_one(out, base);
-                word(out, accent_name(*ch));
+                self.w(out, accent_name(*ch));
             }
             Node::Overline(inner) => {
                 self.say_one(out, inner);
-                word(out, "bar");
+                self.w(out, "bar");
             }
             Node::Underline(inner) => {
                 self.say_one(out, inner);
-                word(out, "underlined");
+                self.w(out, "underlined");
             }
             Node::Style { body, .. } | Node::Size { body, .. } => self.say_list(out, body),
             Node::Tagged { body, tag } => {
                 self.say_list(out, body);
-                word(out, ", equation");
-                word(out, self.text_of(tag).trim_matches(['(', ')', ' ']));
+                self.template(out, ", equation {}", &[self.text_of(tag).trim_matches(['(', ')', ' '])]);
             }
             Node::Color { body, .. } => self.say_list(out, body),
             Node::Text { text, .. } => word(out, text.trim()),
@@ -650,15 +673,13 @@ impl Speaker {
                 let rows = a.rows.len();
                 let cols = a.rows.iter().map(|r| r.len()).max().unwrap_or(0);
                 if cols > 1 {
-                    word(
-                        out,
-                        &format!("{} {rows} by {cols} matrix,", if self.superbrief() { "" } else { "the" }),
-                    );
+                    let (r, c) = (rows.to_string(), cols.to_string());
+                    self.template(out, self.the("the {} by {} matrix,"), &[&r, &c]);
                 } else {
-                    word(out, &format!("{rows} rows,"));
+                    self.template(out, "{} rows,", &[&rows.to_string()]);
                 }
                 for (i, r) in a.rows.iter().enumerate() {
-                    word(out, &format!("row {},", i + 1));
+                    self.template(out, "row {},", &[&(i + 1).to_string()]);
                     for (j, cell) in r.iter().enumerate() {
                         if j > 0 {
                             word(out, ",");
@@ -666,57 +687,57 @@ impl Speaker {
                         let before = out.len();
                         self.say_list(out, cell);
                         if out[before..].trim().is_empty() {
-                            word(out, "blank");
+                            self.w(out, "blank");
                         }
                     }
                     word(out, ",");
                 }
                 if self.verbose() {
-                    word(out, if cols > 1 { "end matrix" } else { "end rows" });
+                    self.w(out, if cols > 1 { "end matrix" } else { "end rows" });
                 }
             }
             Node::Phantom { .. } => {}
             Node::OverUnder { base, over, under } => {
                 self.say_one(out, base);
                 if let Some(u) = under {
-                    word(out, "under");
+                    self.w(out, "under");
                     self.say_one(out, u);
                 }
                 if let Some(o) = over {
-                    word(out, "over");
+                    self.w(out, "over");
                     self.say_one(out, o);
                 }
             }
             Node::Boxed(inner) => {
-                word(out, "boxed,");
+                self.w(out, "boxed,");
                 self.say_one(out, inner);
                 if self.verbose() {
-                    word(out, ", end box");
+                    self.w(out, ", end box");
                 }
             }
             Node::Cancel { body, .. } => {
-                word(out, "crossed out,");
+                self.w(out, "crossed out,");
                 self.say_one(out, body);
                 if self.verbose() {
-                    word(out, ", end crossed out");
+                    self.w(out, ", end crossed out");
                 }
             }
             Node::HBrace { base, over } => {
-                word(out, if *over { "over brace of" } else { "under brace of" });
+                self.w(out, if *over { "over brace of" } else { "under brace of" });
                 self.say_one(out, base);
             }
             Node::XArrow { ch, over, under } => {
-                word(out, &symbol_name(*ch));
+                self.w(out, &symbol_name(*ch));
                 // An empty label (`\xrightarrow{}`, a bare `->` in \ce) says nothing.
                 if let Some(o) = over.as_deref().filter(|o| !self.said(o).is_empty()) {
-                    word(out, "with");
+                    self.w(out, "with");
                     self.say_one(out, o);
-                    word(out, "above,");
+                    self.w(out, "above,");
                 }
                 if let Some(u) = under.as_deref().filter(|u| !self.said(u).is_empty()) {
-                    word(out, "with");
+                    self.w(out, "with");
                     self.say_one(out, u);
-                    word(out, "below,");
+                    self.w(out, "below,");
                 }
             }
             Node::Class { body, .. } => self.say_one(out, body),
@@ -1065,7 +1086,7 @@ fn symbol_name(c: char) -> String {
         '∇' => "del",
         'ℏ' => "h bar",
         '→' => "goes to",
-        '←' => "from",
+        '←' => "comes from",
         '↔' => "if and only if",
         '⇒' => "implies",
         '⇐' => "is implied by",
@@ -1293,7 +1314,13 @@ mod tests {
     }
 
     fn spv(tex: &str, verbosity: Verbosity) -> String {
-        speech_with(&parse(tex).unwrap(), &SpeechOptions { verbosity })
+        speech_with(
+            &parse(tex).unwrap(),
+            &SpeechOptions {
+                verbosity,
+                ..Default::default()
+            },
+        )
     }
 
     #[test]
