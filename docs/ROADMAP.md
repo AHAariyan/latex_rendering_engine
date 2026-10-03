@@ -82,4 +82,5 @@ CLI, golden-image tests, CI.
 - [x] Multiple fonts and font fallback for missing glyphs.
 - [x] Layout caching keyed by the whole request (`LayoutCache`, in every binding).
 - [x] Text mode, size commands, `\tag`, AsciiMath input.
-- [ ] Speech in more languages; Nemeth braille.
+- [x] Speech in seven languages (en, es, fr, de, pt, bn, hi); Nemeth braille.
+- [x] amscd `CD` diagrams; `\\` inside brace groups.

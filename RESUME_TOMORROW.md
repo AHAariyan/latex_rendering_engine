@@ -92,11 +92,12 @@ Next, biggest first:
 1. **First release.** Run the Release workflow (needs `NPM_TOKEN`, and
    `RELEASE_TOKEN` plus pub.dev automated publishing for the pub packages).
    Maven Central needs signing keys; GitHub Packages works today.
-2. **Speech in more languages, Nemeth braille.** The tree has the structure;
-   the words are English only.
+2. ~~Speech in more languages, Nemeth braille~~ done: seven languages
+   (src/speech_lang.rs; add a column to PHRASES for another), Nemeth core
+   rules (src/braille.rs). UEB math and more languages next if wanted.
 3. **Editing model** (cursor, selection, incremental relayout) for a math
    input control. Roughly triples scope; decide before more layout work.
-4. **Remaining TeX:** `CD` diagrams, `\\` inside a brace group, `siunitx`.
+4. **Remaining TeX:** `siunitx`, physics macros (`CD` and `\\` in groups done).
 5. **Throughput on pages with hundreds of formulas:** a glyph atlas in the
    platform renderers.
 

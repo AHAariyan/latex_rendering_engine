@@ -96,7 +96,9 @@ works: C++, Python (ctypes, cffi), Go (cgo), C# (P/Invoke), Java (FFM).
 | AsciiMath input | yes | yes | yes | yes | yes | yes |
 | Line breaking to a width | yes | yes | yes | yes | yes | yes |
 | Hit testing, highlight | yes | yes | yes | yes | yes | taps |
-| Speech, verbosity, speech tree | yes | yes | yes | yes | yes | speech |
+| Speech, verbosity, speech tree | yes | yes | yes | yes | yes | yes |
+| Speech languages (en es fr de pt bn hi) | yes | device | device | app locale | page `lang` | device |
+| Nemeth braille | yes | yes | yes | yes | yes | yes |
 | Screen-reader navigation of parts | (host) | VoiceOver | TalkBack | both | aria-label | both |
 | Budgets for untrusted input | yes | yes | yes | yes | (defaults) | (defaults) |
 | Layout cache | yes | yes | yes | yes | yes | yes |

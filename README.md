@@ -110,8 +110,12 @@ Android (AAR), Flutter (Android, iOS, macOS), web (`mathcore` npm package
 with a `<math-tex>` element) and React Native (`react-native-mathcore`), all
 at one version, released by one workflow.
 
-Not yet: an editing model, more speech languages, Nemeth braille, `CD`
-diagrams. See `docs/ROADMAP.md`.
+- **Speech in seven languages** (English, Spanish, French, German,
+  Portuguese, Bengali, Hindi), following the device or page language.
+- **Nemeth braille** output for refreshable braille displays.
+- **Commutative diagrams** (`\begin{CD}`) and line breaks inside groups.
+
+Not yet: an editing model. See `docs/ROADMAP.md`.
 
 ## Try it
 
