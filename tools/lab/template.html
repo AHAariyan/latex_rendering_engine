@@ -1,0 +1,269 @@
+<title>mathcore Test Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a bench on top (type a formula, see three renderers and the
+   accessibility outputs side by side), then the field-by-field record
+   against LaTeX underneath. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --fg: #1d2330;
+  --muted: #5d6677;
+  --line: #dde1e8;
+  --accent: #2f5bd3;
+  --good: #1f7a4d;
+  --warn: #a8670b;
+  --bad: #b3261e;
+  --chip: #eef1f7;
+  --display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --body: "Public Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151c; --surface: #1a1f29; --fg: #e6e9ef; --muted: #9aa3b3; --line: #2c3341;
+    --accent: #7ea2ff; --good: #5fcf96; --warn: #e8b04b; --bad: #ff8a80; --chip: #232a37;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151c; --surface: #1a1f29; --fg: #e6e9ef; --muted: #9aa3b3; --line: #2c3341;
+  --accent: #7ea2ff; --good: #5fcf96; --warn: #e8b04b; --bad: #ff8a80; --chip: #232a37;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; display: grid; gap: 28px; }
+header h1 { font: 600 2rem/1.15 var(--display); margin: 0 0 6px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+h2 { font: 600 1.35rem/1.2 var(--display); margin: 0; text-wrap: balance; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+label.k { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+textarea { width: 100%; min-height: 64px; resize: vertical; font: 15px/1.5 var(--mono); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+textarea:focus, select:focus, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 10px; }
+select, button { font: 14px var(--body); color: var(--fg); background: var(--chip); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chips button { font-size: 13px; padding: 4px 9px; border-radius: 999px; }
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.renderer { display: grid; grid-template-rows: auto 1fr auto; gap: 8px; min-width: 0; }
+.renderer .out { min-height: 96px; display: flex; align-items: center; justify-content: center; overflow-x: auto; padding: 8px 4px; }
+.renderer .out svg { max-width: none; }
+.renderer .out math { font-size: 1.6em; }
+.meta { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.err { color: var(--bad); font: 13px var(--mono); }
+.a11y { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.a11y p { margin: 6px 0 0; }
+.braille { font-size: 22px; letter-spacing: .05em; word-break: break-all; }
+.summary { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.summary th, .summary td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.summary th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.summary tr[data-field] { cursor: pointer; }
+.summary tr[data-field]:hover td, .summary tr.on td { background: var(--chip); }
+.bar { height: 8px; border-radius: 4px; background: var(--chip); width: 160px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--good); }
+.tablewrap { overflow-x: auto; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; min-width: 0; }
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card .name { font: 500 13px var(--mono); overflow-wrap: anywhere; }
+.pill { font: 600 12px var(--body); padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.pill.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.pill.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.pair { display: grid; gap: 6px; }
+.pair .row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; min-width: 0; }
+.pair .row span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.pair .img { overflow-x: auto; min-width: 0; }
+.pair img { display: block; height: auto; max-width: none; }
+.pair .tex { background: #fff; border-radius: 4px; padding: 2px; }
+.card code { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.note { color: var(--muted); font-size: 13px; max-width: 80ch; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>mathcore Test Lab</h1>
+    <p>Type TeX, AsciiMath or chemistry and compare mathcore with MathJax and your browser's built-in MathML, with the spoken and braille output underneath. Below that, 244 formulas from 13 fields, each checked against real LaTeX.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="bench-h">
+    <h2 id="bench-h">Try a formula</h2>
+    <div style="margin-top:12px">
+      <label class="k" for="src">Source</label>
+      <textarea id="src" spellcheck="false">x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}</textarea>
+    </div>
+    <div class="controls">
+      <label><input type="checkbox" id="ascii"> AsciiMath input</label>
+      <label>Speech <select id="lang">
+        <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+        <option value="de">Deutsch</option><option value="pt">Português</option><option value="bn">বাংলা</option><option value="hi">हिन्दी</option>
+      </select></label>
+      <label>Verbosity <select id="verb"><option value="0">verbose</option><option value="1" selected>brief</option><option value="2">superbrief</option></select></label>
+      <label>Width <select id="width"><option value="0" selected>one line</option><option value="320">320 px (phone)</option><option value="520">520 px</option></select></label>
+    </div>
+    <div class="chips" id="chips" aria-label="Examples"></div>
+  </section>
+
+  <section class="three" aria-label="Renderers">
+    <div class="panel renderer"><label class="k">mathcore (this engine)</label><div class="out" id="out-mc"></div><div class="meta" id="t-mc"></div></div>
+    <div class="panel renderer"><label class="k">MathJax 3 (SVG)</label><div class="out" id="out-mj"></div><div class="meta" id="t-mj"></div></div>
+    <div class="panel renderer"><label class="k">Browser MathML (via KaTeX)</label><div class="out" id="out-ml"></div><div class="meta" id="t-ml"></div></div>
+  </section>
+
+  <section class="panel a11y" aria-label="Accessibility output">
+    <div><label class="k">What a screen reader says</label><p id="speech"></p></div>
+    <div><label class="k">Nemeth braille</label><p class="braille" id="braille"></p></div>
+  </section>
+
+  <section aria-labelledby="fields-h" style="display:grid;gap:14px">
+    <h2 id="fields-h">Every field against LaTeX</h2>
+    <p class="note">Each formula was typeset by LuaLaTeX with the same Latin Modern Math font and compared with mathcore's drawing, ink against ink, allowing 0.05 em. A match of 1.00 is the same drawing. Known differences: <code>\binom</code> follows classic TeX, which LuaLaTeX's OpenType mode draws larger, and the LaTeX reference shows <code>\mathbf</code> as regular because its text font had no bold. LaTeX images are on white in both themes.</p>
+    <div class="panel tablewrap"><table class="summary" id="summary"></table></div>
+    <div class="filters">
+      <label>Sort <select id="sort"><option value="worst">lowest match first</option><option value="name">by field</option></select></label>
+      <span class="meta" id="showing"></span>
+    </div>
+    <div class="gallery" id="gallery"></div>
+  </section>
+</div>
+
+<script>window.MathJax = { svg: { fontCache: "local" }, startup: { typeset: false }, options: { enableAssistiveMml: false } };</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/mhchem.min.js"></script>
+<script type="module">
+/*GLUE*/
+const WASM = "/*WASM*/";
+const FIELDS = /*DATA*/;
+
+const bytes = Uint8Array.from(atob(WASM), (c) => c.charCodeAt(0));
+initSync({ module: bytes });
+const engine = new MathEngine();
+const $ = (id) => document.getElementById(id);
+
+function ink() {
+  const c = getComputedStyle(document.body).color.match(/\d+/g).map(Number);
+  return ((255 << 24) | (c[0] << 16) | (c[1] << 8) | c[2]) >>> 0;
+}
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+const EXAMPLES = [
+  ["Quadratic", String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`],
+  ["Gaussian", String.raw`\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}`],
+  ["Matrix", String.raw`A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}`],
+  ["Chemistry", String.raw`\ce{MnO4- + 8H+ + 5e- -> Mn^2+ + 4H2O}`],
+  ["Schrödinger", String.raw`i\hbar \frac{\partial}{\partial t} \Psi = \left[-\frac{\hbar^2}{2m}\nabla^2 + V\right]\Psi`],
+  ["Black–Scholes", String.raw`C = S_0 N(d_1) - K e^{-rT} N(d_2)`],
+  ["Cases", String.raw`f(x) = \begin{cases} x^2 & \text{if } x \ge 0 \\ -x & \text{otherwise} \end{cases}`],
+  ["Diagram", String.raw`\begin{CD} A @>f>> B \\ @VgVV @VVhV \\ C @>>k> D \end{CD}`],
+  ["Long (wraps)", String.raw`f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7`],
+];
+$("chips").innerHTML = EXAMPLES.map(([n], i) => `<button type="button" data-i="${i}">${esc(n)}</button>`).join("") +
+  `<button type="button" data-ascii="sum_(i=1)^n i^2 = (n(n+1)(2n+1))/6">AsciiMath</button>`;
+$("chips").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.ascii) { $("src").value = b.dataset.ascii; $("ascii").checked = true; }
+  else { $("src").value = EXAMPLES[+b.dataset.i][1]; $("ascii").checked = false; }
+  update();
+});
+
+function timed(fn) {
+  const t0 = performance.now();
+  const r = fn();
+  return [r, performance.now() - t0];
+}
+
+function update() {
+  let tex = $("src").value;
+  if ($("ascii").checked) {
+    try { tex = asciimathToTex(tex); } catch (e) { $("out-mc").innerHTML = `<span class="err">${esc(e.message)}</span>`; return; }
+  }
+  const width = +$("width").value;
+  try {
+    const [svg, ms] = timed(() => engine.renderSvg(tex, 28, true, ink(), null, width));
+    $("out-mc").innerHTML = svg;
+    $("t-mc").textContent = `${ms.toFixed(2)} ms`;
+  } catch (e) { $("out-mc").innerHTML = `<span class="err">${esc(e.message)}</span>`; $("t-mc").textContent = ""; }
+  if (window.MathJax?.tex2svg) {
+    try {
+      const [node, ms] = timed(() => MathJax.tex2svg(tex, { display: true, em: 28, ex: 14 }));
+      const err = node.querySelector("[data-mjx-error]");
+      $("out-mj").replaceChildren(err ? Object.assign(document.createElement("span"), { className: "err", textContent: err.getAttribute("data-mjx-error") }) : node);
+      node.style.fontSize = "28px";
+      $("t-mj").textContent = `${ms.toFixed(2)} ms`;
+    } catch (e) { $("out-mj").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  } else { $("out-mj").innerHTML = `<span class="meta">MathJax is loading…</span>`; }
+  if (window.katex) {
+    try {
+      const [html, ms] = timed(() => katex.renderToString(tex, { displayMode: true, output: "mathml", throwOnError: true }));
+      $("out-ml").innerHTML = html;
+      $("t-ml").textContent = `${ms.toFixed(2)} ms · drawn by the browser`;
+    } catch (e) { $("out-ml").innerHTML = `<span class="err">${esc(e.message)}</span>`; $("t-ml").textContent = ""; }
+  }
+  try {
+    $("speech").textContent = speechWith(tex, +$("verb").value, null, $("lang").value);
+    $("braille").textContent = nemeth(tex, null);
+  } catch { $("speech").textContent = ""; $("braille").textContent = ""; }
+}
+for (const id of ["src", "ascii", "lang", "verb", "width"]) $(id).addEventListener("input", update);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { update(); gallery(); });
+new MutationObserver(() => { update(); gallery(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---- fields ------------------------------------------------------------
+const fields = [...new Set(FIELDS.map((f) => f.sector))];
+const pretty = { cs_logic: "CS and logic", linear_algebra: "Linear algebra", number_theory: "Number theory", education: "School maths" };
+const label = (s) => pretty[s] ?? s[0].toUpperCase() + s.slice(1);
+let selected = null;
+
+function summary() {
+  const rows = [...fields, null].map((s) => {
+    const rs = FIELDS.filter((f) => s === null || f.sector === s);
+    const good = rs.filter((f) => f.score >= 0.95).length;
+    const mean = rs.reduce((a, f) => a + f.score, 0) / rs.length;
+    return `<tr ${s ? `data-field="${s}"` : ""} class="${s === selected ? "on" : ""}">
+      <td>${s ? esc(label(s)) : "<b>All fields</b>"}</td><td>${rs.length}</td>
+      <td>${good}/${rs.length}</td><td><div class="bar" title="${(100 * good / rs.length).toFixed(0)}%"><i style="width:${100 * good / rs.length}%"></i></div></td>
+      <td>${mean.toFixed(3)}</td></tr>`;
+  });
+  $("summary").innerHTML = `<thead><tr><th>Field</th><th>Formulas</th><th>Match ≥ 0.95</th><th></th><th>Mean match</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+}
+$("summary").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr");
+  if (!tr) return;
+  selected = tr.dataset.field && tr.dataset.field !== selected ? tr.dataset.field : null;
+  summary(); gallery();
+});
+$("sort").addEventListener("input", gallery);
+
+function grade(s) { return s >= 0.95 ? "good" : s >= 0.85 ? "warn" : "bad"; }
+
+function gallery() {
+  let list = FIELDS.filter((f) => !selected || f.sector === selected);
+  list = $("sort").value === "worst" ? [...list].sort((a, b) => a.score - b.score) : list;
+  $("showing").textContent = `${selected ? label(selected) : "All fields"} · ${list.length} formulas · click a field above to filter`;
+  const color = ink();
+  $("gallery").innerHTML = list.map((f) => {
+    let ours;
+    try { ours = engine.renderSvg(f.tex, 20, true, color, null, 0); } catch (e) { ours = `<span class="err">${esc(e.message)}</span>`; }
+    return `<article class="card"><header><span class="name">${esc(label(f.sector))} · ${esc(f.name)}</span>
+      <span class="pill ${grade(f.score)}">match ${f.score.toFixed(2)}</span></header>
+      <div class="pair"><div class="row"><span>mathcore</span><div class="img">${ours}</div></div>
+      <div class="row"><span>LaTeX</span><div class="img"><img class="tex" alt="LaTeX rendering of ${esc(f.name)}" src="data:image/png;base64,${f.img}" style="width:${f.w / 2}px"></div></div></div>
+      <code>${esc(f.tex)}</code></article>`;
+  }).join("");
+}
+
+summary();
+gallery();
+update();
+let tries = 0;
+const wait = setInterval(() => { if (window.MathJax?.tex2svg || ++tries > 40) { clearInterval(wait); update(); } }, 250);
+</script>
