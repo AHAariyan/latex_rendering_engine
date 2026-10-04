@@ -77,7 +77,7 @@ CLI, golden-image tests, CI.
 - [x] Hit testing: source regions in the display list, exposed on every binding,
       with tap support in the Compose and Flutter widgets.
 - [ ] Selection UI: drag to extend, copy as LaTeX or MathML.
-- [ ] Editing model: cursor and incremental relayout for a math input control.
+- [x] Editing model: a structural editor in the core and a math field on every platform. Open: editing inside matrices and `\text{}`, an on-screen math keyboard beyond iOS, an AppKit field.
 - [x] Chemistry (`mhchem` `\ce`, `\pu`), physics package, siunitx.
 - [x] Multiple fonts and font fallback for missing glyphs.
 - [x] Layout caching keyed by the whole request (`LayoutCache`, in every binding).

@@ -266,27 +266,54 @@ class MathEngine {
       final r = _b.render(_handle, texP, fontSizePx, displayMode, rgba, macroP.cast(), maxWidth ?? 0, hitTesting);
       if (r == nullptr) throw MathParseException(_lastError(_b));
       try {
-        final res = r.ref;
-        final items = List<MathItem>.generate(res.count, (i) {
-          final it = res.items[i];
-          final a = ((it.color & 0xFF) << 24) | (it.color >> 8);
-          return switch (it.kind) {
-            0 => MathGlyph(it.font, it.glyph, it.x, it.y, it.w, a),
-            1 => MathRule(it.x, it.y, it.w, it.h, a),
-            _ => MathLine(it.x, it.y, it.w, it.h, it.thickness, a),
-          };
-        }, growable: false);
-        final regions = List<MathRegion>.generate(res.regionCount, (i) {
-          final g = res.regions[i];
-          return MathRegion(g.start, g.end, g.x, g.y, g.width, g.height, g.depth);
-        }, growable: false);
-        return MathLayout(width: res.width, ascent: res.ascent, descent: res.descent, items: items, regions: regions);
+        return _layoutFrom(r);
       } finally {
         _b.resultFree(r);
       }
     } finally {
       malloc.free(texP);
       if (macroP != nullptr) malloc.free(macroP);
+    }
+  }
+
+  static MathLayout _layoutFrom(Pointer<MathResultStruct> r) {
+    final res = r.ref;
+    final items = List<MathItem>.generate(res.count, (i) {
+      final it = res.items[i];
+      final a = ((it.color & 0xFF) << 24) | (it.color >> 8);
+      return switch (it.kind) {
+        0 => MathGlyph(it.font, it.glyph, it.x, it.y, it.w, a),
+        1 => MathRule(it.x, it.y, it.w, it.h, a),
+        _ => MathLine(it.x, it.y, it.w, it.h, it.thickness, a),
+      };
+    }, growable: false);
+    final regions = List<MathRegion>.generate(res.regionCount, (i) {
+      final g = res.regions[i];
+      return MathRegion(g.start, g.end, g.x, g.y, g.width, g.height, g.depth);
+    }, growable: false);
+    return MathLayout(width: res.width, ascent: res.ascent, descent: res.descent, items: items, regions: regions);
+  }
+
+  /// Lays out an editor (see [MathEditor]), finding system fonts for any
+  /// script typed into it first.
+  MathLayout renderEditor(Pointer<MathEditorOpaque> editor, String tex, double fontSizePx,
+      {bool displayMode = true, int argb = 0xFF000000}) {
+    _check();
+    if (usesSystemFonts) {
+      final texP = tex.toNativeUtf8();
+      try {
+        if (_b.useSystemFonts(_handle, texP, displayMode, nullptr) > 0) _upem.clear();
+      } finally {
+        malloc.free(texP);
+      }
+    }
+    final rgba = ((argb & 0x00FFFFFF) << 8) | ((argb >> 24) & 0xFF);
+    final r = _b.editorRender(editor, _handle, fontSizePx, displayMode, rgba);
+    if (r == nullptr) throw MathParseException(_lastError(_b));
+    try {
+      return _layoutFrom(r);
+    } finally {
+      _b.resultFree(r);
     }
   }
 

@@ -36,6 +36,8 @@ wasm-pack`. The pipeline installs Rust targets itself and says what is missing.
 import MathCore
 MathText(#"x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}"#, fontSize: 22)   // SwiftUI
 let view = MathView(); view.latex = #"\ce{2H2 + O2 -> 2H2O}"#      // UIKit
+MathInput(latex: $answer)                                          // SwiftUI, editable
+let field = MathField(); field.onChange = { tex in ... }           // UIKit, editable
 ```
 
 ### Android
@@ -47,6 +49,8 @@ implementation("dev.mathcore:mathcore-android:1.0.0")
 ```kotlin
 MathText(latex = "\\int_0^1 x^2\\,dx", fontSize = 20.sp)            // Compose
 MathView(context).apply { latex = "x^2" }                           // Views
+MathInput(answer, onValueChange = { answer = it })                  // Compose, editable
+MathField(context).apply { onChange = { tex -> } }                  // Views, editable
 ```
 
 ### Flutter
@@ -58,6 +62,7 @@ dependencies:
 
 ```dart
 MathText(r'\sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6}')
+MathField(controller: controller, onChanged: (tex) {})   // editable
 ```
 
 ### Web
@@ -69,6 +74,9 @@ npm install mathcore
 ```html
 <script type="module">import "mathcore/element";</script>
 <math-tex display>e^{i\pi} + 1 = 0</math-tex>
+
+<script type="module">import "mathcore/field";</script>
+<math-field value="x^2"></math-field>   <!-- editable: field.value, "input" events -->
 ```
 
 ### React Native
@@ -79,6 +87,7 @@ npm install react-native-mathcore
 
 ```tsx
 <MathText latex="\\frac{a}{b}" fontSize={20} />
+<MathField value={answer} onChangeText={setAnswer} />   // editable
 ```
 
 ### C and other languages
@@ -104,6 +113,7 @@ works: C++, Python (ctypes, cffi), Go (cgo), C# (P/Invoke), Java (FFM).
 | Screen-reader navigation of parts | (host) | VoiceOver | TalkBack | both | aria-label | both |
 | Budgets for untrusted input | yes | yes | yes | yes | (defaults) | (defaults) |
 | Layout cache | yes | yes | yes | yes | yes | yes |
+| Math input field | `math_editor_*` | `MathField` | `MathField` | `MathField` | `<math-field>` | `MathField` |
 
 Every SDK can also add a font of your own (`addFont` / `math_engine_add_font`)
 and list what a formula still lacks (`missingCharacters` / `missingChars`).

@@ -20,7 +20,7 @@
     "jsSrcsDir": "src",
     "android": { "javaPackageName": "dev.mathcore.reactnative" },
     "ios": {
-      "componentProvider": { "MathCoreView": "RNMathCoreView" },
+      "componentProvider": { "MathCoreView": "RNMathCoreView", "MathCoreField": "RNMathCoreField" },
       "modulesProvider": { "MathCore": "RNMathCoreModule" }
     }
   }

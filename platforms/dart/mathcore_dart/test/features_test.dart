@@ -29,6 +29,28 @@ void main() {
     expect(engine.render(tex, 32).items.whereType<MathGlyph>().any((g) => g.font > 1), isTrue);
   });
 
+  test('editor: typing, keys, caret, selection, speech', () {
+    final e = MathEditor()..type('x^2');
+    e.key(MathKey.right);
+    e.type('+1/2');
+    expect(e.latex, r'x^{2}+\frac{1}{2}');
+    expect(e.cursorDescription(language: 'en'), 'denominator, 2');
+    final engine = MathEngine.bundled();
+    final l = e.layout(engine, 32);
+    expect(l.caret.height, greaterThan(5));
+    expect(l.caret.y, greaterThan(l.formula.ascent / 2));
+    e.selectAll();
+    expect(e.layout(engine, 32).selection, isNotEmpty);
+    expect(e.selectedLatex, e.latex);
+    e.key(MathKey.backspace);
+    expect(e.latex, '');
+    e.undo();
+    e.tap(0, 10);
+    e.insertLatex(r'\sqrt{y}');
+    expect(e.latex, startsWith(r'\sqrt{y}'));
+    e.dispose();
+  });
+
   test('speech verbosity and tree', () {
     expect(MathEngine.speechWith(r'\frac{1}{2}', SpeechVerbosity.verbose, language: 'en'), 'the fraction 1 over 2, end fraction');
     final tree = MathEngine.speechTree(r'\frac{a+b}{c} = 1', language: 'en');

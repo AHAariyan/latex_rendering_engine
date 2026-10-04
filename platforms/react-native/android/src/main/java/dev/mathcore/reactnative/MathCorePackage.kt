@@ -9,7 +9,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class MathCorePackage : BaseReactPackage() {
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
-        listOf(MathCoreViewManager())
+        listOf(MathCoreViewManager(), MathCoreFieldManager())
 
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? =
         if (name == MathCoreModule.NAME) MathCoreModule(reactContext) else null

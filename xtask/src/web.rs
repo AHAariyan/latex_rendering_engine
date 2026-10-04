@@ -149,6 +149,21 @@ Inline formulas sit on the text baseline and take its size and colour;
 `display` formulas break to the container's width. Every element carries a
 spoken `aria-label`.
 
+## The input field
+
+```html
+<script type="module">import "mathcore/field";</script>
+<math-field value="x^2" placeholder="your answer"></math-field>
+```
+
+An editable formula. Type as you would write: `/` turns the term before it
+into a fraction, `^` and `_` open a script, `(` opens a pair, `sqrt`, `pi`,
+`sin` or `\alpha` become what they name; arrows walk into and out of
+structures. `field.value` is the TeX; `input` fires on every change and
+`change` on blur. `field.command("frac")` and `field.type("^2")` are for
+toolbar buttons. A screen reader hears the formula and, after each key, where
+the cursor is, in the page's language.
+
 ## The API
 
 ```js

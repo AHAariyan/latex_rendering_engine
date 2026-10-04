@@ -145,12 +145,15 @@ fn example_app(tgz: &Path) -> Result {
     Ok(())
 }
 
-const EXAMPLE_APP: &str = r#"import { useState } from 'react';
-import { ScrollView, Text, StyleSheet, View } from 'react-native';
-import { MathText, speech, asciimathToTex, SpeechVerbosity } from 'react-native-mathcore';
+const EXAMPLE_APP: &str = r#"import { useRef, useState } from 'react';
+import { Button, ScrollView, Text, StyleSheet, View } from 'react-native';
+import { MathField, MathText, speech, asciimathToTex, SpeechVerbosity } from 'react-native-mathcore';
+import type { MathFieldHandle } from 'react-native-mathcore';
 
 export default function App() {
   const [tapped, setTapped] = useState('');
+  const [answer, setAnswer] = useState('x^2');
+  const field = useRef<MathFieldHandle>(null);
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -162,6 +165,13 @@ export default function App() {
           fontSize={20}
           speechVerbosity={SpeechVerbosity.Verbose}
         />
+        <MathField ref={field} value={answer} onChangeText={setAnswer} placeholder="your answer" />
+        <View style={styles.row}>
+          <Button title="fraction" onPress={() => field.current?.command('frac')} />
+          <Button title="root" onPress={() => field.current?.command('sqrt')} />
+          <Button title="x²" onPress={() => field.current?.type('^2')} />
+        </View>
+        <Text testID="answer">Answer: {answer}</Text>
         <Text>Tapped: {tapped}</Text>
         <Text>{speech('x^2 + y^2 = z^2')}</Text>
         <Text>{asciimathToTex('sqrt(x)/2')}</Text>
@@ -173,5 +183,6 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, paddingTop: 60 },
   content: { padding: 16, gap: 12 },
+  row: { flexDirection: 'row', gap: 8 },
 });
 "#;

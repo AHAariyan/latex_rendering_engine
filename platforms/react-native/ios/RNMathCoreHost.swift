@@ -99,3 +99,76 @@ public final class RNMathCoreBridge: NSObject {
         try MathEngine.asciimathToTex(source)
     }
 }
+
+/// The engine's MathField behind the React Native component.
+@objc(RNMathCoreFieldHost)
+public final class RNMathCoreFieldHost: UIView {
+    private let field = MathField()
+
+    @objc public var value: String = ""
+    @objc public var fontSize: CGFloat = 20
+    @objc public var color: UIColor = .label
+    @objc public var cursorColor: UIColor?
+    @objc public var placeholder: String = ""
+    @objc public var editable: Bool = true
+
+    /// Content size in points, whenever it changes.
+    @objc public var onSize: ((CGFloat, CGFloat) -> Void)?
+    /// The new TeX after every change.
+    @objc public var onChange: ((String) -> Void)?
+
+    @objc public private(set) var reported = CGSize(width: -1, height: -1)
+    private var applied: String?
+
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(field)
+        field.onChange = { [weak self] tex in
+            self?.applied = tex
+            self?.onChange?(tex)
+            self?.report()
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used from a storyboard") }
+
+    @objc public func prepareForReuse() {
+        reported = CGSize(width: -1, height: -1)
+        applied = nil
+        field.latex = ""
+    }
+
+    @objc public func commit() {
+        field.fontSize = fontSize
+        field.textColor = color
+        if let c = cursorColor { field.tintColor = c }
+        field.placeholder = placeholder
+        field.isEditable = editable
+        // The value JavaScript echoes back after a change is the one held:
+        // leave the cursor where it is.
+        if value != applied, value != field.latex {
+            field.latex = value
+        }
+        applied = value
+        report()
+    }
+
+    @objc public func runCommand(_ name: String) { field.command(name) }
+    @objc public func typeText(_ text: String) { field.type(text) }
+    @objc public func focusField() { field.becomeFirstResponder() }
+    @objc public func blurField() { field.resignFirstResponder() }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        let size = field.intrinsicContentSize
+        field.frame = CGRect(x: 0, y: 0, width: max(size.width, bounds.width), height: max(size.height, bounds.height))
+    }
+
+    private func report() {
+        let size = field.intrinsicContentSize
+        setNeedsLayout()
+        guard abs(size.width - reported.width) > 0.25 || abs(size.height - reported.height) > 0.25 else { return }
+        reported = size
+        onSize?(size.width, size.height)
+    }
+}

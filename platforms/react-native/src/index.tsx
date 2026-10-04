@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import type { ColorValue, StyleProp, ViewStyle } from 'react-native';
 import MathCoreView from './MathCoreViewNativeComponent';
+import MathCoreField, { Commands as FieldCommands } from './MathCoreFieldNativeComponent';
 import NativeMathCore from './NativeMathCore';
 
 /** How much scaffolding a screen reader hears. */
@@ -86,9 +87,76 @@ export function MathText({
   );
 }
 
+export interface MathFieldProps {
+  /** The formula as TeX. */
+  value?: string;
+  /** Called with the new TeX after every change. */
+  onChangeText?: (latex: string) => void;
+  /** Em size in density-independent pixels. Default 20. */
+  fontSize?: number;
+  color?: ColorValue;
+  cursorColor?: ColorValue;
+  placeholder?: string;
+  editable?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
+
+/** What a `ref` to a MathField can do, for toolbar buttons. */
+export interface MathFieldHandle {
+  /** Runs an editor command: `frac`, `sqrt`, `nthroot`, `alpha`... */
+  command(name: string): void;
+  /** Types text as the keyboard would: `/` makes a fraction, `^` a superscript. */
+  type(text: string): void;
+  focus(): void;
+  blur(): void;
+}
+
+/**
+ * An editable formula: a text field for mathematics. Type as you would
+ * write (`/` for a fraction, `^` for a superscript, `sqrt`, `pi`...); arrows
+ * walk into and out of structures. VoiceOver and TalkBack hear the formula
+ * and, after each key, where the cursor is.
+ */
+export const MathField = forwardRef<MathFieldHandle, MathFieldProps>(function MathField(
+  { value, onChangeText, fontSize = 20, color, cursorColor, placeholder = '', editable = true, style },
+  ref,
+) {
+  const native = useRef<React.ElementRef<typeof MathCoreField>>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      command: (name) => native.current && FieldCommands.runCommand(native.current, name),
+      type: (text) => native.current && FieldCommands.typeText(native.current, text),
+      focus: () => native.current && FieldCommands.focus(native.current),
+      blur: () => native.current && FieldCommands.blur(native.current),
+    }),
+    [],
+  );
+  const onMathSize = useCallback((e: { nativeEvent: { width: number; height: number } }) => {
+    const { width, height } = e.nativeEvent;
+    setSize((s) => (s && Math.abs(s.width - width) < 0.5 && Math.abs(s.height - height) < 0.5 ? s : { width, height }));
+  }, []);
+  const onMathChange = useCallback((e: { nativeEvent: { latex: string } }) => onChangeText?.(e.nativeEvent.latex), [onChangeText]);
+  return (
+    <MathCoreField
+      ref={native}
+      value={value}
+      fontSize={fontSize}
+      color={color}
+      cursorColor={cursorColor}
+      placeholder={placeholder}
+      editable={editable}
+      style={[{ minWidth: size?.width ?? fontSize * 3, height: size?.height ?? fontSize * 2 }, style]}
+      onMathSize={onMathSize}
+      onMathChange={onMathChange}
+    />
+  );
+});
+
 /**
  * A spoken sentence for a formula: "x squared plus y squared equals z squared".
- * `language` is a BCP 47 tag (en, es, fr, de, pt, bn, hi); the device's by default.
+ * `language` is a BCP 47 tag, one of 35 languages (en, es, bn, ar, zh-Hans, ja...); the device's by default.
  */
 export function speech(tex: string, verbosity: SpeechVerbosity = SpeechVerbosity.Brief, language = ''): string {
   return NativeMathCore.speech(tex, verbosity, language);

@@ -132,7 +132,16 @@ at one version, released by one workflow.
 - **Nemeth braille** output for refreshable braille displays.
 - **Commutative diagrams** (`\begin{CD}`) and line breaks inside groups.
 
-Not yet: an editing model. See `docs/ROADMAP.md`.
+- **A math input field** on every platform: `<math-field>` (web), `MathField`
+  and SwiftUI `MathInput` (iOS), `MathField` and Compose `MathInput`
+  (Android), `MathField` (Flutter, React Native), `math_editor_*` (C). Type
+  as you would write: `/` turns the term before it into a fraction, `^` and
+  `_` open a script, `(` opens a pair, `sqrt`, `pi`, `sin` or `\alpha` become
+  what they name; arrows walk into and out of structures; Backspace takes a
+  structure apart. Selection, undo, copy and paste as TeX. A screen reader
+  hears the formula and, after each key, where the cursor is ("denominator,
+  2"), in the 35 speech languages. One model in the core, so every platform
+  edits identically; 200,000 random keystrokes without a broken state.
 
 ## Try it
 

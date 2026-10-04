@@ -23,6 +23,15 @@ major platform. No WebView, no JavaScript in the layout path.
 - Checked against LuaLaTeX: common formulas within 1–2%, almost all
   within 5%.
 
+### Editing
+
+- A math input field on every platform, backed by one editor model in the
+  core: structural typing (`/`, `^`, `_`, brackets, `\commands`, automatic
+  `sqrt`, `pi`, `sin`...), arrow navigation through structures, selection,
+  undo and redo, copy and paste as TeX, a caret and selection placed from
+  the engine's own layout, and screen-reader announcements of the cursor's
+  place in 35 languages.
+
 ### Accessibility
 
 - Speech in 35 languages, from Arabic and Bengali to Chinese, Japanese,
@@ -58,7 +67,10 @@ major platform. No WebView, no JavaScript in the layout path.
   relations in a fixed infix form, which is correct but terse.
 - Hebrew word spacing differs slightly from LuaLaTeX's (the glyphs match).
 - Nemeth braille covers the code's core rules.
-- No editing model (a math input field) yet.
+- The math field edits fractions, roots, scripts and bracket pairs;
+  matrices and `\text{}` are kept as single units, not edited inside. No
+  on-screen math keyboard on Android, Flutter or the web yet (iOS has a key
+  bar); the field has no native macOS (AppKit) view.
 - siunitx options (`[per-mode=symbol]` and the like) are read but not
   applied: output follows siunitx's defaults. Unit names are spoken in
   English only; other languages read the symbols.

@@ -154,6 +154,12 @@ public final class MathField: UIView, UIKeyInput {
         }
     }
 
+    /// Runs an editor command (`frac`, `sqrt`, `alpha`...), for toolbar buttons.
+    public func command(_ name: String) { changed { editor.command(name) } }
+
+    /// Types text as the keyboard would, for on-screen keys.
+    public func type(_ text: String) { changed { editor.type(text) } }
+
     @objc private func tapped(_ g: UITapGestureRecognizer) {
         if !isFirstResponder { becomeFirstResponder() }
         let p = g.location(in: self), o = origin

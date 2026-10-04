@@ -92,6 +92,24 @@ typedef BudgetD = void Function(Pointer<MathEngineOpaque>, int, int, int);
 typedef CacheC = Void Function(Pointer<MathEngineOpaque>, Size);
 typedef CacheD = void Function(Pointer<MathEngineOpaque>, int);
 typedef LastErrorC = Pointer<Utf8> Function();
+final class MathEditorOpaque extends Opaque {}
+
+typedef EdNewC = Pointer<MathEditorOpaque> Function();
+typedef EdFreeC = Void Function(Pointer<MathEditorOpaque>);
+typedef EdFreeD = void Function(Pointer<MathEditorOpaque>);
+typedef EdTextC = Void Function(Pointer<MathEditorOpaque>, Pointer<Utf8>);
+typedef EdTextD = void Function(Pointer<MathEditorOpaque>, Pointer<Utf8>);
+typedef EdGetC = Pointer<Utf8> Function(Pointer<MathEditorOpaque>);
+typedef EdKeyC = Bool Function(Pointer<MathEditorOpaque>, Pointer<Utf8>, Bool, Bool);
+typedef EdKeyD = bool Function(Pointer<MathEditorOpaque>, Pointer<Utf8>, bool, bool);
+typedef EdRenderC = Pointer<MathResultStruct> Function(Pointer<MathEditorOpaque>, Pointer<MathEngineOpaque>, Float, Bool, Uint32);
+typedef EdRenderD = Pointer<MathResultStruct> Function(Pointer<MathEditorOpaque>, Pointer<MathEngineOpaque>, double, bool, int);
+typedef EdCaretC = Void Function(Pointer<MathEditorOpaque>, Pointer<Float>);
+typedef EdCaretD = void Function(Pointer<MathEditorOpaque>, Pointer<Float>);
+typedef EdSelC = Pointer<Float> Function(Pointer<MathEditorOpaque>, Pointer<Size>);
+typedef EdTapC = Void Function(Pointer<MathEditorOpaque>, Float, Float);
+typedef EdTapD = void Function(Pointer<MathEditorOpaque>, double, double);
+typedef EdSpeechC = Pointer<Utf8> Function(Pointer<MathEditorOpaque>, Pointer<Utf8>);
 typedef AddFontC = Int32 Function(Pointer<MathEngineOpaque>, Pointer<Uint8>, Size, Uint32);
 typedef AddFontD = int Function(Pointer<MathEngineOpaque>, Pointer<Uint8>, int, int);
 typedef MissingC = Pointer<Utf8> Function(Pointer<MathEngineOpaque>, Pointer<Utf8>, Bool, Pointer<Utf8>);
@@ -127,7 +145,22 @@ class MathBindings {
         addFont = lib.lookupFunction<AddFontC, AddFontD>('math_engine_add_font'),
         missingChars = lib.lookupFunction<MissingC, MissingD>('math_engine_missing_chars'),
         useSystemFonts = lib.lookupFunction<SystemFontsC, SystemFontsD>('math_engine_use_system_fonts'),
-        speechLanguages = lib.lookupFunction<VersionC, VersionC>('math_speech_languages');
+        speechLanguages = lib.lookupFunction<VersionC, VersionC>('math_speech_languages'),
+        editorNew = lib.lookupFunction<EdNewC, EdNewC>('math_editor_new'),
+        editorFree = lib.lookupFunction<EdFreeC, EdFreeD>('math_editor_free'),
+        editorSetTex = lib.lookupFunction<EdTextC, EdTextD>('math_editor_set_tex'),
+        editorTex = lib.lookupFunction<EdGetC, EdGetC>('math_editor_tex'),
+        editorSelectedTex = lib.lookupFunction<EdGetC, EdGetC>('math_editor_selected_tex'),
+        editorType = lib.lookupFunction<EdTextC, EdTextD>('math_editor_type'),
+        editorInsertTex = lib.lookupFunction<EdTextC, EdTextD>('math_editor_insert_tex'),
+        editorCommand = lib.lookupFunction<EdTextC, EdTextD>('math_editor_command'),
+        editorKey = lib.lookupFunction<EdKeyC, EdKeyD>('math_editor_key'),
+        editorRender = lib.lookupFunction<EdRenderC, EdRenderD>('math_editor_render'),
+        editorCaret = lib.lookupFunction<EdCaretC, EdCaretD>('math_editor_caret'),
+        editorSelection = lib.lookupFunction<EdSelC, EdSelC>('math_editor_selection'),
+        editorTap = lib.lookupFunction<EdTapC, EdTapD>('math_editor_tap'),
+        editorDescribe = lib.lookupFunction<EdSpeechC, EdSpeechC>('math_editor_describe'),
+        editorSpeech = lib.lookupFunction<EdSpeechC, EdSpeechC>('math_editor_speech');
 
   final NewD engineNew;
   final NewBundledC engineNewBundled;
@@ -152,6 +185,21 @@ class MathBindings {
   final MissingD missingChars;
   final SystemFontsD useSystemFonts;
   final VersionC speechLanguages;
+  final EdNewC editorNew;
+  final EdFreeD editorFree;
+  final EdTextD editorSetTex;
+  final EdGetC editorTex;
+  final EdGetC editorSelectedTex;
+  final EdTextD editorType;
+  final EdTextD editorInsertTex;
+  final EdTextD editorCommand;
+  final EdKeyD editorKey;
+  final EdRenderD editorRender;
+  final EdCaretD editorCaret;
+  final EdSelC editorSelection;
+  final EdTapD editorTap;
+  final EdSpeechC editorDescribe;
+  final EdSpeechC editorSpeech;
   final StringFreeD stringFree;
   final LastErrorC lastError;
   final VersionC version;
