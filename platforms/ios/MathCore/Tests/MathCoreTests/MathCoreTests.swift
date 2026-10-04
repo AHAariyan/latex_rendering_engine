@@ -91,6 +91,33 @@ final class MathCoreFeatureTests: XCTestCase {
         XCTAssertTrue(layout.items.contains { if case .glyph(let f, _, _, _, _, _) = $0 { return f > 1 } else { return false } })
     }
 
+    func testEditorTypesNavigatesAndReportsACaret() throws {
+        let e = MathEditor()
+        e.type("x^2")
+        e.key(.right)
+        e.type("+1/2")
+        XCTAssertEqual(e.latex, #"x^{2}+\frac{1}{2}"#)
+        XCTAssertEqual(e.cursorDescription(language: "en"), "denominator, 2")
+        XCTAssertEqual(e.cursorDescription(language: "es"), "denominador, 2")
+        let l = try e.layout(fontSize: 30)
+        XCTAssertGreaterThan(l.caret.height, 5)
+        XCTAssertGreaterThan(l.caret.minY, l.formula.ascent / 2)
+        e.selectAll()
+        XCTAssertEqual(try e.layout(fontSize: 30).selection.isEmpty, false)
+        XCTAssertEqual(e.selectedLatex, e.latex)
+        e.key(.backspace)
+        XCTAssertEqual(e.latex, "")
+        e.undo()
+        XCTAssertEqual(e.latex, #"x^{2}+\frac{1}{2}"#)
+        e.tap(at: .zero)
+        e.insert(latex: #"\sqrt{y}"#)
+        XCTAssertTrue(e.latex.hasPrefix(#"\sqrt{y}"#))
+        // Typing another script finds its font.
+        e.latex = ""
+        e.type("ক")
+        XCTAssertTrue(try e.layout(fontSize: 30).formula.items.contains { if case .glyph(let f, _, _, _, _, _) = $0 { return f > 1 } else { return false } })
+    }
+
     func testHighlightCoversAPart() throws {
         let tex = #"a + \frac{b}{c}"#
         let layout = try MathEngine.shared.render(tex, fontSize: 32, hitTesting: true)

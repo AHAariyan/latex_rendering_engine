@@ -614,3 +614,204 @@ mod tests {
         assert_eq!(e.font.text_font(), Some(2));
     }
 }
+
+// ---- The editor ----
+
+pub struct EditorHandle {
+    editor: mathcore::Editor,
+    last: Option<mathcore::EditorLayout>,
+}
+
+fn editor<'a>(handle: jlong) -> Option<&'a mut EditorHandle> {
+    if handle == 0 {
+        set_error("editor handle is null");
+        return None;
+    }
+    // SAFETY: handles are only produced by editorCreate and freed once; the
+    // Kotlin side serializes calls on one editor.
+    Some(unsafe { &mut *(handle as *mut EditorHandle) })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorCreate(_env: JNIEnv, _class: JClass) -> jlong {
+    Box::into_raw(Box::new(EditorHandle {
+        editor: mathcore::Editor::new(),
+        last: None,
+    })) as jlong
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorDestroy(_env: JNIEnv, _class: JClass, handle: jlong) {
+    if handle != 0 {
+        // SAFETY: see `editor`.
+        unsafe { drop(Box::from_raw(handle as *mut EditorHandle)) };
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorSetTex(mut env: JNIEnv, _class: JClass, handle: jlong, tex: JString) {
+    guard((), || {
+        if let (Some(e), Some(tex)) = (editor(handle), get(&mut env, &tex)) {
+            e.editor = mathcore::Editor::from_tex(&tex);
+            e.last = None;
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorTex(env: JNIEnv, _class: JClass, handle: jlong) -> jstring {
+    guard(std::ptr::null_mut(), || match editor(handle) {
+        Some(e) => string_result(&env, Ok(e.editor.tex())),
+        None => std::ptr::null_mut(),
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorSelectedTex(env: JNIEnv, _class: JClass, handle: jlong) -> jstring {
+    guard(std::ptr::null_mut(), || match editor(handle) {
+        Some(e) => string_result(
+            &env,
+            Ok(if e.editor.has_selection() {
+                e.editor.selected_tex()
+            } else {
+                String::new()
+            }),
+        ),
+        None => std::ptr::null_mut(),
+    })
+}
+
+/// `kind`: 0 types text, 1 inserts TeX as structure, 2 runs a command.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorInput(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    kind: jint,
+    text: JString,
+) {
+    guard((), || {
+        if let (Some(e), Some(text)) = (editor(handle), get(&mut env, &text)) {
+            match kind {
+                0 => e.editor.type_text(&text),
+                1 => e.editor.insert_tex(&text),
+                _ => e.editor.command(&text),
+            }
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorKey(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    name: JString,
+    shift: jboolean,
+    command: jboolean,
+) -> jboolean {
+    guard(0, || {
+        let (Some(e), Some(name)) = (editor(handle), get(&mut env, &name)) else {
+            return 0;
+        };
+        match mathcore::Key::from_name(&name, shift != 0, command != 0) {
+            Some(k) => {
+                e.editor.key(k);
+                1
+            }
+            None => 0,
+        }
+    })
+}
+
+/// Lays the editor out; the same packed floats as `render`.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorRender(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    engine_handle: jlong,
+    font_size: jfloat,
+    display: jboolean,
+    argb: jint,
+) -> jfloatArray {
+    guard(std::ptr::null_mut(), || {
+        let (Some(e), Some(eng)) = (editor(handle), engine(engine_handle)) else {
+            return std::ptr::null_mut();
+        };
+        let opts = RenderOptions {
+            font_size,
+            display_mode: display != 0,
+            color: color_from_argb(argb),
+            ..RenderOptions::default()
+        };
+        match e.editor.layout(&eng.font, &opts) {
+            Ok(l) => {
+                let arr = float_array(&env, &pack(&l.display));
+                e.last = Some(l);
+                arr
+            }
+            Err(err) => {
+                set_error(err.to_string());
+                std::ptr::null_mut()
+            }
+        }
+    })
+}
+
+/// The caret (x, y, width, height) followed by the selection rectangles
+/// (four floats each) of the last layout.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorCaret(env: JNIEnv, _class: JClass, handle: jlong) -> jfloatArray {
+    guard(std::ptr::null_mut(), || {
+        let Some(e) = editor(handle) else { return std::ptr::null_mut() };
+        let mut flat = vec![0.0; 4];
+        if let Some(l) = &e.last {
+            flat = vec![l.caret.x, l.caret.y, l.caret.width, l.caret.height];
+            flat.extend(l.selection.iter().flat_map(|r| [r.x, r.y, r.width, r.height]));
+        }
+        float_array(&env, &flat)
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorTap(_env: JNIEnv, _class: JClass, handle: jlong, x: jfloat, y: jfloat) {
+    guard((), || {
+        if let Some(e) = editor(handle) {
+            if let Some(l) = &e.last {
+                e.editor.tap(l, x, y);
+            }
+        }
+    })
+}
+
+/// `whole` false: the cursor's place ("denominator, 2"); true: the formula.
+#[no_mangle]
+pub extern "system" fn Java_dev_mathcore_NativeBridge_editorSpeech(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    whole: jboolean,
+    language: JString,
+) -> jstring {
+    guard(std::ptr::null_mut(), || {
+        let Some(e) = editor(handle) else { return std::ptr::null_mut() };
+        let tag = if language.is_null() {
+            String::new()
+        } else {
+            get(&mut env, &language).unwrap_or_default()
+        };
+        let opts = mathcore::SpeechOptions {
+            verbosity: mathcore::Verbosity::Brief,
+            language: mathcore::Language::from_tag(&tag),
+        };
+        string_result(
+            &env,
+            Ok(if whole != 0 {
+                e.editor.speech(&opts)
+            } else {
+                e.editor.describe(&opts)
+            }),
+        )
+    })
+}

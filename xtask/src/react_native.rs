@@ -20,6 +20,8 @@ const KOTLIN: &[&str] = &[
     "Accessibility.kt",
     "MathView.kt",
     "SystemFontFinder.kt",
+    "MathEditor.kt",
+    "MathField.kt",
 ];
 
 pub fn build(verify: bool) -> Result {
@@ -60,7 +62,13 @@ pub fn build(verify: bool) -> Result {
         copy_dir(&xcf, &dest)?;
         let swift = root().join("platforms/ios/MathCore/Sources/MathCore");
         reset_dir(&pkg.join("ios/MathCore"))?;
-        for f in ["MathEngine.swift", "MathView.swift", "MathText.swift"] {
+        for f in [
+            "MathEngine.swift",
+            "MathView.swift",
+            "MathText.swift",
+            "MathEditor.swift",
+            "MathField.swift",
+        ] {
             copy(&swift.join(f), &pkg.join("ios/MathCore").join(f))?;
         }
     }

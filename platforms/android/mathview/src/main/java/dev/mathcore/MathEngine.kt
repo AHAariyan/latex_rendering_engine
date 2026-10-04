@@ -125,6 +125,15 @@ class MathEngine private constructor(private var handle: Long) : Closeable {
         return MathLayout(data)
     }
 
+    /** Lays out an editor, finding system fonts for any script typed into it first. */
+    @Synchronized
+    internal fun renderEditor(editor: Long, tex: String, fontSizePx: Float, displayMode: Boolean, color: Int): MathLayout {
+        coverWithSystemFonts(tex, displayMode)
+        val data = NativeBridge.editorRender(editor, handle, fontSizePx, displayMode, color)
+            ?: throw MathParseException(NativeBridge.lastError() ?: "render failed")
+        return MathLayout(data)
+    }
+
     /**
      * Caps the work one formula may cost on this engine, for input from
      * strangers (a chat, a comment field). Null keeps a limit's default:

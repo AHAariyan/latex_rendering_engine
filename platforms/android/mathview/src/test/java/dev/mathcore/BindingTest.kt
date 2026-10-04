@@ -64,4 +64,23 @@ class BindingTest {
         assertNotNull(e.render("x+".repeat(50) + "x", 20f))
         e.close()
     }
+
+    @Test
+    fun editorTypesNavigatesAndDescribes() {
+        MathEditor().use { e ->
+            e.type("x^2")
+            e.key(MathEditor.Key.Right)
+            e.type("+1/2")
+            assertEquals("x^{2}+\\frac{1}{2}", e.latex)
+            assertEquals("denominator, 2", e.cursorDescription("en"))
+            assertEquals("denominador, 2", e.cursorDescription("es"))
+            e.selectAll()
+            assertEquals(e.latex, e.selectedLatex)
+            e.key(MathEditor.Key.Backspace)
+            assertEquals("", e.latex)
+            e.undo()
+            e.insertLatex("\\sqrt{y}")
+            assertEquals("x^{2}+\\frac{1}{2}\\sqrt{y}", e.latex)
+        }
+    }
 }

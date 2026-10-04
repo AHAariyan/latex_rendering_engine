@@ -521,6 +521,11 @@ unsafe fn render_impl(
             return std::ptr::null_mut();
         }
     };
+    result_from(&dl)
+}
+
+/// A display list as the C result structure, to free with `math_result_free`.
+fn result_from(dl: &mathcore::DisplayList) -> *mut MathResult {
     let items: Vec<MathItem> = dl
         .items
         .iter()
@@ -1055,6 +1060,318 @@ mod tests {
             let e = math_engine_new(b"not a font".as_ptr(), 10);
             assert!(e.is_null());
             assert!(!math_last_error().is_null());
+        }
+    }
+}
+
+// ---- The editor ----
+
+/// A math input field's model: typing, keys, taps, caret and selection.
+pub struct MathEditor {
+    editor: mathcore::Editor,
+    last: Option<mathcore::EditorLayout>,
+}
+
+/// A new, empty editor. Free it with `math_editor_free`.
+#[no_mangle]
+pub extern "C" fn math_editor_new() -> *mut MathEditor {
+    Box::into_raw(Box::new(MathEditor {
+        editor: mathcore::Editor::new(),
+        last: None,
+    }))
+}
+
+/// # Safety
+/// `editor` must come from `math_editor_new` and not be used afterwards.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_free(editor: *mut MathEditor) {
+    if !editor.is_null() {
+        drop(Box::from_raw(editor));
+    }
+}
+
+unsafe fn c_str<'a>(p: *const c_char) -> Option<&'a str> {
+    if p.is_null() {
+        None
+    } else {
+        CStr::from_ptr(p).to_str().ok()
+    }
+}
+
+fn c_out(s: String) -> *mut c_char {
+    CString::new(s).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut())
+}
+
+/// Replaces the content with `tex`, cursor at the end.
+///
+/// # Safety
+/// `editor` must be a live editor; `tex` a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_set_tex(editor: *mut MathEditor, tex: *const c_char) {
+    guard((), || {
+        if let (false, Some(tex)) = (editor.is_null(), c_str(tex)) {
+            (*editor).editor = mathcore::Editor::from_tex(tex);
+            (*editor).last = None;
+        }
+    })
+}
+
+/// The content as TeX. Free with `math_string_free`.
+///
+/// # Safety
+/// `editor` must be a live editor.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_tex(editor: *const MathEditor) -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        if editor.is_null() {
+            std::ptr::null_mut()
+        } else {
+            c_out((*editor).editor.tex())
+        }
+    })
+}
+
+/// The selection as TeX ("" without one). Free with `math_string_free`.
+///
+/// # Safety
+/// `editor` must be a live editor.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_selected_tex(editor: *const MathEditor) -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        if editor.is_null() {
+            return std::ptr::null_mut();
+        }
+        let e = &(*editor).editor;
+        c_out(if e.has_selection() { e.selected_tex() } else { String::new() })
+    })
+}
+
+/// Types text at the cursor: `/` makes a fraction of the term before it,
+/// `^` and `_` open a script, `(` opens a pair, `\` starts a command name.
+///
+/// # Safety
+/// `editor` must be a live editor; `text` a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_type(editor: *mut MathEditor, text: *const c_char) {
+    guard((), || {
+        if let (false, Some(text)) = (editor.is_null(), c_str(text)) {
+            (*editor).editor.type_text(text);
+        }
+    })
+}
+
+/// Inserts TeX at the cursor as structure, for paste.
+///
+/// # Safety
+/// As `math_editor_type`.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_insert_tex(editor: *mut MathEditor, tex: *const c_char) {
+    guard((), || {
+        if let (false, Some(tex)) = (editor.is_null(), c_str(tex)) {
+            (*editor).editor.insert_tex(tex);
+        }
+    })
+}
+
+/// Runs a command by name: `frac`, `sqrt`, `nthroot`, `alpha`...
+///
+/// # Safety
+/// As `math_editor_type`.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_command(editor: *mut MathEditor, name: *const c_char) {
+    guard((), || {
+        if let (false, Some(name)) = (editor.is_null(), c_str(name)) {
+            (*editor).editor.command(name);
+        }
+    })
+}
+
+/// Handles a key by name: `ArrowLeft`, `ArrowRight`, `ArrowUp`, `ArrowDown`,
+/// `Home`, `End`, `Backspace`, `Delete`, `Enter`; with `shift` arrows
+/// select; with `command`, `a` selects all, `z` undoes, `y` (or shift `z`)
+/// redoes. Returns false for a key the editor does not use.
+///
+/// # Safety
+/// As `math_editor_type`.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_key(editor: *mut MathEditor, name: *const c_char, shift: bool, command: bool) -> bool {
+    guard(false, || {
+        let (false, Some(name)) = (editor.is_null(), c_str(name)) else {
+            return false;
+        };
+        match mathcore::Key::from_name(name, shift, command) {
+            Some(k) => {
+                (*editor).editor.key(k);
+                true
+            }
+            None => false,
+        }
+    })
+}
+
+/// Lays the editor out with `engine`'s fonts. The result is the formula
+/// (with placeholder boxes in empty slots) to draw like any other; the
+/// caret, selection and taps then refer to this layout. Free the result
+/// with `math_result_free`. NULL on error.
+///
+/// # Safety
+/// `editor` and `engine` must be live.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_render(
+    editor: *mut MathEditor,
+    engine: *const MathEngine,
+    font_size_px: f32,
+    display_mode: bool,
+    color: u32,
+) -> *mut MathResult {
+    clear_error();
+    guard(std::ptr::null_mut(), || {
+        if editor.is_null() || engine.is_null() {
+            set_error("null argument");
+            return std::ptr::null_mut();
+        }
+        let opts = RenderOptions {
+            font_size: font_size_px,
+            display_mode,
+            color: unpack(color),
+            ..RenderOptions::default()
+        };
+        match (*editor).editor.layout(&(*engine).font, &opts) {
+            Ok(l) => {
+                let r = result_from(&l.display);
+                (*editor).last = Some(l);
+                r
+            }
+            Err(e) => {
+                set_error(e.to_string());
+                std::ptr::null_mut()
+            }
+        }
+    })
+}
+
+/// The caret of the last layout: `out` receives x, y, width, height.
+///
+/// # Safety
+/// `editor` must be a live editor; `out` must point to four floats.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_caret(editor: *const MathEditor, out: *mut f32) {
+    if editor.is_null() || out.is_null() {
+        return;
+    }
+    let c = (*editor).last.as_ref().map(|l| l.caret).unwrap_or_default();
+    std::slice::from_raw_parts_mut(out, 4).copy_from_slice(&[c.x, c.y, c.width, c.height]);
+}
+
+/// The selection rectangles of the last layout, x, y, width, height each;
+/// `out_len` receives the number of floats. Free with `math_buffer_free`.
+/// NULL without a selection.
+///
+/// # Safety
+/// `editor` must be a live editor; `out_len` must be writable.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_selection(editor: *const MathEditor, out_len: *mut usize) -> *mut f32 {
+    if editor.is_null() || out_len.is_null() {
+        return std::ptr::null_mut();
+    }
+    let flat: Vec<f32> = (*editor)
+        .last
+        .as_ref()
+        .map_or(vec![], |l| l.selection.iter().flat_map(|r| [r.x, r.y, r.width, r.height]).collect());
+    *out_len = flat.len();
+    if flat.is_empty() {
+        return std::ptr::null_mut();
+    }
+    Box::leak(flat.into_boxed_slice()).as_mut_ptr()
+}
+
+/// Moves the cursor to a tap at (x, y) in the last layout.
+///
+/// # Safety
+/// `editor` must be a live editor.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_tap(editor: *mut MathEditor, x: f32, y: f32) {
+    guard((), || {
+        if editor.is_null() {
+            return;
+        }
+        let e = &mut *editor;
+        if let Some(l) = &e.last {
+            e.editor.tap(l, x, y);
+        }
+    })
+}
+
+/// What a screen reader says for the cursor's place ("denominator, 2"),
+/// in `language` (a BCP 47 tag; NULL for English). Free with
+/// `math_string_free`.
+///
+/// # Safety
+/// `editor` must be a live editor; `language` NULL or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_describe(editor: *const MathEditor, language: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        if editor.is_null() {
+            return std::ptr::null_mut();
+        }
+        c_out((*editor).editor.describe(&options_from_c(1, language)))
+    })
+}
+
+/// The whole formula read aloud, in `language`. Free with `math_string_free`.
+///
+/// # Safety
+/// As `math_editor_describe`.
+#[no_mangle]
+pub unsafe extern "C" fn math_editor_speech(editor: *const MathEditor, language: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        if editor.is_null() {
+            return std::ptr::null_mut();
+        }
+        c_out((*editor).editor.speech(&options_from_c(1, language)))
+    })
+}
+
+#[cfg(test)]
+mod editor_tests {
+    use super::*;
+
+    #[test]
+    fn an_editing_session_through_the_c_api() {
+        unsafe {
+            let engine = math_engine_new_bundled();
+            let e = math_editor_new();
+            let s = |t: &str| CString::new(t).unwrap();
+            math_editor_type(e, s("x^2").as_ptr());
+            assert!(math_editor_key(e, s("ArrowRight").as_ptr(), false, false));
+            math_editor_type(e, s("+1/2").as_ptr());
+            let tex = math_editor_tex(e);
+            assert_eq!(CStr::from_ptr(tex).to_str().unwrap(), r"x^{2}+\frac{1}{2}");
+            math_string_free(tex);
+            let r = math_editor_render(e, engine, 32.0, true, 0x0000_00FF);
+            assert!(!r.is_null() && (*r).count > 4);
+            let mut caret = [0f32; 4];
+            math_editor_caret(e, caret.as_mut_ptr());
+            assert!(caret[0] > 0.0 && caret[3] > 0.0);
+            let d = math_editor_describe(e, std::ptr::null());
+            assert_eq!(CStr::from_ptr(d).to_str().unwrap(), "denominator, 2");
+            math_string_free(d);
+            assert!(math_editor_key(e, s("a").as_ptr(), false, true));
+            math_result_free(r);
+            let r = math_editor_render(e, engine, 32.0, true, 0x0000_00FF);
+            let mut n = 0usize;
+            let sel = math_editor_selection(e, &mut n);
+            assert!(!sel.is_null() && n >= 4 && n % 4 == 0);
+            math_buffer_free(sel, n);
+            math_editor_tap(e, 0.0, 10.0);
+            math_editor_type(e, s("y").as_ptr());
+            let tex = math_editor_tex(e);
+            assert!(CStr::from_ptr(tex).to_str().unwrap().starts_with('y'));
+            math_string_free(tex);
+            math_result_free(r);
+            assert!(!math_editor_key(e, s("F5").as_ptr(), false, false));
+            math_editor_free(e);
+            math_engine_free(engine);
         }
     }
 }

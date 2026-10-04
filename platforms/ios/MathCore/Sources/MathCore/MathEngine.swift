@@ -246,6 +246,21 @@ public final class MathEngine {
         }
         guard let r = result else { throw MathEngine.lastError() }
         defer { math_result_free(r) }
+        return MathEngine.layout(from: r)
+    }
+
+    /// Lays out an editor (see `MathEditor`), finding system fonts for any
+    /// script typed into it first.
+    func render(editor: OpaquePointer, tex: String, fontSize: CGFloat, displayMode: Bool, color: UInt32) throws -> MathLayout {
+        lock.lock(); defer { lock.unlock() }
+        coverWithSystemFonts(tex, displayMode: displayMode, macros: nil)
+        let rgba = ((color & 0x00FF_FFFF) << 8) | ((color >> 24) & 0xFF)
+        guard let r = math_editor_render(editor, handle, Float(fontSize), displayMode, rgba) else { throw MathEngine.lastError() }
+        defer { math_result_free(r) }
+        return MathEngine.layout(from: r)
+    }
+
+    private static func layout(from r: UnsafeMutablePointer<MathResult>) -> MathLayout {
         let res = r.pointee
         var items: [MathItem] = []
         items.reserveCapacity(res.count)

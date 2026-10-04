@@ -155,6 +155,43 @@ const char* math_last_error(void);
 
 const char* math_version(void);
 
+/* ---- The editor: the model behind a math input field ----
+ *
+ * Forward keys and text to it, call math_editor_render after each change,
+ * draw the result like any other formula, then draw the caret and selection
+ * it reports. Typing follows the usual conventions: `/` makes a fraction of
+ * the term before it, `^` and `_` open a script, `(` opens a pair, `\`
+ * starts a command name, and `sqrt`, `pi`, `sin`... become what they name. */
+typedef struct MathEditor MathEditor;
+
+MathEditor* math_editor_new(void);
+void math_editor_free(MathEditor* editor);
+void math_editor_set_tex(MathEditor* editor, const char* tex);
+/* The content, and the selection ("" without one), as TeX. Free with math_string_free. */
+char* math_editor_tex(const MathEditor* editor);
+char* math_editor_selected_tex(const MathEditor* editor);
+void math_editor_type(MathEditor* editor, const char* text);
+/* Inserts TeX as structure, for paste. */
+void math_editor_insert_tex(MathEditor* editor, const char* tex);
+/* A command by name: frac, sqrt, nthroot, alpha, ... */
+void math_editor_command(MathEditor* editor, const char* name);
+/* A key by name: ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Home, End,
+ * Backspace, Delete, Enter. With shift, arrows select; with command, "a"
+ * selects all, "z" undoes, "y" redoes. False for a key it does not use. */
+bool math_editor_key(MathEditor* editor, const char* name, bool shift, bool command);
+/* Lays the editor out with the engine's fonts; free with math_result_free. */
+MathResult* math_editor_render(MathEditor* editor, const MathEngine* engine, float font_size_px, bool display_mode, uint32_t color);
+/* Of the last layout: the caret (x, y, width, height into out[4]), and the
+ * selection rectangles (4 floats each; free with math_buffer_free). */
+void math_editor_caret(const MathEditor* editor, float* out);
+float* math_editor_selection(const MathEditor* editor, size_t* out_len);
+/* Moves the cursor to a tap at (x, y) in the last layout. */
+void math_editor_tap(MathEditor* editor, float x, float y);
+/* For a screen reader: the cursor's place ("denominator, 2") and the whole
+ * formula, in a language (BCP 47 tag, NULL for English). Free with math_string_free. */
+char* math_editor_describe(const MathEditor* editor, const char* language);
+char* math_editor_speech(const MathEditor* editor, const char* language);
+
 #ifdef __cplusplus
 }
 #endif

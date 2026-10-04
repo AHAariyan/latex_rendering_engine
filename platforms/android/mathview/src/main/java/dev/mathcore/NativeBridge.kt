@@ -34,4 +34,17 @@ internal object NativeBridge {
     external fun addFontBuffer(handle: Long, buffer: java.nio.ByteBuffer, index: Int): Int
     external fun missingChars(handle: Long, tex: String, display: Boolean): String?
     external fun speechLanguages(): String
+
+    // The editor (MathEditor).
+    external fun editorCreate(): Long
+    external fun editorDestroy(handle: Long)
+    external fun editorSetTex(handle: Long, tex: String)
+    external fun editorTex(handle: Long): String?
+    external fun editorSelectedTex(handle: Long): String?
+    external fun editorInput(handle: Long, kind: Int, text: String)
+    external fun editorKey(handle: Long, name: String, shift: Boolean, command: Boolean): Boolean
+    external fun editorRender(handle: Long, engine: Long, fontSize: Float, display: Boolean, argb: Int): FloatArray?
+    external fun editorCaret(handle: Long): FloatArray?
+    external fun editorTap(handle: Long, x: Float, y: Float)
+    external fun editorSpeech(handle: Long, whole: Boolean, language: String?): String?
 }
