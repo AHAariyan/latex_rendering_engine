@@ -897,173 +897,6 @@ pub extern "C" fn math_version() -> *const c_char {
     VERSION.as_ptr()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
-
-    #[test]
-    fn round_trip_through_the_c_abi() {
-        unsafe {
-            let engine = math_engine_new(FONT.as_ptr(), FONT.len());
-            assert!(!engine.is_null());
-            assert_eq!(math_engine_units_per_em(engine, 0), 1000.0);
-            let tex = CString::new(r"\half + \frac{a}{b}").unwrap();
-            let macros = CString::new("\\half=\\frac{1}{2}").unwrap();
-            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0, false);
-            assert!(!r.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
-            let items = std::slice::from_raw_parts((*r).items, (*r).count);
-            assert!(items.iter().filter(|i| i.kind == 1).count() == 2, "two fraction rules");
-            assert!(items.iter().all(|i| i.color == 0xFF0000FF));
-            assert!((*r).width > 0.0 && (*r).ascent > 0.0);
-            let glyph = items.iter().find(|i| i.kind == 0).unwrap().glyph;
-            let mut len = 0usize;
-            let outline = math_engine_glyph_outline(engine, 0, glyph, &mut len);
-            assert!(!outline.is_null() && len > 3);
-            assert_eq!(*outline, 0.0, "starts with a move");
-            math_buffer_free(outline, len);
-            math_result_free(r);
-
-            // Line breaking: the same formula gets taller and no wider than asked.
-            let long = CString::new(r"a + b + c + d + e + f + g + h + i + j").unwrap();
-            let wide = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
-            let narrow = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 150.0, false);
-            assert!(!wide.is_null() && !narrow.is_null());
-            assert!((*narrow).width <= 150.0 && (*narrow).width < (*wide).width);
-            assert!((*narrow).ascent + (*narrow).descent > (*wide).ascent + (*wide).descent);
-            math_result_free(wide);
-            math_result_free(narrow);
-
-            let bad = CString::new(r"\frac{a").unwrap();
-            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
-            assert!(r.is_null());
-            let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
-            assert!(msg.contains("parse error"), "{msg}");
-            math_engine_free(engine);
-        }
-    }
-
-    #[test]
-    fn accessibility_strings_round_trip() {
-        unsafe {
-            let tex = CString::new(r"x^2 + \frac{1}{2}").unwrap();
-            let ml = math_mathml(tex.as_ptr(), true, std::ptr::null());
-            assert!(!ml.is_null());
-            let s = CStr::from_ptr(ml).to_str().unwrap();
-            assert!(s.starts_with("<math") && s.contains("<msup>") && s.contains("<mfrac>"));
-            math_string_free(ml);
-
-            let sp = math_speech(tex.as_ptr(), std::ptr::null());
-            assert_eq!(CStr::from_ptr(sp).to_str().unwrap(), "x squared plus 1 over 2");
-            math_string_free(sp);
-
-            let bad = CString::new(r"\frac{a").unwrap();
-            assert!(math_speech(bad.as_ptr(), std::ptr::null()).is_null());
-            assert!(!math_last_error().is_null());
-        }
-    }
-
-    #[test]
-    fn hit_testing_maps_a_point_to_the_source() {
-        unsafe {
-            let engine = math_engine_new_bundled();
-            // Hit testing: a tap on the first glyph names the source it came from.
-            let hit_tex = CString::new(r"\frac{a}{b}+x").unwrap();
-            let r = math_engine_render(engine, hit_tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, true);
-            assert!(!r.is_null());
-            let regions = std::slice::from_raw_parts((*r).regions, (*r).region_count);
-            assert!(!regions.is_empty());
-            let items = std::slice::from_raw_parts((*r).items, (*r).count);
-            let first = items.iter().find(|i| i.kind == 0).unwrap();
-            let under: Vec<&MathRegion> = regions
-                .iter()
-                .filter(|g| {
-                    first.x + 1.0 >= g.x && first.x + 1.0 <= g.x + g.width && first.y - 5.0 >= g.y && first.y - 5.0 <= g.y + g.height
-                })
-                .collect();
-            assert!(!under.is_empty(), "no region under the first glyph");
-            math_result_free(r);
-            math_engine_free(engine);
-        }
-    }
-
-    #[test]
-    fn bundled_engine_works() {
-        unsafe {
-            let e = math_engine_new_bundled();
-            assert!(!e.is_null());
-            assert_eq!(math_engine_units_per_em(e, 0), 1000.0);
-            math_engine_free(e);
-        }
-    }
-
-    #[test]
-    fn fonts_can_be_added_for_missing_characters() {
-        const NOTO: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
-        unsafe {
-            let e = math_engine_new_bundled();
-            let tex = CString::new(r"x = \text{שלום}").unwrap();
-            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
-            assert_eq!(CStr::from_ptr(missing).to_str().unwrap().chars().count(), 4);
-            math_string_free(missing);
-            assert!(math_engine_add_font(e, NOTO.as_ptr(), NOTO.len(), 0) > 0);
-            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
-            assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "");
-            math_string_free(missing);
-            assert_eq!(math_engine_add_font(e, NOTO.as_ptr(), 3, 0), -1);
-            math_engine_free(e);
-        }
-    }
-
-    #[test]
-    fn system_fonts_cover_other_scripts() {
-        unsafe {
-            let e = math_engine_new_bundled();
-            for text in ["বাংলা", "مرحبا", "你好", "ไทย", "हिन्दी"] {
-                let first = text.chars().next().unwrap() as u32;
-                // A machine without fonts for a script (a bare CI image) can only skip it.
-                if crate::system_fonts::candidates(first).is_empty() {
-                    continue;
-                }
-                let tex = CString::new(format!(r"x = \text{{{text}}}")).unwrap();
-                assert!(math_engine_use_system_fonts(e, tex.as_ptr(), true, std::ptr::null()) >= 1, "{text}");
-                let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
-                assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "", "{text}");
-                math_string_free(missing);
-            }
-            math_engine_free(e);
-        }
-    }
-
-    #[test]
-    fn a_text_font_can_be_supplied() {
-        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
-        unsafe {
-            let e = math_engine_new_with_text_font(std::ptr::null(), 0, LIB.as_ptr(), LIB.len());
-            assert!(!e.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
-            let tex = CString::new(r"x + \text{if}").unwrap();
-            let r = math_engine_render(e, tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
-            assert!(!r.is_null());
-            let items = std::slice::from_raw_parts((*r).items, (*r).count);
-            let glyphs: Vec<&MathItem> = items.iter().filter(|i| i.kind == 0).collect();
-            assert_eq!(glyphs[0].font, 0, "maths from the math font");
-            assert_eq!(glyphs.last().unwrap().font, 2, "prose from the text font");
-            math_result_free(r);
-            math_engine_free(e);
-        }
-    }
-
-    #[test]
-    fn bad_font_reports_error() {
-        unsafe {
-            let e = math_engine_new(b"not a font".as_ptr(), 10);
-            assert!(e.is_null());
-            assert!(!math_last_error().is_null());
-        }
-    }
-}
-
 // ---- The editor ----
 
 /// A math input field's model: typing, keys, taps, caret and selection.
@@ -1333,6 +1166,173 @@ pub unsafe extern "C" fn math_editor_speech(editor: *const MathEditor, language:
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    const FONT: &[u8] = include_bytes!("../../../assets/fonts/latinmodern-math-subset.otf");
+
+    #[test]
+    fn round_trip_through_the_c_abi() {
+        unsafe {
+            let engine = math_engine_new(FONT.as_ptr(), FONT.len());
+            assert!(!engine.is_null());
+            assert_eq!(math_engine_units_per_em(engine, 0), 1000.0);
+            let tex = CString::new(r"\half + \frac{a}{b}").unwrap();
+            let macros = CString::new("\\half=\\frac{1}{2}").unwrap();
+            let r = math_engine_render(engine, tex.as_ptr(), 32.0, true, 0xFF0000FF, macros.as_ptr(), 0.0, false);
+            assert!(!r.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
+            let items = std::slice::from_raw_parts((*r).items, (*r).count);
+            assert!(items.iter().filter(|i| i.kind == 1).count() == 2, "two fraction rules");
+            assert!(items.iter().all(|i| i.color == 0xFF0000FF));
+            assert!((*r).width > 0.0 && (*r).ascent > 0.0);
+            let glyph = items.iter().find(|i| i.kind == 0).unwrap().glyph;
+            let mut len = 0usize;
+            let outline = math_engine_glyph_outline(engine, 0, glyph, &mut len);
+            assert!(!outline.is_null() && len > 3);
+            assert_eq!(*outline, 0.0, "starts with a move");
+            math_buffer_free(outline, len);
+            math_result_free(r);
+
+            // Line breaking: the same formula gets taller and no wider than asked.
+            let long = CString::new(r"a + b + c + d + e + f + g + h + i + j").unwrap();
+            let wide = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
+            let narrow = math_engine_render(engine, long.as_ptr(), 32.0, true, 0, std::ptr::null(), 150.0, false);
+            assert!(!wide.is_null() && !narrow.is_null());
+            assert!((*narrow).width <= 150.0 && (*narrow).width < (*wide).width);
+            assert!((*narrow).ascent + (*narrow).descent > (*wide).ascent + (*wide).descent);
+            math_result_free(wide);
+            math_result_free(narrow);
+
+            let bad = CString::new(r"\frac{a").unwrap();
+            let r = math_engine_render(engine, bad.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
+            assert!(r.is_null());
+            let msg = CStr::from_ptr(math_last_error()).to_str().unwrap();
+            assert!(msg.contains("parse error"), "{msg}");
+            math_engine_free(engine);
+        }
+    }
+
+    #[test]
+    fn accessibility_strings_round_trip() {
+        unsafe {
+            let tex = CString::new(r"x^2 + \frac{1}{2}").unwrap();
+            let ml = math_mathml(tex.as_ptr(), true, std::ptr::null());
+            assert!(!ml.is_null());
+            let s = CStr::from_ptr(ml).to_str().unwrap();
+            assert!(s.starts_with("<math") && s.contains("<msup>") && s.contains("<mfrac>"));
+            math_string_free(ml);
+
+            let sp = math_speech(tex.as_ptr(), std::ptr::null());
+            assert_eq!(CStr::from_ptr(sp).to_str().unwrap(), "x squared plus 1 over 2");
+            math_string_free(sp);
+
+            let bad = CString::new(r"\frac{a").unwrap();
+            assert!(math_speech(bad.as_ptr(), std::ptr::null()).is_null());
+            assert!(!math_last_error().is_null());
+        }
+    }
+
+    #[test]
+    fn hit_testing_maps_a_point_to_the_source() {
+        unsafe {
+            let engine = math_engine_new_bundled();
+            // Hit testing: a tap on the first glyph names the source it came from.
+            let hit_tex = CString::new(r"\frac{a}{b}+x").unwrap();
+            let r = math_engine_render(engine, hit_tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, true);
+            assert!(!r.is_null());
+            let regions = std::slice::from_raw_parts((*r).regions, (*r).region_count);
+            assert!(!regions.is_empty());
+            let items = std::slice::from_raw_parts((*r).items, (*r).count);
+            let first = items.iter().find(|i| i.kind == 0).unwrap();
+            let under: Vec<&MathRegion> = regions
+                .iter()
+                .filter(|g| {
+                    first.x + 1.0 >= g.x && first.x + 1.0 <= g.x + g.width && first.y - 5.0 >= g.y && first.y - 5.0 <= g.y + g.height
+                })
+                .collect();
+            assert!(!under.is_empty(), "no region under the first glyph");
+            math_result_free(r);
+            math_engine_free(engine);
+        }
+    }
+
+    #[test]
+    fn bundled_engine_works() {
+        unsafe {
+            let e = math_engine_new_bundled();
+            assert!(!e.is_null());
+            assert_eq!(math_engine_units_per_em(e, 0), 1000.0);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn fonts_can_be_added_for_missing_characters() {
+        const NOTO: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        unsafe {
+            let e = math_engine_new_bundled();
+            let tex = CString::new(r"x = \text{שלום}").unwrap();
+            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+            assert_eq!(CStr::from_ptr(missing).to_str().unwrap().chars().count(), 4);
+            math_string_free(missing);
+            assert!(math_engine_add_font(e, NOTO.as_ptr(), NOTO.len(), 0) > 0);
+            let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+            assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "");
+            math_string_free(missing);
+            assert_eq!(math_engine_add_font(e, NOTO.as_ptr(), 3, 0), -1);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn system_fonts_cover_other_scripts() {
+        unsafe {
+            let e = math_engine_new_bundled();
+            for text in ["বাংলা", "مرحبا", "你好", "ไทย", "हिन्दी"] {
+                let first = text.chars().next().unwrap() as u32;
+                // A machine without fonts for a script (a bare CI image) can only skip it.
+                if crate::system_fonts::candidates(first).is_empty() {
+                    continue;
+                }
+                let tex = CString::new(format!(r"x = \text{{{text}}}")).unwrap();
+                assert!(math_engine_use_system_fonts(e, tex.as_ptr(), true, std::ptr::null()) >= 1, "{text}");
+                let missing = math_engine_missing_chars(e, tex.as_ptr(), true, std::ptr::null());
+                assert_eq!(CStr::from_ptr(missing).to_str().unwrap(), "", "{text}");
+                math_string_free(missing);
+            }
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn a_text_font_can_be_supplied() {
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        unsafe {
+            let e = math_engine_new_with_text_font(std::ptr::null(), 0, LIB.as_ptr(), LIB.len());
+            assert!(!e.is_null(), "{:?}", CStr::from_ptr(math_last_error()));
+            let tex = CString::new(r"x + \text{if}").unwrap();
+            let r = math_engine_render(e, tex.as_ptr(), 32.0, true, 0, std::ptr::null(), 0.0, false);
+            assert!(!r.is_null());
+            let items = std::slice::from_raw_parts((*r).items, (*r).count);
+            let glyphs: Vec<&MathItem> = items.iter().filter(|i| i.kind == 0).collect();
+            assert_eq!(glyphs[0].font, 0, "maths from the math font");
+            assert_eq!(glyphs.last().unwrap().font, 2, "prose from the text font");
+            math_result_free(r);
+            math_engine_free(e);
+        }
+    }
+
+    #[test]
+    fn bad_font_reports_error() {
+        unsafe {
+            let e = math_engine_new(b"not a font".as_ptr(), 10);
+            assert!(e.is_null());
+            assert!(!math_last_error().is_null());
+        }
+    }
+}
+
+#[cfg(test)]
 mod editor_tests {
     use super::*;
 
@@ -1361,7 +1361,7 @@ mod editor_tests {
             let r = math_editor_render(e, engine, 32.0, true, 0x0000_00FF);
             let mut n = 0usize;
             let sel = math_editor_selection(e, &mut n);
-            assert!(!sel.is_null() && n >= 4 && n % 4 == 0);
+            assert!(!sel.is_null() && n >= 4 && n.is_multiple_of(4));
             math_buffer_free(sel, n);
             math_editor_tap(e, 0.0, 10.0);
             math_editor_type(e, s("y").as_ptr());

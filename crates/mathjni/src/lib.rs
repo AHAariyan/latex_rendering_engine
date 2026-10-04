@@ -573,48 +573,6 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_glyphOutline(
     float_array(&env, &s.0)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pack_layout_matches_documentation() {
-        let font = bundled::font().unwrap();
-        let dl = mathcore::render(&font, r"\frac{a}{b}", &RenderOptions::default()).unwrap();
-        let p = pack(&dl);
-        let regions_at = 4 + dl.items.len() * 8;
-        assert_eq!(p.len(), regions_at + 1, "items then an empty region block");
-        assert_eq!(p[3] as usize, dl.items.len());
-        assert_eq!(p[regions_at], 0.0, "no regions without hit testing");
-        let kinds: Vec<f32> = p[4..regions_at].chunks(8).map(|c| c[0]).collect();
-        assert!(kinds.contains(&1.0), "fraction rule present");
-        assert_eq!(p[4 + 7].to_bits(), 0xFF000000, "opaque black in ARGB");
-
-        // With hit testing the region block carries one record per atom.
-        let opts = RenderOptions {
-            hit_testing: true,
-            ..Default::default()
-        };
-        let dl = mathcore::render(&font, r"\frac{a}{b}", &opts).unwrap();
-        let p = pack(&dl);
-        let regions_at = 4 + dl.items.len() * 8;
-        assert_eq!(p[regions_at] as usize, dl.regions.len());
-        assert_eq!(p.len(), regions_at + 1 + dl.regions.len() * 7);
-    }
-
-    #[test]
-    fn runtime_font_engine_round_trips() {
-        let e = engine_from_bytes(Some(bundled::PRIMARY.to_vec()), None).unwrap();
-        assert_eq!(e.font.units_per_em(), 1000.0);
-        assert!(engine_from_bytes(Some(b"junk".to_vec()), None).is_err());
-
-        // A text font joins the chain after the bundled fallback.
-        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
-        let e = engine_from_bytes(None, Some(LIB.to_vec())).unwrap();
-        assert_eq!(e.font.text_font(), Some(2));
-    }
-}
-
 // ---- The editor ----
 
 pub struct EditorHandle {
@@ -814,4 +772,46 @@ pub extern "system" fn Java_dev_mathcore_NativeBridge_editorSpeech(
             }),
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pack_layout_matches_documentation() {
+        let font = bundled::font().unwrap();
+        let dl = mathcore::render(&font, r"\frac{a}{b}", &RenderOptions::default()).unwrap();
+        let p = pack(&dl);
+        let regions_at = 4 + dl.items.len() * 8;
+        assert_eq!(p.len(), regions_at + 1, "items then an empty region block");
+        assert_eq!(p[3] as usize, dl.items.len());
+        assert_eq!(p[regions_at], 0.0, "no regions without hit testing");
+        let kinds: Vec<f32> = p[4..regions_at].chunks(8).map(|c| c[0]).collect();
+        assert!(kinds.contains(&1.0), "fraction rule present");
+        assert_eq!(p[4 + 7].to_bits(), 0xFF000000, "opaque black in ARGB");
+
+        // With hit testing the region block carries one record per atom.
+        let opts = RenderOptions {
+            hit_testing: true,
+            ..Default::default()
+        };
+        let dl = mathcore::render(&font, r"\frac{a}{b}", &opts).unwrap();
+        let p = pack(&dl);
+        let regions_at = 4 + dl.items.len() * 8;
+        assert_eq!(p[regions_at] as usize, dl.regions.len());
+        assert_eq!(p.len(), regions_at + 1 + dl.regions.len() * 7);
+    }
+
+    #[test]
+    fn runtime_font_engine_round_trips() {
+        let e = engine_from_bytes(Some(bundled::PRIMARY.to_vec()), None).unwrap();
+        assert_eq!(e.font.units_per_em(), 1000.0);
+        assert!(engine_from_bytes(Some(b"junk".to_vec()), None).is_err());
+
+        // A text font joins the chain after the bundled fallback.
+        const LIB: &[u8] = include_bytes!("../../../assets/fonts/LibertinusMath-Regular.otf");
+        let e = engine_from_bytes(None, Some(LIB.to_vec())).unwrap();
+        assert_eq!(e.font.text_font(), Some(2));
+    }
 }
