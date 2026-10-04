@@ -316,6 +316,9 @@ pub enum Node {
         span: Span,
         body: Box<Node>,
     },
+    /// An empty slot in an editor: a fraction's numerator before anything is
+    /// typed into it. Drawn as a light hollow box, spoken as "blank".
+    Placeholder,
     /// Drawn as `body`, spoken (in English) as `speech`: siunitx's units,
     /// which read as "meters per second squared", not "m s to the minus 2".
     Spoken {

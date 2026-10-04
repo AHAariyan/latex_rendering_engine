@@ -311,6 +311,7 @@ fn node(out: &mut String, n: &Node) {
             out.push_str("</mpadded>");
         }
         Node::Choice(b) => one(out, &b[0]),
+        Node::Placeholder => token(out, "mi", "⬚"),
         Node::Rule { width, height, .. } => {
             let _ = write!(
                 out,
@@ -795,6 +796,7 @@ impl Speaker {
             }
             Node::Choice(b) => self.say_one(out, &b[0]),
             Node::Rule { .. } => {}
+            Node::Placeholder => self.w(out, "blank"),
             Node::Spanned { body, .. } => self.say_one(out, body),
             // The spoken form is English; other languages read the symbols.
             Node::Spoken { speech, body } => {

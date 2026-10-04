@@ -1,5 +1,6 @@
 export {
   MathEngine,
+  MathEditor,
   mathml,
   speech,
   speechWith,

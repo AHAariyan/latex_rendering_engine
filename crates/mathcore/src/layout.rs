@@ -435,6 +435,29 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
     }
 
+    /// An empty editor slot: a hollow box the height of a digit, in the
+    /// text colour at a third of its opacity so it reads as "type here".
+    fn placeholder(&self, sty: Sty) -> BBox {
+        let em = self.em(sty);
+        let (w, h, t) = (0.55 * em, 0.7 * em, (0.04 * em).max(1.0));
+        let faint = Color(self.color.0, self.color.1, self.color.2, (self.color.3 as u16 / 3) as u8);
+        let rule = |w: f32, h: f32| {
+            let mut r = BBox::rule(w, h, 0.0);
+            r.color = Some(faint);
+            r
+        };
+        let children = vec![
+            rule(w, t).at(0.0, h - t),
+            rule(w, t).at(0.0, 0.0),
+            rule(t, h).at(0.0, 0.0),
+            rule(t, h).at(w - t, 0.0),
+        ];
+        let mut b = BBox::list(children);
+        b.w = w;
+        b.h = h;
+        b
+    }
+
     /// The box drawn for a character the font has no glyph for: a hollow
     /// rectangle, the convention every text stack uses, so the gap is obvious
     /// without swamping the formula in ink.
@@ -967,6 +990,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 out
             }
             Node::Spoken { body, .. } => self.layout_node(body, sty),
+            Node::Placeholder => self.placeholder(sty),
             Node::Spanned { span, body } => {
                 let mut b = self.layout_node(body, sty);
                 if self.hit_testing {

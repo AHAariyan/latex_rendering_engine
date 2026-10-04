@@ -184,7 +184,7 @@ impl Writer {
                     }
                 }
             }
-            Node::Phantom { .. } | Node::Rule { .. } => {}
+            Node::Phantom { .. } | Node::Rule { .. } | Node::Placeholder => {}
             Node::OverUnder { base, over, under } => self.under_over(base, under.as_deref(), over.as_deref()),
             Node::HBrace { base, .. } | Node::Cancel { body: base, .. } => self.one(base),
             Node::XArrow { ch, over, under } => {

@@ -246,3 +246,132 @@ pub fn asciimath_to_tex(src: &str) -> Result<String, JsError> {
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// A math input field's model: typing, keys, taps, caret and selection.
+/// Draw it with `renderSvg`, then place a caret at `caret()`.
+#[wasm_bindgen]
+pub struct MathEditor {
+    editor: mathcore::Editor,
+    last: Option<mathcore::EditorLayout>,
+}
+
+impl Default for MathEditor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen]
+impl MathEditor {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> MathEditor {
+        MathEditor {
+            editor: mathcore::Editor::new(),
+            last: None,
+        }
+    }
+
+    /// Replaces the content with `tex`, cursor at the end.
+    #[wasm_bindgen(js_name = setTex)]
+    pub fn set_tex(&mut self, tex: &str) {
+        self.editor = mathcore::Editor::from_tex(tex);
+    }
+
+    /// The content as TeX.
+    pub fn tex(&self) -> String {
+        self.editor.tex()
+    }
+
+    /// Types text at the cursor (`/` makes a fraction, `^` a superscript...).
+    #[wasm_bindgen(js_name = typeText)]
+    pub fn type_text(&mut self, text: &str) {
+        self.editor.type_text(text);
+    }
+
+    /// Handles a key by its DOM name (`ArrowLeft`, `Backspace`...); false
+    /// when the editor does not use it.
+    pub fn key(&mut self, name: &str, shift: bool, command: bool) -> bool {
+        match mathcore::Key::from_name(name, shift, command) {
+            Some(k) => {
+                self.editor.key(k);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Inserts TeX at the cursor as structure (for paste).
+    #[wasm_bindgen(js_name = insertTex)]
+    pub fn insert_tex(&mut self, tex: &str) {
+        self.editor.insert_tex(tex);
+    }
+
+    /// Runs a command by name: `frac`, `sqrt`, `nthroot`, `alpha`...
+    pub fn command(&mut self, name: &str) {
+        self.editor.command(name);
+    }
+
+    /// The selection as TeX, for copying ("" without one).
+    #[wasm_bindgen(js_name = selectedTex)]
+    pub fn selected_tex(&self) -> String {
+        if self.editor.has_selection() {
+            self.editor.selected_tex()
+        } else {
+            String::new()
+        }
+    }
+
+    /// Lays the editor out and returns it as SVG; `caret()`, `selection()`
+    /// and `metrics()` then describe this layout.
+    #[wasm_bindgen(js_name = renderSvg)]
+    pub fn render_svg(&mut self, engine: &MathEngine, font_size: f32, display_mode: bool, argb: u32) -> Result<String, JsError> {
+        let opts = RenderOptions {
+            font_size,
+            display_mode,
+            color: color_from_argb(argb),
+            ..RenderOptions::default()
+        };
+        let l = self.editor.layout(&engine.font, &opts).map_err(|e| JsError::new(&e.to_string()))?;
+        let svg = mathraster::to_svg(&engine.font, &l.display, 0.0);
+        self.last = Some(l);
+        Ok(svg)
+    }
+
+    /// `[x, y, width, height]` of the caret in the last layout.
+    pub fn caret(&self) -> Vec<f32> {
+        self.last
+            .as_ref()
+            .map_or(vec![0.0; 4], |l| vec![l.caret.x, l.caret.y, l.caret.width, l.caret.height])
+    }
+
+    /// Selection rectangles of the last layout, `[x, y, w, h] * n`.
+    pub fn selection(&self) -> Vec<f32> {
+        self.last
+            .as_ref()
+            .map_or(vec![], |l| l.selection.iter().flat_map(|r| [r.x, r.y, r.width, r.height]).collect())
+    }
+
+    /// `[width, ascent, descent]` of the last layout.
+    pub fn metrics(&self) -> Vec<f32> {
+        self.last
+            .as_ref()
+            .map_or(vec![0.0; 3], |l| vec![l.display.width, l.display.ascent, l.display.descent])
+    }
+
+    /// Moves the cursor to a tap at (x, y) in the last layout.
+    pub fn tap(&mut self, x: f32, y: f32) {
+        if let Some(l) = &self.last {
+            self.editor.tap(l, x, y);
+        }
+    }
+
+    /// What a screen reader says for the cursor's place, in `language`.
+    pub fn describe(&self, language: Option<String>) -> String {
+        self.editor.describe(&speech_opts(1, language))
+    }
+
+    /// The whole formula read aloud, in `language`.
+    pub fn speech(&self, language: Option<String>) -> String {
+        self.editor.speech(&speech_opts(1, language))
+    }
+}

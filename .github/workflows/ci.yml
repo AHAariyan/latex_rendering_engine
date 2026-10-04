@@ -132,3 +132,5 @@ jobs:
           node check.mjs ../../../dist/web/package
           cp scripts.html ../../../dist/web/package/
           node scripts.mjs ../../../dist/web/package
+          cp field.html ../../../dist/web/package/
+          node field.mjs ../../../dist/web/package

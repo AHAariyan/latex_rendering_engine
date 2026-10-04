@@ -10,6 +10,7 @@ pub mod ast;
 pub mod braille;
 pub mod cache;
 pub mod display;
+pub mod editor;
 pub mod error;
 pub mod font;
 pub mod layout;
@@ -23,6 +24,7 @@ pub use a11y::{mathml, speech, speech_tree, speech_with, SpeechNode, SpeechOptio
 pub use ast::Node;
 pub use cache::{CacheStats, LayoutCache};
 pub use display::{Color, DisplayList, Item};
+pub use editor::{Editor, EditorLayout, Key};
 pub use error::{Error, Result};
 pub use font::{face_index, MathFont};
 pub use layout::{Layouter, LineBreak, RenderOptions};

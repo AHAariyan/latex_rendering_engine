@@ -9,6 +9,7 @@ import init from "./wasm/mathwasm.js";
 
 export {
   MathEngine,
+  MathEditor,
   mathml,
   speech,
   speechWith,

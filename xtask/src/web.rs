@@ -39,7 +39,15 @@ pub fn build(verify: bool) -> Result {
 
     step("Web: package");
     let src = root().join("platforms/web");
-    for f in ["index.js", "index.d.ts", "element.js", "element.d.ts", "renderer.d.ts"] {
+    for f in [
+        "index.js",
+        "index.d.ts",
+        "element.js",
+        "element.d.ts",
+        "field.js",
+        "field.d.ts",
+        "renderer.d.ts",
+    ] {
         copy(&src.join("npm").join(f), &pkg.join(f))?;
     }
     copy(&src.join("mathcore.js"), &pkg.join("renderer.js"))?;
@@ -102,12 +110,13 @@ fn package_json(version: &str) -> String {
   "exports": {{
     ".": {{ "types": "./index.d.ts", "default": "./index.js" }},
     "./element": {{ "types": "./element.d.ts", "default": "./element.js" }},
+    "./field": {{ "types": "./field.d.ts", "default": "./field.js" }},
     "./renderer": {{ "types": "./renderer.d.ts", "default": "./renderer.js" }},
     "./mathwasm_bg.wasm": "./wasm/mathwasm_bg.wasm",
     "./package.json": "./package.json"
   }},
-  "files": ["index.js", "index.d.ts", "element.js", "element.d.ts", "renderer.js", "renderer.d.ts", "wasm/", "README.md", "LICENSE"],
-  "sideEffects": ["./element.js"],
+  "files": ["index.js", "index.d.ts", "element.js", "element.d.ts", "field.js", "field.d.ts", "renderer.js", "renderer.d.ts", "wasm/", "README.md", "LICENSE"],
+  "sideEffects": ["./element.js", "./field.js"],
   "engines": {{ "node": ">=18" }}
 }}
 "#

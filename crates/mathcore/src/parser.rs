@@ -1193,6 +1193,7 @@ impl<'a> Parser<'a> {
                 self.parse_arg()
             }
             "DOTSB" | "DOTSI" | "DOTSX" => Ok(Node::Row(vec![])),
+            "placeholder" => Ok(Node::Placeholder),
             // `\spokenas{meters}{\mathrm{m}}`: drawn as the math, read as the words.
             "spokenas" => {
                 let speech = self.lx.raw_group()?.trim().to_string();
