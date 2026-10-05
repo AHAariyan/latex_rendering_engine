@@ -1,0 +1,60 @@
+number_theory	division_algorithm	a = bq + r, \qquad 0 \le r < |b|
+number_theory	bezout	\gcd(a, b) = \min \{\, ax + by \mid x, y \in \mathbb{Z},\; ax + by > 0 \,\}
+number_theory	euclid_step	\gcd(a, b) = \gcd(b,\, a \bmod b)
+number_theory	mod_floor	a \bmod n = a - n \left\lfloor \frac{a}{n} \right\rfloor
+number_theory	lcm_operator	\operatorname{lcm}(a, b) = \frac{|ab|}{\operatorname{gcd}(a, b)}
+number_theory	fundamental_theorem	n = p_1^{a_1} p_2^{a_2} \cdots p_k^{a_k} = \prod_{i=1}^{k} p_i^{a_i}
+number_theory	gcd_prime_exponents	\gcd(m, n) = \prod_{p} p^{\min(v_p(m),\, v_p(n))}, \qquad \operatorname{lcm}(m, n) = \prod_{p} p^{\max(v_p(m),\, v_p(n))}
+number_theory	congruence_def	a \equiv b \pmod{n} \iff n \mid (a - b)
+number_theory	euler_theorem	\gcd(a, n) = 1 \implies a^{\varphi(n)} \equiv 1 \pmod{n}
+number_theory	crt_general	x \equiv a_i \pmod{n_i} \quad (1 \le i \le k), \qquad x \equiv \sum_{i=1}^{k} a_i M_i y_i \pmod{N}
+number_theory	crt_isomorphism	\mathbb{Z}/mn\mathbb{Z} \cong \mathbb{Z}/m\mathbb{Z} \times \mathbb{Z}/n\mathbb{Z} \qquad \text{if } \gcd(m, n) = 1
+number_theory	modular_inverse	a a^{-1} \equiv 1 \pmod{m}, \qquad a^{-1} \equiv a^{\varphi(m) - 1} \pmod{m}
+number_theory	multiplicative_order	\operatorname{ord}_n(a) = \min \{\, k \ge 1 : a^k \equiv 1 \pmod{n} \,\}
+number_theory	freshman_dream	(a + b)^p \equiv a^p + b^p \pmod{p}
+number_theory	lucas_theorem	\binom{m}{n} \equiv \prod_{i=0}^{k} \binom{m_i}{n_i} \pmod{p}
+number_theory	wolstenholme	\binom{2p - 1}{p - 1} \equiv 1 \pmod{p^3}
+number_theory	totient_prime_power	\varphi(p^k) = p^k - p^{k-1} = p^k \left(1 - \frac{1}{p}\right)
+number_theory	totient_divisor_sum	\sum_{d \mid n} \varphi(d) = n
+number_theory	totient_count	\varphi(n) = \bigl|\{\, k \in \mathbb{Z} : 1 \le k \le n,\; \gcd(k, n) = 1 \,\}\bigr|
+number_theory	divisor_function	\sigma_k(n) = \sum_{d \mid n} d^k, \qquad \tau(n) = \prod_{i=1}^{r} (a_i + 1)
+number_theory	sigma_multiplicative	\sigma(n) = \prod_{i=1}^{r} \frac{p_i^{a_i + 1} - 1}{p_i - 1}
+number_theory	mobius_def	\mu(n) = \begin{cases} 1 & \text{if } n = 1, \\ (-1)^k & \text{if } n = p_1 p_2 \cdots p_k \text{ with distinct primes}, \\ 0 & \text{if } p^2 \mid n \text{ for some prime } p \end{cases}
+number_theory	mobius_inversion	g(n) = \sum_{d \mid n} f(d) \iff f(n) = \sum_{d \mid n} \mu(d)\, g\!\left(\frac{n}{d}\right)
+number_theory	dirichlet_convolution	(f * g)(n) = \sum_{d \mid n} f(d)\, g\!\left(\frac{n}{d}\right) = \sum_{ab = n} f(a)\, g(b)
+number_theory	ramanujan_sum	c_q(n) = \sum_{\substack{1 \le a \le q \\ \gcd(a, q) = 1}} e^{2\pi i a n / q}
+number_theory	von_mangoldt	\Lambda(n) = \begin{cases} \log p & \text{if } n = p^k,\; k \ge 1, \\ 0 & \text{otherwise} \end{cases}
+number_theory	chebyshev_psi	\psi(x) = \sum_{n \le x} \Lambda(n) = \sum_{p^k \le x} \log p
+number_theory	legendre_formula	v_p(n!) = \sum_{i=1}^{\infty} \left\lfloor \frac{n}{p^i} \right\rfloor = \frac{n - s_p(n)}{p - 1}
+number_theory	quadratic_reciprocity	\left(\frac{p}{q}\right) \left(\frac{q}{p}\right) = (-1)^{\frac{p-1}{2} \cdot \frac{q-1}{2}}
+number_theory	legendre_minus_one	\left(\frac{-1}{p}\right) = (-1)^{\frac{p-1}{2}} = \begin{cases} 1 & \text{if } p \equiv 1 \pmod{4}, \\ -1 & \text{if } p \equiv 3 \pmod{4} \end{cases}
+number_theory	legendre_two	\left(\frac{2}{p}\right) = (-1)^{\frac{p^2 - 1}{8}}
+number_theory	legendre_multiplicative	\left(\frac{ab}{p}\right) = \left(\frac{a}{p}\right) \left(\frac{b}{p}\right)
+number_theory	jacobi_symbol	\left(\frac{a}{n}\right) = \prod_{i=1}^{k} \left(\frac{a}{p_i}\right)^{e_i}
+number_theory	gauss_sum	g(\chi) = \sum_{a=1}^{p-1} \left(\frac{a}{p}\right) e^{2\pi i a / p}, \qquad g(\chi)^2 = (-1)^{\frac{p-1}{2}}\, p
+number_theory	sum_two_squares	p = x^2 + y^2 \iff p = 2 \ \text{ or } \ p \equiv 1 \pmod{4}
+number_theory	lagrange_four_square	\forall\, n \in \mathbb{N} \;\; \exists\, a, b, c, d \in \mathbb{Z} : \; n = a^2 + b^2 + c^2 + d^2
+number_theory	pythagorean_triples	(a, b, c) = \bigl(m^2 - n^2,\; 2mn,\; m^2 + n^2\bigr), \qquad m > n > 0
+number_theory	golden_cfrac	\frac{1 + \sqrt{5}}{2} = 1 + \cfrac{1}{1 + \cfrac{1}{1 + \cfrac{1}{1 + \cdots}}}
+number_theory	general_cfrac	x = a_0 + \cfrac{1}{a_1 + \cfrac{1}{a_2 + \cfrac{1}{a_3 + \cfrac{1}{\ddots}}}} = [a_0; a_1, a_2, a_3, \ldots]
+number_theory	sqrt2_cfrac	\sqrt{2} = [1; \overline{2}] = 1 + \cfrac{1}{2 + \cfrac{1}{2 + \cfrac{1}{2 + \dotsb}}}
+number_theory	convergent_recurrence	p_n = a_n p_{n-1} + p_{n-2}, \qquad q_n = a_n q_{n-1} + q_{n-2}, \qquad p_n q_{n-1} - p_{n-1} q_n = (-1)^{n-1}
+number_theory	dirichlet_approximation	\left| \alpha - \frac{p}{q} \right| < \frac{1}{q^2}
+number_theory	pnt_li	\pi(x) \sim \operatorname{Li}(x) = \int_2^x \frac{dt}{\ln t}
+number_theory	pnt_error_rh	\pi(x) = \operatorname{Li}(x) + O\bigl(\sqrt{x}\, \log x\bigr)
+number_theory	nth_prime	p_n \sim n \ln n \qquad (n \to \infty)
+number_theory	mertens_second	\sum_{p \le x} \frac{1}{p} = \ln \ln x + M + O\!\left(\frac{1}{\ln x}\right)
+number_theory	mertens_third	\prod_{p \le x} \left(1 - \frac{1}{p}\right) \sim \frac{e^{-\gamma}}{\ln x}
+number_theory	basel	\zeta(2) = \sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+number_theory	zeta_functional	\zeta(s) = 2^s \pi^{s-1} \sin\!\left(\frac{\pi s}{2}\right) \Gamma(1 - s)\, \zeta(1 - s)
+number_theory	zeta_reciprocal	\frac{1}{\zeta(s)} = \sum_{n=1}^{\infty} \frac{\mu(n)}{n^s} = \prod_{p \text{ prime}} \bigl(1 - p^{-s}\bigr)
+number_theory	zeta_log_derivative	-\frac{\zeta'(s)}{\zeta(s)} = \sum_{n=1}^{\infty} \frac{\Lambda(n)}{n^s}, \qquad \operatorname{Re}(s) > 1
+number_theory	dirichlet_l	L(s, \chi) = \sum_{n=1}^{\infty} \frac{\chi(n)}{n^s} = \prod_{p} \left(1 - \frac{\chi(p)}{p^s}\right)^{-1}
+number_theory	riemann_hypothesis	\zeta(s) = 0 \ \text{ and } \ 0 < \operatorname{Re}(s) < 1 \implies \operatorname{Re}(s) = \tfrac{1}{2}
+number_theory	divisor_problem	\sum_{n \le x} d(n) = x \ln x + (2\gamma - 1)\, x + O\bigl(\sqrt{x}\bigr)
+number_theory	totient_average	\sum_{n \le x} \varphi(n) = \frac{3}{\pi^2}\, x^2 + O(x \log x)
+number_theory	coprime_density	\lim_{N \to \infty} \frac{\#\{\, (a, b) \in [1, N]^2 : \gcd(a, b) = 1 \,\}}{N^2} = \frac{6}{\pi^2}
+number_theory	bernoulli_egf	\frac{x}{e^x - 1} = \sum_{n=0}^{\infty} B_n \frac{x^n}{n!}
+number_theory	p_adic_abs	|x|_p = p^{-v_p(x)}, \qquad |x + y|_p \le \max\bigl(|x|_p, |y|_p\bigr)
+number_theory	perfect_number	2^{p-1} (2^p - 1) \ \text{ is perfect} \iff 2^p - 1 \ \text{ is prime}
+number_theory	hardy_ramanujan	p(n) \sim \frac{1}{4n\sqrt{3}} \exp\left(\pi \sqrt{\frac{2n}{3}}\right)

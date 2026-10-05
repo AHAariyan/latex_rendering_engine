@@ -1,0 +1,60 @@
+geometry	midpoint	M = \left( \frac{x_1 + x_2}{2},\ \frac{y_1 + y_2}{2} \right)
+geometry	triangle_angle_sum	\angle A + \angle B + \angle C = 180^\circ
+geometry	congruence_sss	\overline{AB} \cong \overline{DE},\ \overline{BC} \cong \overline{EF},\ \overline{CA} \cong \overline{FD} \implies \triangle ABC \cong \triangle DEF
+geometry	inscribed_angle	\widehat{ACB} = \tfrac{1}{2}\,\widehat{AOB}
+geometry	arc_measure	m\overset{\frown}{AB} = 2\, m\angle ACB = 124^\circ
+geometry	circle_equation	(x - h)^2 + (y - k)^2 = r^2
+geometry	point_line_distance	d = \frac{|ax_0 + by_0 + c|}{\sqrt{a^2 + b^2}}
+geometry	parabola_vertex_form	y = \frac{1}{4p}(x - h)^2 + k
+geometry	hyperbola_shifted	\frac{(x - h)^2}{a^2} - \frac{(y - k)^2}{b^2} = 1
+geometry	eccentricity	e = \frac{c}{a} = \sqrt{1 - \frac{b^2}{a^2}}
+geometry	polar_conic	r = \frac{\ell}{1 + e\cos\theta}
+geometry	dot_product	\vec{a} \cdot \vec{b} = \|\vec{a}\|\,\|\vec{b}\| \cos\theta = a_1 b_1 + a_2 b_2 + a_3 b_3
+geometry	cross_product_det	\vec{a} \times \vec{b} = \begin{vmatrix} \hat{\imath} & \hat{\jmath} & \hat{k} \\ a_1 & a_2 & a_3 \\ b_1 & b_2 & b_3 \end{vmatrix}
+geometry	rotation_matrix	R(\theta) = \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix}
+geometry	unit_normal	\hat{n} = \frac{\vec{u} \times \vec{v}}{\|\vec{u} \times \vec{v}\|}
+geometry	vector_projection	\operatorname{proj}_{\vec{b}} \vec{a} = \frac{\vec{a} \cdot \vec{b}}{\vec{b} \cdot \vec{b}}\,\vec{b}
+geometry	plane_normal_form	\hat{n} \cdot (\vec{r} - \vec{r}_0) = 0
+geometry	line_parametric	\vec{r}(t) = \vec{r}_0 + t\,\vec{d}, \qquad t \in \mathbb{R}
+geometry	scalar_triple_product	V = \left| \vec{a} \cdot (\vec{b} \times \vec{c}) \right| = \left| \det \begin{bmatrix} a_1 & a_2 & a_3 \\ b_1 & b_2 & b_3 \\ c_1 & c_2 & c_3 \end{bmatrix} \right|
+geometry	plane_curvature	\kappa = \frac{|x' y'' - y' x''|}{\left( x'^2 + y'^2 \right)^{3/2}}
+geometry	frenet_serret	\frac{d}{ds} \begin{pmatrix} \mathbf{T} \\ \mathbf{N} \\ \mathbf{B} \end{pmatrix} = \begin{pmatrix} 0 & \kappa & 0 \\ -\kappa & 0 & \tau \\ 0 & -\tau & 0 \end{pmatrix} \begin{pmatrix} \mathbf{T} \\ \mathbf{N} \\ \mathbf{B} \end{pmatrix}
+geometry	curve_length	L = \int_a^b \sqrt{ \left( \frac{dx}{dt} \right)^2 + \left( \frac{dy}{dt} \right)^2 }\, dt
+geometry	first_fundamental_form	\mathrm{I} = E\,du^2 + 2F\,du\,dv + G\,dv^2
+geometry	gaussian_curvature	K = \kappa_1 \kappa_2 = \frac{LN - M^2}{EG - F^2}
+geometry	christoffel_symbols	\Gamma^{k}_{ij} = \frac{1}{2} g^{kl} \left( \partial_i g_{jl} + \partial_j g_{il} - \partial_l g_{ij} \right)
+geometry	gauss_bonnet	\int_M K\, dA + \int_{\partial M} k_g\, ds = 2\pi\,\chi(M)
+geometry	geodesic_equation	\frac{d^2 x^\mu}{ds^2} + \Gamma^{\mu}_{\alpha\beta} \frac{dx^\alpha}{ds} \frac{dx^\beta}{ds} = 0
+geometry	riemann_tensor	R^{\rho}{}_{\sigma\mu\nu} = \partial_\mu \Gamma^{\rho}_{\nu\sigma} - \partial_\nu \Gamma^{\rho}_{\mu\sigma} + \Gamma^{\rho}_{\mu\lambda} \Gamma^{\lambda}_{\nu\sigma} - \Gamma^{\rho}_{\nu\lambda} \Gamma^{\lambda}_{\mu\sigma}
+geometry	sphere_metric	ds^2 = R^2 \left( d\theta^2 + \sin^2\theta\, d\varphi^2 \right)
+geometry	stewart_theorem	b^2 m + c^2 n = a\left( d^2 + mn \right)
+geometry	ceva_theorem	\frac{\overline{AF}}{\overline{FB}} \cdot \frac{\overline{BD}}{\overline{DC}} \cdot \frac{\overline{CE}}{\overline{EA}} = 1
+geometry	ptolemy_theorem	\overline{AC} \cdot \overline{BD} = \overline{AB} \cdot \overline{CD} + \overline{BC} \cdot \overline{DA}
+geometry	power_of_a_point	PA \cdot PB = PC \cdot PD = PT^2 = d^2 - r^2
+geometry	circumradius	R = \frac{abc}{4K} = \frac{a}{2\sin A}
+geometry	inradius	r = \frac{K}{s} = \sqrt{\frac{(s-a)(s-b)(s-c)}{s}}
+geometry	triangle_area_sine	[\triangle ABC] = \tfrac{1}{2}\, ab \sin C
+geometry	shoelace_formula	A = \frac{1}{2} \left| \sum_{i=1}^{n} \left( x_i y_{i+1} - x_{i+1} y_i \right) \right|
+geometry	frustum_volume	V = \frac{\pi h}{3} \left( R^2 + Rr + r^2 \right)
+geometry	torus_surface	A = 4\pi^2 R r, \qquad V = 2\pi^2 R r^2
+geometry	sum_to_product	\sin\alpha + \sin\beta = 2 \sin\frac{\alpha + \beta}{2} \cos\frac{\alpha - \beta}{2}
+geometry	product_to_sum	\cos\alpha \cos\beta = \tfrac{1}{2} \left[ \cos(\alpha - \beta) + \cos(\alpha + \beta) \right]
+geometry	triple_angle	\cos 3\theta = 4\cos^3\theta - 3\cos\theta
+geometry	weierstrass_substitution	t = \tan\frac{x}{2} \implies \sin x = \frac{2t}{1 + t^2}, \quad \cos x = \frac{1 - t^2}{1 + t^2}
+geometry	law_of_tangents	\frac{a - b}{a + b} = \frac{\tan\frac{1}{2}(\alpha - \beta)}{\tan\frac{1}{2}(\alpha + \beta)}
+geometry	special_angles	\sin 30^\circ = \frac{1}{2}, \quad \cos 45^\circ = \frac{\sqrt{2}}{2}, \quad \tan 60^\circ = \sqrt{3}
+geometry	de_moivre	\left( \cos\theta + i \sin\theta \right)^n = \cos n\theta + i \sin n\theta
+geometry	spherical_coordinates	\begin{aligned} x &= \rho \sin\phi \cos\theta \\ y &= \rho \sin\phi \sin\theta \\ z &= \rho \cos\phi \end{aligned}
+geometry	polar_area	A = \frac{1}{2} \int_{\alpha}^{\beta} r(\theta)^2\, d\theta
+geometry	angle_between_lines	\tan\varphi = \left| \frac{m_2 - m_1}{1 + m_1 m_2} \right|
+geometry	quadrant_angle	\theta = \begin{cases} \arctan\frac{y}{x} & x > 0 \\ \arctan\frac{y}{x} + \pi & x < 0,\ y \ge 0 \\ \arctan\frac{y}{x} - \pi & x < 0,\ y < 0 \end{cases}
+geometry	polygon_interior_angle	\theta_n = \frac{(n - 2) \cdot 180^\circ}{n}
+geometry	similar_triangle_ratio	\triangle ABC \sim \triangle A'B'C' \iff \frac{AB}{A'B'} = \frac{BC}{B'C'} = \frac{CA}{C'A'}
+geometry	perpendicular_slopes	\ell_1 \perp \ell_2 \iff m_1 m_2 = -1
+geometry	parallel_transversal	\ell_1 \parallel \ell_2 \implies \angle 3 \cong \angle 6 \ \text{ and } \ m\angle 4 + m\angle 6 = 180^\circ
+geometry	altitude_theorem	h^2 = pq, \qquad a^2 = pc, \qquad b^2 = qc
+geometry	apollonius_median	m_a = \frac{1}{2} \sqrt{2b^2 + 2c^2 - a^2}
+geometry	euler_line_distance	\overline{OH}^{\,2} = 9R^2 - \left( a^2 + b^2 + c^2 \right)
+geometry	angle_bisector_theorem	\frac{\overline{BD}}{\overline{DC}} = \frac{\overline{AB}}{\overline{AC}}
+geometry	haversine	d = 2r \arcsin \sqrt{ \sin^2\!\frac{\varphi_2 - \varphi_1}{2} + \cos\varphi_1 \cos\varphi_2 \sin^2\!\frac{\lambda_2 - \lambda_1}{2} }
+geometry	generalized_stokes	\int_{\partial \Omega} \omega = \int_{\Omega} d\omega

@@ -68,7 +68,7 @@ def render_ours(tex, display, size, path):
     if not display: args.append("--inline")
     subprocess.run(args, check=True)
 
-def render_tex(tex, display, size, path, tmp, packages=(), preamble=""):
+def render_tex(tex, display, size, path, tmp, packages=(), preamble="", engine="lualatex"):
     r"""Typesets at TeX's standard 10 pt so absolute dimensions (\arraycolsep,
     \fboxsep, \jot, \delimitershortfall...) mean what they mean in a normal
     document, then rasterizes at the DPI that makes 1 em = `size` px."""
@@ -80,14 +80,14 @@ def render_tex(tex, display, size, path, tmp, packages=(), preamble=""):
 \usepackage[version=4]{mhchem}
 %s\usepackage{unicode-math}
 \setmathfont{latinmodern-math.otf}
-\setmainfont{latinmodern-math.otf}
+\setmainfont{latinmodern-math.otf}[BoldFont=lmroman10-bold.otf,ItalicFont=lmroman10-italic.otf]
 \begin{document}
 %s
 \end{document}
 """ % ("".join("\\usepackage{%s}\n" % p for p in packages), preamble + body)
     src = os.path.join(tmp, "f.tex")
     open(src, "w").write(doc)
-    r = subprocess.run(["lualatex", "-interaction=nonstopmode", "-halt-on-error", "-output-directory", tmp, src],
+    r = subprocess.run([engine, "-interaction=nonstopmode", "-halt-on-error", "-output-directory", tmp, src],
                        capture_output=True, text=True)
     if r.returncode != 0:
         return False

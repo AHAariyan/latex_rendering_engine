@@ -1,0 +1,60 @@
+cs_logic	modus_tollens	\dfrac{P \implies Q \qquad \neg Q}{\neg P}
+cs_logic	contrapositive	(P \implies Q) \iff (\neg Q \implies \neg P)
+cs_logic	and_introduction	\frac{\Gamma \vdash A \qquad \Gamma \vdash B}{\Gamma \vdash A \land B}\ (\land\text{I})
+cs_logic	implication_introduction	\frac{\Gamma, A \vdash B}{\Gamma \vdash A \to B}\ ({\to}\text{I})
+cs_logic	or_elimination	\dfrac{\Gamma \vdash A \lor B \qquad \Gamma, A \vdash C \qquad \Gamma, B \vdash C}{\Gamma \vdash C}
+cs_logic	forall_elimination	\frac{\Gamma \vdash \forall x.\, \varphi(x)}{\Gamma \vdash \varphi(t)}
+cs_logic	typing_abstraction	\frac{\Gamma, x : \sigma \vdash M : \tau}{\Gamma \vdash (\lambda x{:}\sigma.\, M) : \sigma \to \tau}
+cs_logic	typing_application	\frac{\Gamma \vdash M : \sigma \to \tau \qquad \Gamma \vdash N : \sigma}{\Gamma \vdash M\,N : \tau}
+cs_logic	beta_reduction	(\lambda x.\, M)\, N \longrightarrow_{\beta} M[x := N]
+cs_logic	y_combinator	Y = \lambda f.\, (\lambda x.\, f\,(x\,x))\,(\lambda x.\, f\,(x\,x))
+cs_logic	church_numeral	\overline{n} = \lambda f.\, \lambda x.\, \underbrace{f\,(f\,(\cdots (f}_{n}\, x) \cdots ))
+cs_logic	polymorphic_identity	\Lambda \alpha.\, \lambda x{:}\alpha.\, x \;:\; \forall \alpha.\, \alpha \to \alpha
+cs_logic	dependent_product	\prod_{x : A} B(x) \qquad \sum_{x : A} B(x)
+cs_logic	semantic_entailment	\Gamma \models \varphi \iff \text{for every model } \mathcal{M},\ \mathcal{M} \models \Gamma \implies \mathcal{M} \models \varphi
+cs_logic	completeness_theorem	\Gamma \vdash \varphi \iff \Gamma \models \varphi
+cs_logic	quantifier_negation	\neg \forall x\, P(x) \equiv \exists x\, \neg P(x)
+cs_logic	unique_existence	\exists!\, x\, P(x) \iff \exists x \left( P(x) \land \forall y \left( P(y) \implies y = x \right) \right)
+cs_logic	cnf_formula	\varphi = (x_1 \lor \neg x_2 \lor x_3) \land (\neg x_1 \lor x_2 \lor x_4) \land (x_2 \lor \neg x_3 \lor \neg x_4)
+cs_logic	resolution_rule	\frac{C \lor p \qquad D \lor \neg p}{C \lor D}
+cs_logic	complexity_chain	\mathsf{L} \subseteq \mathsf{NL} \subseteq \mathsf{P} \subseteq \mathsf{NP} \subseteq \mathsf{PSPACE} \subseteq \mathsf{EXPTIME}
+cs_logic	np_definition	L \in \mathsf{NP} \iff \exists\, \text{poly-time } V\ \forall x : \left( x \in L \iff \exists w,\ |w| \le p(|x|),\ V(x, w) = 1 \right)
+cs_logic	poly_reduction	A \le_p B \ \land\ B \in \mathsf{P} \implies A \in \mathsf{P}
+cs_logic	big_o_definition	f(n) = O(g(n)) \iff \exists c > 0\ \exists n_0\ \forall n \ge n_0 : f(n) \le c \cdot g(n)
+cs_logic	little_o_limit	f(n) = o(g(n)) \iff \lim_{n \to \infty} \frac{f(n)}{g(n)} = 0
+cs_logic	master_theorem_cases	T(n) = \begin{cases} \Theta\!\left( n^{\log_b a} \right) & \text{if } f(n) = O\!\left( n^{\log_b a - \epsilon} \right) \\ \Theta\!\left( n^{\log_b a} \log n \right) & \text{if } f(n) = \Theta\!\left( n^{\log_b a} \right) \\ \Theta(f(n)) & \text{if } f(n) = \Omega\!\left( n^{\log_b a + \epsilon} \right) \end{cases}
+cs_logic	log_factorial	\log_2 (n!) = \sum_{k=1}^{n} \log_2 k = n \log_2 n - \Theta(n)
+cs_logic	harmonic_number	H_n = \sum_{k=1}^{n} \frac{1}{k} = \ln n + \gamma + O\!\left( \frac{1}{n} \right)
+cs_logic	mergesort_recurrence	T(n) = 2T\!\left( \left\lfloor \tfrac{n}{2} \right\rfloor \right) + \Theta(n) = \Theta(n \log n)
+cs_logic	strassen_exponent	T(n) = 7\,T(n/2) + O(n^2) \implies T(n) = O\!\left( n^{\log_2 7} \right) \approx O(n^{2.807})
+cs_logic	amortized_potential	\hat{c}_i = c_i + \Phi(D_i) - \Phi(D_{i-1})
+cs_logic	lcs_recurrence	c[i,j] = \begin{cases} 0 & i = 0 \text{ or } j = 0 \\ c[i-1, j-1] + 1 & x_i = y_j \\ \max\{ c[i-1, j],\ c[i, j-1] \} & x_i \ne y_j \end{cases}
+cs_logic	knapsack_dp	K(i, w) = \max\bigl\{ K(i-1, w),\ v_i + K(i-1, w - w_i) \bigr\}
+cs_logic	floyd_warshall	d_{ij}^{(k)} = \min\left( d_{ij}^{(k-1)},\ d_{ik}^{(k-1)} + d_{kj}^{(k-1)} \right)
+cs_logic	bellman_optimality	V^*(s) = \max_{a \in \mathcal{A}} \Bigl[ R(s, a) + \gamma \sum_{s' \in \mathcal{S}} P(s' \mid s, a)\, V^*(s') \Bigr]
+cs_logic	shannon_entropy	H(X) = -\sum_{x \in \mathcal{X}} p(x) \log_2 p(x)
+cs_logic	kl_divergence	D_{\mathrm{KL}}(P \parallel Q) = \sum_{x} P(x) \log \frac{P(x)}{Q(x)}
+cs_logic	mutual_information	I(X; Y) = H(X) - H(X \mid Y) = \sum_{x, y} p(x, y) \log \frac{p(x, y)}{p(x)\, p(y)}
+cs_logic	channel_capacity	C = B \log_2\!\left( 1 + \frac{S}{N} \right)
+cs_logic	kraft_inequality	\sum_{i=1}^{m} 2^{-\ell_i} \le 1
+cs_logic	source_coding_bound	H(X) \le \mathbb{E}[\ell(X)] < H(X) + 1
+cs_logic	dfa_tuple	M = (Q, \Sigma, \delta, q_0, F), \qquad \delta : Q \times \Sigma \to Q
+cs_logic	extended_transition	\hat{\delta}(q, wa) = \delta\bigl( \hat{\delta}(q, w),\ a \bigr), \qquad \hat{\delta}(q, \varepsilon) = q
+cs_logic	pumping_lemma	\forall w \in L,\ |w| \ge p : \exists\, x, y, z \ \bigl( w = xyz \land |xy| \le p \land |y| \ge 1 \land \forall i \ge 0 : x y^i z \in L \bigr)
+cs_logic	kleene_star	L^* = \bigcup_{n \ge 0} L^n = \{ \varepsilon \} \cup L \cup LL \cup \cdots
+cs_logic	context_free_language	L = \{ a^n b^n \mid n \ge 0 \}, \qquad S \to aSb \mid \varepsilon
+cs_logic	halting_language	\mathrm{HALT} = \{ \langle M, w \rangle \mid M \text{ halts on input } w \}
+cs_logic	symmetric_difference	A \mathbin{\triangle} B = (A \setminus B) \cup (B \setminus A)
+cs_logic	inclusion_exclusion	|A \cup B \cup C| = |A| + |B| + |C| - |A \cap B| - |A \cap C| - |B \cap C| + |A \cap B \cap C|
+cs_logic	cartesian_product	A \times B = \{ (a, b) \mid a \in A \land b \in B \}
+cs_logic	extensionality	\forall A\, \forall B \left[ \forall x\, (x \in A \iff x \in B) \implies A = B \right]
+cs_logic	family_de_morgan	\overline{\bigcup_{i \in I} A_i} = \bigcap_{i \in I} \overline{A_i}
+cs_logic	preimage	f^{-1}(B) = \{ x \in X \mid f(x) \in B \}
+cs_logic	cantor_theorem	|A| < |\mathcal{P}(A)| \quad \text{for every set } A
+cs_logic	hoare_while	\frac{\{ P \land b \}\ S\ \{ P \}}{\{ P \}\ \mathbf{while}\ b\ \mathbf{do}\ S\ \{ P \land \neg b \}}
+cs_logic	birthday_bound	\Pr[\text{collision}] = 1 - \prod_{i=1}^{k-1} \left( 1 - \frac{i}{N} \right) \approx 1 - e^{-k(k-1)/2N}
+cs_logic	bloom_false_positive	p \approx \left( 1 - e^{-kn/m} \right)^{k}
+cs_logic	chernoff_bound	\Pr\bigl[ X \ge (1 + \delta)\mu \bigr] \le \left( \frac{e^{\delta}}{(1 + \delta)^{1 + \delta}} \right)^{\mu}
+cs_logic	fibonacci_matrix	\begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix} = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix}^{n}
+cs_logic	heap_indices	\mathrm{parent}(i) = \left\lfloor \frac{i - 1}{2} \right\rfloor, \quad \mathrm{left}(i) = 2i + 1, \quad \mathrm{right}(i) = 2i + 2
+cs_logic	cross_entropy_loss	\mathcal{L}(\theta) = -\frac{1}{N} \sum_{i=1}^{N} \sum_{c=1}^{C} y_{ic} \log \hat{y}_{ic}

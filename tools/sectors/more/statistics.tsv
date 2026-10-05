@@ -1,0 +1,60 @@
+statistics	total_probability	P(B) = \sum_{i=1}^{n} P(B \mid A_i)\, P(A_i)
+statistics	bayes_posterior	p(\theta \mid x) = \frac{p(x \mid \theta)\, p(\theta)}{\int_{\Theta} p(x \mid \theta')\, p(\theta')\, d\theta'}
+statistics	conditional_prob_def	P(A \mid B) = \frac{P(A \cap B)}{P(B)}, \qquad P(B) > 0
+statistics	independence	X \perp Y \iff f_{X,Y}(x,y) = f_X(x)\, f_Y(y) \quad \forall\, x, y
+statistics	union_bound	P\Bigl(\,\bigcup_{i=1}^{\infty} A_i\Bigr) \le \sum_{i=1}^{\infty} P(A_i)
+statistics	chain_rule_prob	P(A_1 \cap \dots \cap A_n) = \prod_{k=1}^{n} P\bigl(A_k \,\big|\, A_1 \cap \dots \cap A_{k-1}\bigr)
+statistics	cdf_def	F_X(x) = P(X \le x) = \int_{-\infty}^{x} f_X(t)\, dt
+statistics	variance_shortcut	\operatorname{Var}(X) = \mathbb{E}[X^2] - \bigl(\mathbb{E}[X]\bigr)^2
+statistics	variance_of_sum	\operatorname{Var}\Bigl(\sum_{i=1}^{n} X_i\Bigr) = \sum_{i=1}^{n} \operatorname{Var}(X_i) + 2 \sum_{1 \le i < j \le n} \operatorname{Cov}(X_i, X_j)
+statistics	covariance_def	\operatorname{Cov}(X, Y) = \mathbb{E}\bigl[(X - \mathbb{E}X)(Y - \mathbb{E}Y)\bigr] = \mathbb{E}[XY] - \mathbb{E}[X]\,\mathbb{E}[Y]
+statistics	total_variance	\operatorname{Var}(Y) = \mathbb{E}\bigl[\operatorname{Var}(Y \mid X)\bigr] + \operatorname{Var}\bigl(\mathbb{E}[Y \mid X]\bigr)
+statistics	lotus	\mathbb{E}[g(X)] = \int_{-\infty}^{\infty} g(x)\, f_X(x)\, dx
+statistics	mgf	M_X(t) = \mathbb{E}\bigl[e^{tX}\bigr] = \sum_{k=0}^{\infty} \frac{t^k}{k!}\, \mathbb{E}[X^k]
+statistics	characteristic_normal	\varphi_X(t) = \mathbb{E}\bigl[e^{itX}\bigr] = \exp\Bigl(i\mu t - \tfrac{1}{2}\sigma^2 t^2\Bigr)
+statistics	markov_inequality	P(X \ge a) \le \frac{\mathbb{E}[X]}{a}
+statistics	chebyshev	P\bigl(|X - \mu| \ge k\sigma\bigr) \le \frac{1}{k^2}
+statistics	jensen	\varphi\bigl(\mathbb{E}[X]\bigr) \le \mathbb{E}\bigl[\varphi(X)\bigr]
+statistics	hoeffding	P\bigl(\bar{X}_n - \mathbb{E}[\bar{X}_n] \ge t\bigr) \le \exp\left(-\frac{2n^2 t^2}{\sum_{i=1}^{n} (b_i - a_i)^2}\right)
+statistics	cauchy_schwarz_prob	\bigl|\mathbb{E}[XY]\bigr| \le \sqrt{\mathbb{E}[X^2]\,\mathbb{E}[Y^2]}
+statistics	weak_lln	\lim_{n \to \infty} P\bigl(|\bar{X}_n - \mu| > \varepsilon\bigr) = 0
+statistics	strong_lln	P\Bigl(\lim_{n\to\infty} \frac{1}{n}\sum_{i=1}^{n} X_i = \mu\Bigr) = 1
+statistics	multivariate_normal	f(\mathbf{x}) = \frac{1}{(2\pi)^{d/2}\, |\boldsymbol{\Sigma}|^{1/2}} \exp\Bigl(-\tfrac{1}{2} (\mathbf{x} - \boldsymbol{\mu})^{\top} \boldsymbol{\Sigma}^{-1} (\mathbf{x} - \boldsymbol{\mu})\Bigr)
+statistics	exponential_pdf	f(x; \lambda) = \begin{cases} \lambda e^{-\lambda x}, & x \ge 0, \\ 0, & x < 0 \end{cases}
+statistics	gamma_pdf	f(x; \alpha, \beta) = \frac{\beta^{\alpha}}{\Gamma(\alpha)}\, x^{\alpha - 1} e^{-\beta x}, \qquad x > 0
+statistics	beta_pdf	f(x; \alpha, \beta) = \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\,\Gamma(\beta)}\, x^{\alpha-1} (1-x)^{\beta-1}
+statistics	beta_function	B(\alpha, \beta) = \int_0^1 t^{\alpha-1} (1-t)^{\beta-1}\, dt
+statistics	student_t_pdf	f(t) = \frac{\Gamma\bigl(\frac{\nu+1}{2}\bigr)}{\sqrt{\nu\pi}\;\Gamma\bigl(\frac{\nu}{2}\bigr)} \left(1 + \frac{t^2}{\nu}\right)^{-\frac{\nu+1}{2}}
+statistics	chi_square_pdf	f(x; k) = \frac{1}{2^{k/2}\, \Gamma(k/2)}\, x^{k/2 - 1} e^{-x/2}
+statistics	cauchy_pdf	f(x; x_0, \gamma) = \frac{1}{\pi\gamma \left[1 + \left(\frac{x - x_0}{\gamma}\right)^2\right]}
+statistics	lognormal_pdf	f(x) = \frac{1}{x \sigma \sqrt{2\pi}} \exp\left(-\frac{(\ln x - \mu)^2}{2\sigma^2}\right)
+statistics	geometric_pmf	P(X = k) = (1-p)^{k-1} p, \qquad k = 1, 2, 3, \dots
+statistics	hypergeometric_pmf	P(X = k) = \frac{\binom{K}{k} \binom{N-K}{n-k}}{\binom{N}{n}}
+statistics	negative_binomial_pmf	P(X = k) = \binom{k + r - 1}{k} (1-p)^k p^r
+statistics	multinomial_pmf	P(X_1 = x_1, \dots, X_k = x_k) = \frac{n!}{x_1! \cdots x_k!}\, p_1^{x_1} \cdots p_k^{x_k}
+statistics	standard_normal_cdf	\Phi(z) = \frac{1}{\sqrt{2\pi}} \int_{-\infty}^{z} e^{-t^2/2}\, dt = \frac{1}{2}\left[1 + \operatorname{erf}\left(\frac{z}{\sqrt{2}}\right)\right]
+statistics	bivariate_covariance	\boldsymbol{\Sigma} = \begin{pmatrix} \sigma_X^2 & \rho\,\sigma_X \sigma_Y \\ \rho\,\sigma_X \sigma_Y & \sigma_Y^2 \end{pmatrix}
+statistics	sample_covariance_matrix	\mathbf{S} = \frac{1}{n-1} \sum_{i=1}^{n} (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^{\top}
+statistics	mle_argmax	\hat{\theta}_{\mathrm{MLE}} = \operatorname*{arg\,max}_{\theta \in \Theta} \sum_{i=1}^{n} \log f(x_i \mid \theta)
+statistics	normal_log_likelihood	\ell(\mu, \sigma^2) = -\frac{n}{2} \ln(2\pi\sigma^2) - \frac{1}{2\sigma^2} \sum_{i=1}^{n} (x_i - \mu)^2
+statistics	mle_variance	\hat{\sigma}^2 = \frac{1}{n} \sum_{i=1}^{n} (X_i - \bar{X})^2
+statistics	map_estimate	\hat{\theta}_{\mathrm{MAP}} = \operatorname*{arg\,max}_{\theta} \bigl\{ \log p(x \mid \theta) + \log p(\theta) \bigr\}
+statistics	bias_variance	\operatorname{MSE}(\hat{\theta}) = \operatorname{Var}(\hat{\theta}) + \bigl(\operatorname{Bias}(\hat{\theta})\bigr)^2
+statistics	fisher_information	I(\theta) = -\mathbb{E}\left[\frac{\partial^2}{\partial\theta^2} \log f(X; \theta)\right]
+statistics	cramer_rao	\operatorname{Var}(\hat{\theta}) \ge \frac{1}{n\, I(\theta)}
+statistics	ols_slope	\hat{\beta}_1 = \frac{\sum_{i=1}^{n} (x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^{n} (x_i - \bar{x})^2}, \qquad \hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x}
+statistics	r_squared	R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}
+statistics	ridge	\hat{\boldsymbol{\beta}}^{\mathrm{ridge}} = \operatorname*{arg\,min}_{\boldsymbol{\beta}} \bigl\{ \|\mathbf{y} - \mathbf{X}\boldsymbol{\beta}\|_2^2 + \lambda \|\boldsymbol{\beta}\|_2^2 \bigr\} = (\mathbf{X}^{\top}\mathbf{X} + \lambda \mathbf{I})^{-1} \mathbf{X}^{\top} \mathbf{y}
+statistics	lasso	\min_{\beta \in \mathbb{R}^p} \; \frac{1}{2n} \sum_{i=1}^{n} \bigl(y_i - x_i^{\top} \beta\bigr)^2 + \lambda \sum_{j=1}^{p} |\beta_j|
+statistics	pooled_t	t = \frac{\bar{x}_1 - \bar{x}_2}{s_p \sqrt{\dfrac{1}{n_1} + \dfrac{1}{n_2}}}, \qquad s_p^2 = \frac{(n_1 - 1) s_1^2 + (n_2 - 1) s_2^2}{n_1 + n_2 - 2}
+statistics	proportion_ci	\hat{p} \pm z_{\alpha/2} \sqrt{\frac{\hat{p}(1 - \hat{p})}{n}}
+statistics	likelihood_ratio	\Lambda(x) = \frac{\sup_{\theta \in \Theta_0} L(\theta \mid x)}{\sup_{\theta \in \Theta} L(\theta \mid x)}
+statistics	p_value	p = P\bigl(|T| \ge |t_{\mathrm{obs}}| \;\big|\; H_0\bigr)
+statistics	sigmoid	\sigma(z) = \frac{1}{1 + e^{-z}}, \qquad \sigma'(z) = \sigma(z)\bigl(1 - \sigma(z)\bigr)
+statistics	softmax	\operatorname{softmax}(\mathbf{z})_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}}
+statistics	cross_entropy_loss	\mathcal{L}(\mathbf{w}) = -\frac{1}{N} \sum_{n=1}^{N} \bigl[ y_n \log \hat{y}_n + (1 - y_n) \log(1 - \hat{y}_n) \bigr]
+statistics	sgd_update	\theta_{t+1} = \theta_t - \eta\, \nabla_{\theta} \mathcal{L}(\theta_t; x^{(i)}, y^{(i)})
+statistics	elbo	\log p_\theta(x) \ge \mathbb{E}_{q_\phi(z \mid x)}\bigl[\log p_\theta(x \mid z)\bigr] - D_{\mathrm{KL}}\bigl(q_\phi(z \mid x) \,\|\, p(z)\bigr)
+statistics	mutual_information	I(X; Y) = \sum_{x \in \mathcal{X}} \sum_{y \in \mathcal{Y}} p(x, y) \log \frac{p(x, y)}{p(x)\, p(y)}
+statistics	naive_bayes	\hat{y} = \operatorname*{arg\,max}_{k \in \{1, \dots, K\}} \; p(C_k) \prod_{i=1}^{n} p(x_i \mid C_k)
+statistics	markov_stationary	\pi_j = \sum_{i \in S} \pi_i P_{ij}, \qquad \sum_{j \in S} \pi_j = 1

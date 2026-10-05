@@ -236,6 +236,11 @@ fn node(out: &mut String, n: &Node) {
             }
             out.push_str("</mtable>");
         }
+        // \smash is drawn; only its height is ignored.
+        Node::Phantom {
+            body,
+            kind: PhantomKind::Smash,
+        } => one(out, body),
         Node::Phantom { body, .. } => {
             out.push_str("<mphantom>");
             one(out, body);
@@ -280,7 +285,7 @@ fn node(out: &mut String, n: &Node) {
             token(out, "mo", &ch.to_string());
             let _ = write!(out, "</{tag}>");
         }
-        Node::XArrow { ch, over, under } => {
+        Node::XArrow { ch, over, under, .. } => {
             let tag = match (over, under) {
                 (Some(_), Some(_)) => "munderover",
                 (None, Some(_)) => "munder",
@@ -746,6 +751,10 @@ impl Speaker {
                     self.w(out, if cols > 1 { "end matrix" } else { "end rows" });
                 }
             }
+            Node::Phantom {
+                body,
+                kind: PhantomKind::Smash,
+            } => self.say_one(out, body),
             Node::Phantom { .. } => {}
             Node::OverUnder { base, over, under } => {
                 self.say_one(out, base);
@@ -776,7 +785,7 @@ impl Speaker {
                 self.w(out, if *over { "over brace of" } else { "under brace of" });
                 self.say_one(out, base);
             }
-            Node::XArrow { ch, over, under } => {
+            Node::XArrow { ch, over, under, .. } => {
                 self.w(out, &symbol_name(*ch));
                 // An empty label (`\xrightarrow{}`, a bare `->` in \ce) says nothing.
                 if let Some(o) = over.as_deref().filter(|o| !self.said(o).is_empty()) {

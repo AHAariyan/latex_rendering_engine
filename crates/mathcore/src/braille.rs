@@ -184,10 +184,14 @@ impl Writer {
                     }
                 }
             }
+            Node::Phantom {
+                body,
+                kind: PhantomKind::Smash,
+            } => self.one(body),
             Node::Phantom { .. } | Node::Rule { .. } | Node::Placeholder => {}
             Node::OverUnder { base, over, under } => self.under_over(base, under.as_deref(), over.as_deref()),
             Node::HBrace { base, .. } | Node::Cancel { body: base, .. } => self.one(base),
-            Node::XArrow { ch, over, under } => {
+            Node::XArrow { ch, over, under, .. } => {
                 self.space();
                 self.put(arrow(*ch));
                 // Labels that print nothing (mhchem's spacer) are left out.

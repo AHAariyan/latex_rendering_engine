@@ -607,13 +607,26 @@ impl<'a> Parser<'a> {
                     "tfrac" => Some(MathStyle::Text),
                     _ => None,
                 };
-                Ok(Node::Frac {
+                let frac = Node::Frac {
                     num: Box::new(num),
                     den: Box::new(den),
                     rule: FracRule::Default,
                     style,
                     delims: None,
-                })
+                };
+                if name == "cfrac" {
+                    // amsmath follows it with \kern-\nulldelimiterspace, so
+                    // nested continued fractions end flush on the right.
+                    return Ok(Node::Row(vec![
+                        frac,
+                        Node::Rule {
+                            width: -0.12,
+                            height: 0.0,
+                            raise: 0.0,
+                        },
+                    ]));
+                }
+                Ok(frac)
             }
             "binom" | "dbinom" | "tbinom" => {
                 let num = self.parse_arg()?;
@@ -1026,10 +1039,36 @@ impl<'a> Parser<'a> {
                     over: name == "overbrace",
                 })
             }
-            "xrightarrow" | "xleftarrow" | "xleftrightarrow" | "xRightarrow" | "xLeftarrow" | "xLeftrightarrow" | "xmapsto"
-            | "xhookrightarrow" | "xhookleftarrow" | "xtwoheadrightarrow" | "xtwoheadleftarrow" | "xrightharpoonup" | "xleftharpoonup"
-            | "xlongequal" | "xrightharpoondown" | "xleftharpoondown" | "xrightleftharpoons" | "xleftrightharpoons" | "xtofrom"
-            | "xrightequilibrium" | "xleftequilibrium" | "xrightleftarrows" => {
+            "xrightarrow"
+            | "xleftarrow"
+            | "xleftrightarrow"
+            | "xRightarrow"
+            | "xLeftarrow"
+            | "xLeftrightarrow"
+            | "xmapsto"
+            | "xhookrightarrow"
+            | "xhookleftarrow"
+            | "xtwoheadrightarrow"
+            | "xtwoheadleftarrow"
+            | "xrightharpoonup"
+            | "xleftharpoonup"
+            | "xlongequal"
+            | "xrightharpoondown"
+            | "xleftharpoondown"
+            | "xrightleftharpoons"
+            | "xleftrightharpoons"
+            | "xtofrom"
+            | "xrightequilibrium"
+            | "xleftequilibrium"
+            | "xrightleftarrows"
+            | "cexrightarrow"
+            | "cexleftarrow"
+            | "cexleftrightarrow"
+            | "cexrightleftharpoons"
+            | "cexrightleftarrows" => {
+                // `\ce`'s arrows are these with mhchem's lengths.
+                let chemistry = name.starts_with("ce");
+                let name = name.strip_prefix("ce").unwrap_or(name);
                 let ch = match name {
                     "xrightarrow" => '→',
                     "xleftarrow" => '←',
@@ -1059,6 +1098,7 @@ impl<'a> Parser<'a> {
                     ch,
                     over: Some(Box::new(over)),
                     under,
+                    chemistry,
                 })
             }
             "pmod" | "pod" | "mod" | "bmod" => {

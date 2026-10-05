@@ -1,0 +1,60 @@
+education	multiplication_fact	7 \times 8 = 56
+education	division_remainder	47 \div 5 = 9 \text{ remainder } 2
+education	place_value	4{,}307 = 4 \times 1000 + 3 \times 100 + 0 \times 10 + 7 \times 1
+education	column_addition	\begin{array}{r} 3\,4\,8 \\ +\ 2\,7\,5 \\ \hline 6\,2\,3 \end{array}
+education	bodmas_brackets	18 - 2 \times (3 + 4) \div 7 = 18 - 2 \times 7 \div 7 = 16
+education	nested_brackets	\left\{ 48 \div \left[ 2 \times (9 - 5) \right] \right\} + 3^2 = 6 + 9 = 15
+education	fraction_subtraction	\frac{5}{6} - \frac{1}{4} = \frac{10}{12} - \frac{3}{12} = \frac{7}{12}
+education	fraction_multiplication	\frac{2}{3} \times \frac{9}{10} = \frac{18}{30} = \frac{3}{5}
+education	fraction_division	\frac{3}{4} \div \frac{5}{8} = \frac{3}{4} \times \frac{8}{5} = \frac{6}{5} = 1\frac{1}{5}
+education	mixed_number_addition	3\frac{1}{2} + 2\frac{2}{3} = 5 + \frac{3}{6} + \frac{4}{6} = 6\frac{1}{6}
+education	equivalent_fractions	\frac{2}{5} = \frac{4}{10} = \frac{6}{15} = \frac{40}{100}
+education	comparing_fractions	\frac{3}{7} < \frac{1}{2} < \frac{5}{8}
+education	complex_fraction	\dfrac{\dfrac{1}{2} + \dfrac{1}{3}}{\dfrac{3}{4} - \dfrac{1}{6}} = \dfrac{5}{6} \div \dfrac{7}{12} = \dfrac{10}{7}
+education	decimal_multiplication	3.6 \times 0.25 = 0.9
+education	decimal_division	7.2 \div 0.08 = 720 \div 8 = 90
+education	recurring_decimal	\frac{1}{3} = 0.\overline{3}, \qquad \frac{5}{11} = 0.\overline{45}
+education	rounding	3.14159 \approx 3.14 \ (\text{to 2 decimal places})
+education	percent_of_quantity	15\% \text{ of } \$240 = \frac{15}{100} \times 240 = \$36
+education	percent_change	\text{Percentage increase} = \frac{\text{new} - \text{original}}{\text{original}} \times 100\% = \frac{60 - 48}{48} \times 100\% = 25\%
+education	discount_problem	\text{Sale price} = \$80 - 20\% \times \$80 = \$64
+education	ratio_sharing	3 : 5 = 12 : 20, \qquad \frac{3}{8} \times 40 = 15
+education	unitary_method	5 \text{ pens cost } \$12.50 \implies 1 \text{ pen costs } \$12.50 \div 5 = \$2.50
+education	proportion_solve	\frac{x}{12} = \frac{5}{8} \implies x = \frac{12 \times 5}{8} = 7.5
+education	exponent_rules	a^m \times a^n = a^{m+n}, \qquad \frac{a^m}{a^n} = a^{m-n}, \qquad (a^m)^n = a^{mn}
+education	negative_exponent	2^{-3} = \frac{1}{2^3} = \frac{1}{8}
+education	fractional_exponent	27^{\frac{2}{3}} = \left( \sqrt[3]{27} \right)^2 = 3^2 = 9
+education	scientific_notation	0.00042 = 4.2 \times 10^{-4}, \qquad 3.0 \times 10^{8} \text{ m/s}
+education	simplify_surd	\sqrt{72} = \sqrt{36 \times 2} = 6\sqrt{2}
+education	rationalise_denominator	\frac{1}{\sqrt{3} - 1} = \frac{\sqrt{3} + 1}{(\sqrt{3})^2 - 1^2} = \frac{\sqrt{3} + 1}{2}
+education	cube_root	\sqrt[3]{-64} = -4
+education	prime_factorisation	360 = 2^3 \times 3^2 \times 5
+education	hcf_lcm	\operatorname{HCF}(12, 18) = 6, \qquad \operatorname{LCM}(12, 18) = 36
+education	integer_operations	(-7) - (-3) \times (-2) = -7 - 6 = -13
+education	absolute_value	|{-5}| + |3 - 8| = 5 + 5 = 10
+education	linear_equation	3x + 7 = 22 \implies 3x = 15 \implies x = 5
+education	equation_steps	\begin{aligned} 2(x - 3) &= 5x + 9 \\ 2x - 6 &= 5x + 9 \\ -3x &= 15 \\ x &= -5 \end{aligned}
+education	simultaneous_equations	\begin{cases} 2x + y = 7 \\ x - y = 2 \end{cases} \implies x = 3,\ y = 1
+education	quadratic_formula	x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+education	factorising	x^2 - 5x + 6 = (x - 2)(x - 3)
+education	difference_of_squares	a^2 - b^2 = (a + b)(a - b)
+education	expanding_brackets	(x + 3)^2 = x^2 + 6x + 9
+education	completing_the_square	x^2 + 6x + 2 = (x + 3)^2 - 7
+education	algebraic_fraction	\frac{x}{x + 1} + \frac{2}{x - 1} = \frac{x(x - 1) + 2(x + 1)}{(x + 1)(x - 1)} = \frac{x^2 + x + 2}{x^2 - 1}
+education	substitution_evaluate	\text{If } a = 3 \text{ and } b = -2, \text{ then } 2a^2 - 3b = 2(9) + 6 = 24
+education	arithmetic_sequence	a_n = a_1 + (n - 1)d, \qquad S_n = \frac{n}{2}(a_1 + a_n)
+education	function_notation	f(x) = 2x^2 - 3x + 1 \implies f(-2) = 15
+education	area_triangle	A = \frac{1}{2} b h = \frac{1}{2} \times 8 \text{ cm} \times 5 \text{ cm} = 20 \text{ cm}^2
+education	area_trapezium	A = \frac{1}{2}(a + b)h
+education	perimeter_rectangle	P = 2(l + w) = 2(12 \text{ m} + 7.5 \text{ m}) = 39 \text{ m}
+education	circumference	C = 2\pi r = \pi d \approx 3.14 \times 10 \text{ cm} = 31.4 \text{ cm}
+education	volume_cuboid	V = l \times w \times h = 4 \text{ cm} \times 3 \text{ cm} \times 2.5 \text{ cm} = 30 \text{ cm}^3
+education	volume_cylinder	V = \pi r^2 h, \qquad \text{S.A.} = 2\pi r^2 + 2\pi r h
+education	volume_cone_pyramid	V_{\text{cone}} = \frac{1}{3}\pi r^2 h, \qquad V_{\text{pyramid}} = \frac{1}{3} \times \text{base area} \times \text{height}
+education	unit_conversion	2.5 \text{ km} = 2500 \text{ m} = 250\,000 \text{ cm}, \qquad 1 \text{ m}^2 = 10\,000 \text{ cm}^2
+education	average_speed	\text{Average speed} = \frac{\text{total distance}}{\text{total time}} = \frac{150 \text{ km}}{2.5 \text{ h}} = 60 \text{ km/h}
+education	mean_of_data	\bar{x} = \frac{4 + 7 + 7 + 9 + 13}{5} = \frac{40}{5} = 8
+education	simple_probability	P(\text{red}) = \frac{\text{number of red marbles}}{\text{total number of marbles}} = \frac{3}{12} = \frac{1}{4}
+education	sohcahtoa	\sin\theta = \frac{\text{opposite}}{\text{hypotenuse}}, \quad \cos\theta = \frac{\text{adjacent}}{\text{hypotenuse}}, \quad \tan\theta = \frac{\text{opposite}}{\text{adjacent}}
+education	word_problem_age	\text{Let Sam's age be } x. \text{ Then } x + (x + 4) = 30, \text{ so } x = 13 \text{ years.}
+education	temperature_conversion	F = \frac{9}{5}C + 32, \qquad 25^\circ\text{C} = 77^\circ\text{F}

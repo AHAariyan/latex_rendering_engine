@@ -1,0 +1,60 @@
+discrete	binomial_theorem	(x + y)^n = \sum_{k=0}^{n} \binom{n}{k} x^{n-k} y^k
+discrete	multinomial_theorem	(x_1 + x_2 + \cdots + x_m)^n = \sum_{\substack{k_1 + \cdots + k_m = n \\ k_i \ge 0}} \binom{n}{k_1, \ldots, k_m} \prod_{i=1}^{m} x_i^{k_i}
+discrete	alternating_binomial	\sum_{k=0}^{n} (-1)^k \binom{n}{k} = 0 \qquad (n \ge 1)
+discrete	hockey_stick	\sum_{i=r}^{n} \binom{i}{r} = \binom{n+1}{r+1}
+discrete	absorption_identity	k \binom{n}{k} = n \binom{n-1}{k-1}
+discrete	stars_and_bars	\left(\!\!\binom{n}{k}\!\!\right) = \binom{n + k - 1}{k}
+discrete	general_inclusion_exclusion	\Bigl|\bigcup_{i=1}^{n} A_i\Bigr| = \sum_{\emptyset \ne J \subseteq \{1, \ldots, n\}} (-1)^{|J| + 1} \Bigl|\bigcap_{j \in J} A_j\Bigr|
+discrete	derangement_recurrence	D_n = (n-1)\,(D_{n-1} + D_{n-2}), \qquad D_n = \left\lfloor \frac{n!}{e} + \frac{1}{2} \right\rfloor
+discrete	stirling_second_recurrence	\genfrac{\{}{\}}{0pt}{}{n+1}{k} = k \genfrac{\{}{\}}{0pt}{}{n}{k} + \genfrac{\{}{\}}{0pt}{}{n}{k-1}
+discrete	stirling_second_explicit	S(n, k) = \frac{1}{k!} \sum_{j=0}^{k} (-1)^{k-j} \binom{k}{j} j^n
+discrete	stirling_first_recurrence	\genfrac{[}{]}{0pt}{}{n+1}{k} = n \genfrac{[}{]}{0pt}{}{n}{k} + \genfrac{[}{]}{0pt}{}{n}{k-1}
+discrete	falling_factorial	x^{\underline{n}} = x (x-1) \cdots (x-n+1) = \sum_{k=0}^{n} s(n, k)\, x^k
+discrete	powers_via_stirling	x^n = \sum_{k=0}^{n} \genfrac{\{}{\}}{0pt}{}{n}{k} x^{\underline{k}}
+discrete	bell_recurrence	B_{n+1} = \sum_{k=0}^{n} \binom{n}{k} B_k
+discrete	bell_egf	\sum_{n=0}^{\infty} B_n \frac{x^n}{n!} = e^{e^x - 1}
+discrete	catalan_recurrence	C_{n+1} = \sum_{i=0}^{n} C_i\, C_{n-i}, \qquad C_0 = 1
+discrete	catalan_gf	C(x) = \sum_{n \ge 0} C_n x^n = \frac{1 - \sqrt{1 - 4x}}{2x}
+discrete	catalan_asymptotic	C_n \sim \frac{4^n}{n^{3/2} \sqrt{\pi}}
+discrete	fibonacci_recurrence	F_n = F_{n-1} + F_{n-2}, \qquad F_0 = 0, \; F_1 = 1
+discrete	binet	F_n = \frac{1}{\sqrt{5}} \left[ \left(\frac{1 + \sqrt{5}}{2}\right)^{\!n} - \left(\frac{1 - \sqrt{5}}{2}\right)^{\!n} \right]
+discrete	fibonacci_matrix	\begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix}^{n} = \begin{pmatrix} F_{n+1} & F_n \\ F_n & F_{n-1} \end{pmatrix}
+discrete	cassini	F_{n-1} F_{n+1} - F_n^2 = (-1)^n
+discrete	linear_recurrence_char	a_n = c_1 a_{n-1} + c_2 a_{n-2} \implies a_n = \alpha_1 r_1^n + \alpha_2 r_2^n, \quad r^2 - c_1 r - c_2 = 0
+discrete	master_theorem	T(n) = a\, T\!\left(\frac{n}{b}\right) + f(n), \qquad T(n) = \begin{cases} \Theta\bigl(n^{\log_b a}\bigr) & \text{if } f(n) = O\bigl(n^{\log_b a - \varepsilon}\bigr), \\ \Theta\bigl(n^{\log_b a} \log n\bigr) & \text{if } f(n) = \Theta\bigl(n^{\log_b a}\bigr), \\ \Theta\bigl(f(n)\bigr) & \text{if } f(n) = \Omega\bigl(n^{\log_b a + \varepsilon}\bigr) \end{cases}
+discrete	mergesort_recurrence	T(n) = T\bigl(\lfloor n/2 \rfloor\bigr) + T\bigl(\lceil n/2 \rceil\bigr) + \Theta(n) = \Theta(n \log n)
+discrete	hanoi	T_n = 2\,T_{n-1} + 1 \implies T_n = 2^n - 1
+discrete	big_o_def	f(n) = O(g(n)) \iff \exists\, c > 0 \;\; \exists\, n_0 \;\; \forall\, n \ge n_0 : \; |f(n)| \le c\, |g(n)|
+discrete	little_o_def	f(n) = o(g(n)) \iff \lim_{n \to \infty} \frac{f(n)}{g(n)} = 0
+discrete	harmonic_asymptotic	H_n = \sum_{k=1}^{n} \frac{1}{k} = \ln n + \gamma + \frac{1}{2n} + O\!\left(\frac{1}{n^2}\right)
+discrete	log_factorial	\log_2 n! = n \log_2 n - n \log_2 e + O(\log n)
+discrete	geometric_gf	\frac{1}{1 - x} = \sum_{n=0}^{\infty} x^n, \qquad \frac{1}{(1 - x)^k} = \sum_{n=0}^{\infty} \binom{n + k - 1}{k - 1} x^n
+discrete	exponential_gf	\hat{A}(x) = \sum_{n=0}^{\infty} a_n \frac{x^n}{n!}
+discrete	gf_product	A(x)\, B(x) = \sum_{n=0}^{\infty} \Bigl( \sum_{k=0}^{n} a_k b_{n-k} \Bigr) x^n
+discrete	partition_gf	\sum_{n=0}^{\infty} p(n)\, x^n = \prod_{k=1}^{\infty} \frac{1}{1 - x^k}
+discrete	generalized_binomial	(1 + x)^{\alpha} = \sum_{k=0}^{\infty} \binom{\alpha}{k} x^k, \qquad \binom{\alpha}{k} = \frac{\alpha (\alpha - 1) \cdots (\alpha - k + 1)}{k!}
+discrete	q_binomial	\binom{n}{k}_{\!q} = \frac{(1 - q^n)(1 - q^{n-1}) \cdots (1 - q^{n-k+1})}{(1 - q)(1 - q^2) \cdots (1 - q^k)}
+discrete	set_builder	A \cap B = \{\, x \mid x \in A \text{ and } x \in B \,\}
+discrete	power_set	\mathcal{P}(S) = \{\, T \mid T \subseteq S \,\}, \qquad |\mathcal{P}(S)| = 2^{|S|}
+discrete	de_morgan_sets	\overline{A \cup B} = \overline{A} \cap \overline{B}, \qquad \overline{A \cap B} = \overline{A} \cup \overline{B}
+discrete	symmetric_difference	A \mathbin{\triangle} B = (A \setminus B) \cup (B \setminus A)
+discrete	cartesian_product	A \times B = \{\, (a, b) : a \in A,\; b \in B \,\}
+discrete	de_morgan_indexed	\Bigl(\bigcup_{i \in I} A_i\Bigr)^{c} = \bigcap_{i \in I} A_i^{c}
+discrete	cantor_theorem	|A| < |\mathcal{P}(A)|, \qquad \aleph_0 < 2^{\aleph_0} = \mathfrak{c}
+discrete	injective_def	\forall\, x_1, x_2 \in X : \; f(x_1) = f(x_2) \implies x_1 = x_2
+discrete	surjection_count	\bigl|\{ f : [n] \twoheadrightarrow [k] \}\bigr| = k!\, S(n, k) = \sum_{j=0}^{k} (-1)^j \binom{k}{j} (k - j)^n
+discrete	equivalence_class	[a]_{\sim} = \{\, x \in X \mid x \sim a \,\}
+discrete	complete_graph_edges	|E(K_n)| = \binom{n}{2} = \frac{n(n-1)}{2}
+discrete	planar_edge_bound	|E| \le 3|V| - 6
+discrete	cayley_formula	\tau(K_n) = n^{n-2}
+discrete	chromatic_polynomial	P(G, k) = P(G - e, k) - P(G / e, k)
+discrete	chromatic_bounds	\omega(G) \le \chi(G) \le \Delta(G) + 1
+discrete	turan	\operatorname{ex}(n, K_{r+1}) \le \left(1 - \frac{1}{r}\right) \frac{n^2}{2}
+discrete	ramsey_bound	R(s, t) \le R(s-1, t) + R(s, t-1) \le \binom{s + t - 2}{s - 1}
+discrete	hall_condition	|N(S)| \ge |S| \quad \text{for all } S \subseteq X
+discrete	adjacency_matrix	A = \begin{pmatrix} 0 & 1 & 1 & 0 \\ 1 & 0 & 1 & 1 \\ 1 & 1 & 0 & 1 \\ 0 & 1 & 1 & 0 \end{pmatrix}, \qquad (A^k)_{ij} = \#\{\text{walks of length } k \text{ from } v_i \text{ to } v_j\}
+discrete	graph_laplacian	L = D - A, \qquad \mathbf{x}^{\top} L\, \mathbf{x} = \sum_{\{u, v\} \in E} (x_u - x_v)^2
+discrete	matrix_tree	\tau(G) = \frac{1}{n} \prod_{i=2}^{n} \lambda_i
+discrete	max_flow_min_cut	\max_{f} |f| = \min_{(S, T)} \sum_{\substack{u \in S,\; v \in T \\ (u, v) \in E}} c(u, v)
+discrete	tree_edges	G \text{ is a tree} \iff G \text{ is connected and } |E| = |V| - 1
+discrete	burnside	|X / G| = \frac{1}{|G|} \sum_{g \in G} |X^g|

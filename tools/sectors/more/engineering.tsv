@@ -1,0 +1,66 @@
+# circuits
+engineering	voltage_divider	V_{\text{out}} = V_{\text{in}}\, \frac{R_2}{R_1 + R_2}
+engineering	parallel_resistance	\frac{1}{R_{\text{eq}}} = \sum_{k=1}^{n} \frac{1}{R_k}
+engineering	kirchhoff_laws	\sum_{k=1}^{n} I_k = 0 \quad \text{(node)}, \qquad \sum_{k=1}^{m} V_k = 0 \quad \text{(loop)}
+engineering	rc_step_response	v_C(t) = V_s \left( 1 - e^{-t/\tau} \right), \qquad \tau = RC
+engineering	resonance_quality	f_0 = \frac{1}{2\pi\sqrt{LC}}, \qquad Q = \frac{1}{R} \sqrt{\frac{L}{C}}
+engineering	complex_power	\mathbf{S} = P + jQ = \mathbf{V}_{\mathrm{rms}}\, \mathbf{I}_{\mathrm{rms}}^{*}
+engineering	rms_value	V_{\mathrm{rms}} = \sqrt{\frac{1}{T} \int_0^T v^2(t)\, dt} = \frac{V_p}{\sqrt{2}}
+engineering	power_with_units	P = \frac{V^2}{R} = \frac{(12\ \mathrm{V})^2}{8\ \Omega} = 18\ \mathrm{W}
+# signals
+engineering	fourier_series_complex	x(t) = \sum_{k=-\infty}^{\infty} c_k\, e^{jk\omega_0 t}, \qquad c_k = \frac{1}{T} \int_{T} x(t)\, e^{-jk\omega_0 t}\, dt
+engineering	fourier_series_trig	f(t) = \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right]
+engineering	inverse_fourier	x(t) = \frac{1}{2\pi} \int_{-\infty}^{\infty} X(j\omega)\, e^{j\omega t}\, d\omega
+engineering	parseval	\int_{-\infty}^{\infty} |x(t)|^2\, dt = \frac{1}{2\pi} \int_{-\infty}^{\infty} |X(j\omega)|^2\, d\omega
+engineering	inverse_laplace	f(t) = \mathcal{L}^{-1}\{F(s)\} = \frac{1}{2\pi j} \lim_{T \to \infty} \int_{\sigma - jT}^{\sigma + jT} F(s)\, e^{st}\, ds
+engineering	laplace_second_derivative	\mathcal{L}\left\{ \frac{d^2 f}{dt^2} \right\} = s^2 F(s) - s f(0^-) - f'(0^-)
+engineering	second_order_system	H(s) = \frac{\omega_n^2}{s^2 + 2\zeta\omega_n s + \omega_n^2}
+engineering	zero_pole_gain	H(s) = K\, \frac{\prod_{i=1}^{m} (s - z_i)}{\prod_{k=1}^{n} (s - p_k)}
+engineering	discrete_convolution	y[n] = (x * h)[n] = \sum_{k=-\infty}^{\infty} x[k]\, h[n-k]
+engineering	iir_transfer_function	H(z) = \frac{\sum_{k=0}^{M} b_k z^{-k}}{1 + \sum_{k=1}^{N} a_k z^{-k}}
+engineering	z_transform_pair	a^n u[n] \;\overset{\mathcal{Z}}{\longleftrightarrow}\; \frac{1}{1 - a z^{-1}}, \qquad |z| > |a|
+engineering	unit_step	u(t) = \begin{cases} 1, & t \ge 0 \\ 0, & t < 0 \end{cases}
+engineering	sinc_reconstruction	x(t) = \sum_{n=-\infty}^{\infty} x[n]\, \operatorname{sinc}\left( \frac{t - nT_s}{T_s} \right)
+engineering	bode_first_order	\left| H(j\omega) \right|_{\mathrm{dB}} = -10 \log_{10}\left[ 1 + \left( \frac{\omega}{\omega_c} \right)^2 \right], \qquad \angle H(j\omega) = -\arctan\frac{\omega}{\omega_c}
+engineering	dtft	X(e^{j\omega}) = \sum_{n=-\infty}^{\infty} x[n]\, e^{-j\omega n}
+engineering	wiener_khinchin	S_{xx}(f) = \int_{-\infty}^{\infty} R_{xx}(\tau)\, e^{-j 2\pi f \tau}\, d\tau
+# control
+engineering	closed_loop	T(s) = \frac{Y(s)}{R(s)} = \frac{C(s)\, G(s)}{1 + C(s)\, G(s)\, H(s)}
+engineering	mass_spring_state_space	\begin{bmatrix} \dot{x}_1 \\ \dot{x}_2 \end{bmatrix} = \begin{bmatrix} 0 & 1 \\ -\frac{k}{m} & -\frac{c}{m} \end{bmatrix} \begin{bmatrix} x_1 \\ x_2 \end{bmatrix} + \begin{bmatrix} 0 \\ \frac{1}{m} \end{bmatrix} u
+engineering	ss_to_transfer	G(s) = C (sI - A)^{-1} B + D
+engineering	state_solution	\mathbf{x}(t) = e^{At}\, \mathbf{x}(0) + \int_0^t e^{A(t - \tau)} B\, \mathbf{u}(\tau)\, d\tau
+engineering	controllability_matrix	\mathcal{C} = \begin{bmatrix} B & AB & A^2 B & \cdots & A^{n-1} B \end{bmatrix}, \qquad \operatorname{rank} \mathcal{C} = n
+engineering	characteristic_equation	\det(sI - A) = s^n + a_{n-1} s^{n-1} + \dots + a_1 s + a_0 = 0
+engineering	lqr_cost	J = \int_0^\infty \left( \mathbf{x}^{\mathsf{T}} Q\, \mathbf{x} + \mathbf{u}^{\mathsf{T}} R\, \mathbf{u} \right) dt
+engineering	riccati_equation	A^{\mathsf{T}} P + P A - P B R^{-1} B^{\mathsf{T}} P + Q = 0, \qquad K = R^{-1} B^{\mathsf{T}} P
+engineering	kalman_update	\hat{\mathbf{x}}_{k|k} = \hat{\mathbf{x}}_{k|k-1} + K_k \left( \mathbf{z}_k - H_k\, \hat{\mathbf{x}}_{k|k-1} \right)
+engineering	steady_state_error	e_{ss} = \lim_{t \to \infty} e(t) = \lim_{s \to 0} \frac{s\, R(s)}{1 + G(s)}
+engineering	percent_overshoot	M_p = \exp\left( -\frac{\pi\zeta}{\sqrt{1 - \zeta^2}} \right), \qquad t_s \approx \frac{4}{\zeta\omega_n}
+# fluid mechanics
+engineering	reynolds_number	\mathrm{Re} = \frac{\rho u L}{\mu} = \frac{u L}{\nu}
+engineering	mass_continuity	\frac{\partial \rho}{\partial t} + \nabla \cdot (\rho \mathbf{u}) = 0
+engineering	navier_stokes_index	\frac{\partial u_i}{\partial t} + u_j \frac{\partial u_i}{\partial x_j} = -\frac{1}{\rho} \frac{\partial p}{\partial x_i} + \nu \frac{\partial^2 u_i}{\partial x_j \partial x_j} + g_i
+engineering	bernoulli_head	\frac{p_1}{\rho g} + \frac{v_1^2}{2g} + z_1 = \frac{p_2}{\rho g} + \frac{v_2^2}{2g} + z_2 + h_L
+engineering	darcy_weisbach	\Delta p = f_D\, \frac{L}{D}\, \frac{\rho \bar{v}^2}{2}
+engineering	colebrook	\frac{1}{\sqrt{f}} = -2 \log_{10}\left( \frac{\varepsilon / D}{3.7} + \frac{2.51}{\mathrm{Re} \sqrt{f}} \right)
+engineering	hagen_poiseuille	Q = \frac{\pi R^4\, \Delta p}{8 \mu L}
+engineering	material_derivative	\frac{D\mathbf{u}}{Dt} = \frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u} \cdot \nabla)\, \mathbf{u}
+engineering	isentropic_stagnation	\frac{p_0}{p} = \left( 1 + \frac{\gamma - 1}{2} \mathrm{Ma}^2 \right)^{\gamma / (\gamma - 1)}
+# structural
+engineering	stress_tensor	\boldsymbol{\sigma} = \begin{bmatrix} \sigma_{xx} & \tau_{xy} & \tau_{xz} \\ \tau_{yx} & \sigma_{yy} & \tau_{yz} \\ \tau_{zx} & \tau_{zy} & \sigma_{zz} \end{bmatrix}
+engineering	generalized_hooke	\varepsilon_{xx} = \frac{1}{E} \left[ \sigma_{xx} - \nu \left( \sigma_{yy} + \sigma_{zz} \right) \right]
+engineering	strain_displacement	\varepsilon_{ij} = \frac{1}{2} \left( \frac{\partial u_i}{\partial x_j} + \frac{\partial u_j}{\partial x_i} \right)
+engineering	principal_stresses	\sigma_{1,2} = \frac{\sigma_x + \sigma_y}{2} \pm \sqrt{\left( \frac{\sigma_x - \sigma_y}{2} \right)^2 + \tau_{xy}^2}
+engineering	von_mises	\sigma_{\mathrm{vM}} = \sqrt{\tfrac{1}{2} \left[ (\sigma_1 - \sigma_2)^2 + (\sigma_2 - \sigma_3)^2 + (\sigma_3 - \sigma_1)^2 \right]}
+engineering	flexure_formula	\sigma_{\max} = \frac{M c}{I}, \qquad I = \frac{b h^3}{12}
+engineering	simply_supported_deflection	w(x) = \frac{q x}{24 E I} \left( L^3 - 2 L x^2 + x^3 \right), \qquad w_{\max} = \frac{5 q L^4}{384 E I}
+engineering	euler_buckling	P_{\mathrm{cr}} = \frac{\pi^2 E I}{(K L)^2}
+engineering	fem_stiffness	\mathbf{K} \mathbf{u} = \mathbf{f}, \qquad \mathbf{K}_e = \int_{\Omega_e} \mathbf{B}^{\mathsf{T}} \mathbf{D}\, \mathbf{B}\, d\Omega
+# thermodynamic cycles and units
+engineering	otto_efficiency	\eta_{\text{Otto}} = 1 - \frac{1}{r^{\gamma - 1}}
+engineering	diesel_efficiency	\eta_{\text{Diesel}} = 1 - \frac{1}{r^{\gamma - 1}} \left[ \frac{r_c^{\gamma} - 1}{\gamma (r_c - 1)} \right]
+engineering	rankine_efficiency	\eta_{\text{th}} = \frac{w_{\text{net}}}{q_{\text{in}}} = \frac{(h_3 - h_4) - (h_2 - h_1)}{h_3 - h_2}
+engineering	steady_flow_energy	\dot{Q} - \dot{W} = \dot{m} \left[ (h_2 - h_1) + \frac{v_2^2 - v_1^2}{2} + g (z_2 - z_1) \right]
+engineering	polytropic_work	W = \int_{V_1}^{V_2} p\, dV = \frac{p_2 V_2 - p_1 V_1}{1 - n} \qquad (n \neq 1)
+engineering	youngs_modulus_units	E_{\text{steel}} \approx 200\ \mathrm{GPa} = 2.0 \times 10^{11}\ \mathrm{N/m^2}
+engineering	heat_transfer_units	\dot{q} = h\, \Delta T = 25\ \mathrm{\frac{W}{m^2\,K}} \times 40\ \mathrm{K} = 1.0\ \text{kW per m}^2

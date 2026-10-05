@@ -276,6 +276,9 @@ pub enum Node {
         ch: char,
         over: Option<Box<Node>>,
         under: Option<Box<Node>>,
+        /// mhchem's reaction arrows: at least 2 em long, labels padded by 5
+        /// and 9 mu. amsmath's `\xrightarrow` grows from the label alone.
+        chemistry: bool,
     },
     /// `\mathop`, `\mathrel`, ...: reclassify a group.
     Class {

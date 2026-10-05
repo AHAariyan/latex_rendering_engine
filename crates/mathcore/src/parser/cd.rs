@@ -93,6 +93,7 @@ impl<'a> Parser<'a> {
                         ch: if kind == '>' { '→' } else { '←' },
                         over: Some(Box::new(Node::Row(above))),
                         under: Some(Box::new(Node::Row(below))),
+                        chemistry: false,
                     },
                     false,
                 )
@@ -128,6 +129,7 @@ impl<'a> Parser<'a> {
                     ch: '=',
                     over: None,
                     under: None,
+                    chemistry: false,
                 },
                 false,
             ),

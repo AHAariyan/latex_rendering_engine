@@ -1,0 +1,60 @@
+linear_algebra	column_vector	\mathbf{v} = \begin{pmatrix} v_1 \\ v_2 \\ \vdots \\ v_n \end{pmatrix} \in \mathbb{R}^n
+linear_algebra	span_def	\operatorname{span}\{\mathbf{v}_1, \dots, \mathbf{v}_k\} = \left\{ \sum_{i=1}^{k} c_i \mathbf{v}_i : c_i \in \mathbb{R} \right\}
+linear_algebra	linear_independence	c_1 \mathbf{v}_1 + c_2 \mathbf{v}_2 + \cdots + c_k \mathbf{v}_k = \mathbf{0} \implies c_1 = c_2 = \cdots = c_k = 0
+linear_algebra	linearity	T(\alpha \mathbf{u} + \beta \mathbf{v}) = \alpha\,T(\mathbf{u}) + \beta\,T(\mathbf{v})
+linear_algebra	matrix_vector_product	\begin{pmatrix} a & b \\ c & d \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix} = \begin{pmatrix} ax + by \\ cx + dy \end{pmatrix}
+linear_algebra	linear_system_matrix_form	\begin{bmatrix} 2 & 1 \\ 1 & 3 \end{bmatrix} \begin{bmatrix} x \\ y \end{bmatrix} = \begin{bmatrix} 5 \\ 10 \end{bmatrix}
+linear_algebra	rotation_matrix	R(\theta) = \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix}
+linear_algebra	cofactor_expansion_3x3	\begin{vmatrix} a & b & c \\ d & e & f \\ g & h & i \end{vmatrix} = a \begin{vmatrix} e & f \\ h & i \end{vmatrix} - b \begin{vmatrix} d & f \\ g & i \end{vmatrix} + c \begin{vmatrix} d & e \\ g & h \end{vmatrix}
+linear_algebra	leibniz_determinant	\det A = \sum_{\sigma \in S_n} \operatorname{sgn}(\sigma) \prod_{i=1}^{n} a_{i, \sigma(i)}
+linear_algebra	laplace_expansion	\det A = \sum_{j=1}^{n} (-1)^{i+j} a_{ij} M_{ij}
+linear_algebra	determinant_multiplicative	\det(AB) = \det(A)\det(B), \qquad \det(A^{-1}) = \frac{1}{\det A}
+linear_algebra	adjugate_inverse	A^{-1} = \frac{1}{\det A}\,\operatorname{adj}(A)
+linear_algebra	cramer_rule	x_i = \frac{\det A_i}{\det A}, \qquad i = 1, \dots, n
+linear_algebra	vandermonde_determinant	\begin{vmatrix} 1 & x_1 & x_1^2 & \cdots & x_1^{n-1} \\ 1 & x_2 & x_2^2 & \cdots & x_2^{n-1} \\ \vdots & \vdots & \vdots & \ddots & \vdots \\ 1 & x_n & x_n^2 & \cdots & x_n^{n-1} \end{vmatrix} = \prod_{1 \le i < j \le n} (x_j - x_i)
+linear_algebra	inverse_of_product	(AB)^{-1} = B^{-1} A^{-1}
+linear_algebra	row_operation	\left[\begin{array}{ccc|c} 1 & 2 & -1 & 3 \\ 2 & 5 & 1 & 8 \\ 0 & 1 & 3 & 2 \end{array}\right] \xrightarrow{R_2 \to R_2 - 2R_1} \left[\begin{array}{ccc|c} 1 & 2 & -1 & 3 \\ 0 & 1 & 3 & 2 \\ 0 & 1 & 3 & 2 \end{array}\right]
+linear_algebra	diagonalization	A = P D P^{-1}, \qquad D = \operatorname{diag}(\lambda_1, \dots, \lambda_n)
+linear_algebra	char_poly_2x2	p_A(\lambda) = \lambda^2 - \operatorname{tr}(A)\,\lambda + \det A
+linear_algebra	trace_det_eigenvalues	\operatorname{tr} A = \sum_{i=1}^{n} \lambda_i, \qquad \det A = \prod_{i=1}^{n} \lambda_i
+linear_algebra	cayley_hamilton	p_A(A) = A^n + c_{n-1} A^{n-1} + \cdots + c_1 A + c_0 I = 0
+linear_algebra	jordan_block	J_k(\lambda) = \begin{bmatrix} \lambda & 1 & & \\ & \lambda & \ddots & \\ & & \ddots & 1 \\ & & & \lambda \end{bmatrix}
+linear_algebra	matrix_exponential	e^{tA} = \sum_{k=0}^{\infty} \frac{t^k A^k}{k!} = P\,e^{tD} P^{-1}
+linear_algebra	spectral_theorem	A = Q \Lambda Q^{\mathsf{T}} = \sum_{i=1}^{n} \lambda_i\, \mathbf{q}_i \mathbf{q}_i^{\mathsf{T}}
+linear_algebra	rayleigh_quotient	\lambda_{\max}(A) = \max_{\mathbf{x} \ne \mathbf{0}} \frac{\mathbf{x}^{\mathsf{T}} A \mathbf{x}}{\mathbf{x}^{\mathsf{T}} \mathbf{x}}
+linear_algebra	positive_definite	A \succ 0 \iff \mathbf{x}^{\mathsf{T}} A \mathbf{x} > 0 \quad \text{for all } \mathbf{x} \ne \mathbf{0}
+linear_algebra	quadratic_form	\mathbf{x}^{\mathsf{T}} A \mathbf{x} = \sum_{i=1}^{n} \sum_{j=1}^{n} a_{ij} x_i x_j
+linear_algebra	conjugate_symmetry	\langle \mathbf{u}, \mathbf{v} \rangle = \overline{\langle \mathbf{v}, \mathbf{u} \rangle}
+linear_algebra	cauchy_schwarz_inner	\left| \langle \mathbf{u}, \mathbf{v} \rangle \right| \le \|\mathbf{u}\|\,\|\mathbf{v}\|
+linear_algebra	p_norm	\|\mathbf{x}\|_p = \left(\sum_{i=1}^{n} |x_i|^p\right)^{1/p}, \qquad \|\mathbf{x}\|_{\infty} = \max_{1 \le i \le n} |x_i|
+linear_algebra	frobenius_norm	\|A\|_F = \sqrt{\sum_{i=1}^{m} \sum_{j=1}^{n} |a_{ij}|^2} = \sqrt{\operatorname{tr}(A^{*} A)}
+linear_algebra	operator_norm	\|A\|_{\mathrm{op}} = \sup_{\mathbf{x} \ne \mathbf{0}} \frac{\|A\mathbf{x}\|}{\|\mathbf{x}\|} = \sigma_{\max}(A)
+linear_algebra	condition_number	\kappa(A) = \|A\|\,\|A^{-1}\| = \frac{\sigma_{\max}(A)}{\sigma_{\min}(A)}
+linear_algebra	orthogonal_complement	W^{\perp} = \{\, \mathbf{v} \in V : \langle \mathbf{v}, \mathbf{w} \rangle = 0 \text{ for all } \mathbf{w} \in W \,\}
+linear_algebra	projection_matrix	P = A (A^{\mathsf{T}} A)^{-1} A^{\mathsf{T}}, \qquad P^2 = P
+linear_algebra	least_squares	\hat{\mathbf{x}} = \operatorname*{arg\,min}_{\mathbf{x} \in \mathbb{R}^n} \|A\mathbf{x} - \mathbf{b}\|_2^2 = (A^{\mathsf{T}} A)^{-1} A^{\mathsf{T}} \mathbf{b}
+linear_algebra	pseudoinverse	A^{+} = V \Sigma^{+} U^{*}
+linear_algebra	qr_factorization	A = QR, \qquad Q^{\mathsf{T}} Q = I, \quad R \text{ upper triangular}
+linear_algebra	lu_factorization	\begin{pmatrix} 2 & 1 \\ 6 & 4 \end{pmatrix} = \underbrace{\begin{pmatrix} 1 & 0 \\ 3 & 1 \end{pmatrix}}_{L} \underbrace{\begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}}_{U}
+linear_algebra	cholesky	A = L L^{\mathsf{T}}, \qquad \ell_{jj} = \sqrt{a_{jj} - \sum_{k=1}^{j-1} \ell_{jk}^2}
+linear_algebra	svd_rank_one_sum	A = \sum_{i=1}^{r} \sigma_i\, \mathbf{u}_i \mathbf{v}_i^{\mathsf{T}}, \qquad \sigma_1 \ge \sigma_2 \ge \cdots \ge \sigma_r > 0
+linear_algebra	eckart_young	\min_{\operatorname{rank}(B) \le k} \|A - B\|_2 = \sigma_{k+1}
+linear_algebra	dimension_formula	\dim(U + W) = \dim U + \dim W - \dim(U \cap W)
+linear_algebra	rank_nullity_map	\dim V = \dim \ker T + \dim \operatorname{im} T
+linear_algebra	change_of_basis	[T]_{\mathcal{B}'} = P^{-1}\,[T]_{\mathcal{B}}\,P
+linear_algebra	dual_basis	V^{*} = \operatorname{Hom}(V, \mathbb{F}), \qquad e^{i}(e_j) = \delta^{i}_{j}
+linear_algebra	kronecker_product	A \otimes B = \begin{pmatrix} a_{11} B & a_{12} B \\ a_{21} B & a_{22} B \end{pmatrix}
+linear_algebra	schur_complement_det	\det \begin{pmatrix} A & B \\ C & D \end{pmatrix} = \det(A)\,\det\!\left(D - C A^{-1} B\right)
+linear_algebra	woodbury	(A + UCV)^{-1} = A^{-1} - A^{-1} U \left(C^{-1} + V A^{-1} U\right)^{-1} V A^{-1}
+linear_algebra	adjoint_def	\langle A\mathbf{x}, \mathbf{y} \rangle = \langle \mathbf{x}, A^{*}\mathbf{y} \rangle, \qquad A^{*} = \overline{A}^{\mathsf{T}}
+linear_algebra	unitary_group	\mathrm{U}(n) = \left\{ U \in \mathbb{C}^{n \times n} : U^{*} U = I_n \right\}
+linear_algebra	pauli_matrices	\sigma_x = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}, \quad \sigma_y = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}, \quad \sigma_z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
+linear_algebra	commutator	[A, B] = AB - BA, \qquad \operatorname{tr}[A, B] = 0
+linear_algebra	companion_matrix	C(p) = \begin{bmatrix} 0 & 0 & \cdots & 0 & -c_0 \\ 1 & 0 & \cdots & 0 & -c_1 \\ 0 & 1 & \cdots & 0 & -c_2 \\ \vdots & \vdots & \ddots & \vdots & \vdots \\ 0 & 0 & \cdots & 1 & -c_{n-1} \end{bmatrix}
+linear_algebra	gershgorin	\lambda \in \bigcup_{i=1}^{n} \Bigl\{ z \in \mathbb{C} : |z - a_{ii}| \le \sum_{j \ne i} |a_{ij}| \Bigr\}
+linear_algebra	scalar_triple_product	\mathbf{a} \cdot (\mathbf{b} \times \mathbf{c}) = \begin{vmatrix} a_1 & a_2 & a_3 \\ b_1 & b_2 & b_3 \\ c_1 & c_2 & c_3 \end{vmatrix}
+linear_algebra	levi_civita_cross	(\vec{a} \times \vec{b})_i = \sum_{j,k=1}^{3} \varepsilon_{ijk}\, a_j b_k
+linear_algebra	angle_between	\cos\theta = \frac{\vec{u} \cdot \vec{v}}{\lVert \vec{u} \rVert\, \lVert \vec{v} \rVert}
+linear_algebra	unit_vector	\hat{\mathbf{v}} = \frac{\mathbf{v}}{\|\mathbf{v}\|}, \qquad \|\hat{\mathbf{v}}\| = 1
+linear_algebra	power_iteration	\mathbf{x}_{k+1} = \frac{A \mathbf{x}_k}{\|A \mathbf{x}_k\|}, \qquad \mu_k = \mathbf{x}_k^{*} A \mathbf{x}_k
+linear_algebra	orthonormal_expansion	\mathbf{v} = \sum_{i=1}^{n} \langle \mathbf{v}, \mathbf{e}_i \rangle\, \mathbf{e}_i, \qquad \|\mathbf{v}\|^2 = \sum_{i=1}^{n} \left| \langle \mathbf{v}, \mathbf{e}_i \rangle \right|^2

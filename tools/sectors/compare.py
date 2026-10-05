@@ -68,6 +68,7 @@ def script_setup(sector, name, tex):
     switch = "\\langfont{}" + ("\\textdir TRT " if rtl else "")
     return ["--text-font", path + file], preamble, tex.replace("\\text{", "\\text{" + switch)
 TOLERANCE = 2
+GOOD = 0.95
 
 
 def load(path):
@@ -135,7 +136,10 @@ def main():
         if a == "--out": out = args.pop(0)
         elif a == "--only": only = args.pop(0)
     os.makedirs(out, exist_ok=True)
-    rows = [r for r in load(os.path.join(HERE, "formulas.tsv")) if only is None or r[0] == only]
+    # formulas.tsv, then the larger per-field sets in more/.
+    files = [os.path.join(HERE, "formulas.tsv")] + sorted(
+        os.path.join(HERE, "more", f) for f in os.listdir(os.path.join(HERE, "more")) if f.endswith(".tsv"))
+    rows = [r for f in files for r in load(f) if only is None or r[0] == only]
     katex = katex_accepts(rows)
     mathcli = os.path.join(ROOT, "target", "release", "mathcli")
     results = []
@@ -149,13 +153,28 @@ def main():
             entry = {"sector": sector, "name": name, "tex": tex, "ours": ours_ok, "latex": tex_ok, "katex": kx}
             if ours_ok and tex_ok:
                 a, b = ink(ours_png), ink(tex_png)
-                entry["score"] = round(score(a, b), 3)
+                entry["score"] = entry["lualatex"] = round(score(a, b), 3)
+                entry["engine"] = "lualatex"
+                # The TeX engines differ among themselves (LuaTeX asks 2.40 em
+                # of a binomial's brackets where TeX and XeTeX ask 2.39, which
+                # with this font is the next size up). A formula that misses
+                # LuaLaTeX is also set with XeLaTeX and the same font: matching
+                # either engine is matching LaTeX.
+                if entry["score"] < GOOD and sector != "scripts":
+                    xe_png = os.path.join(out, f"{sector}-{name}-xetex.png")
+                    if texcompare.render_tex(latex, True, SIZE, xe_png, tmp, PACKAGES.get(sector, ()), preamble, engine="xelatex"):
+                        x = ink(xe_png)
+                        entry["xelatex"] = round(score(a, x), 3)
+                        if entry["xelatex"] > entry["score"]:
+                            entry["score"], entry["engine"], b = entry["xelatex"], "xelatex", x
+                            os.replace(xe_png, tex_png)
                 entry["width"] = round(a[1] / b[1], 3) if b[1] else 0
                 entry["height"] = round(a[2] / b[2], 3) if b[2] else 0
             results.append(entry)
             s = entry.get("score")
             print(f"{sector:15} {name:24} {'ours' if ours_ok else 'OURS FAILED':11} "
-                  f"{'tex' if tex_ok else 'TEX FAILED':10} {'' if s is None else f'match {s:.3f}  size {entry['width']:.2f}x{entry['height']:.2f}'}",
+                  f"{'tex' if tex_ok else 'TEX FAILED':10} {'' if s is None else f'match {s:.3f}  size {entry['width']:.2f}x{entry['height']:.2f}'}"
+                  f"{'  (xelatex)' if entry.get('engine') == 'xelatex' else ''}",
                   flush=True)
     json.dump(results, open(os.path.join(out, "results.json"), "w"), indent=1)
     summary(results)

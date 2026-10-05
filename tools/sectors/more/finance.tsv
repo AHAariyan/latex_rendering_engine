@@ -1,0 +1,60 @@
+finance	simple_interest	I = Prt, \qquad A = P(1 + rt)
+finance	effective_annual_rate	\mathrm{EAR} = \left( 1 + \frac{r_{\text{nom}}}{m} \right)^{m} - 1
+finance	fisher_equation	1 + i = (1 + r)(1 + \pi) \implies r \approx i - \pi
+finance	future_value_annuity	FV = C \cdot \frac{(1 + r)^n - 1}{r}
+finance	annuity_due	\ddot{a}_{\overline{n}|} = \frac{1 - v^n}{d} = (1 + i)\, a_{\overline{n}|}
+finance	growing_annuity	PV = \frac{C}{r - g} \left[ 1 - \left( \frac{1 + g}{1 + r} \right)^{n} \right]
+finance	perpetuity	PV = \frac{C}{r}
+finance	gordon_growth	P_0 = \frac{D_1}{r - g} = \frac{D_0 (1 + g)}{r - g}
+finance	bond_price	P = \sum_{t=1}^{n} \frac{C}{(1 + y)^t} + \frac{F}{(1 + y)^n}
+finance	semiannual_bond	P = \sum_{t=1}^{2n} \frac{C/2}{\left( 1 + \frac{y}{2} \right)^{t}} + \frac{F}{\left( 1 + \frac{y}{2} \right)^{2n}}
+finance	macaulay_duration	D_{\text{Mac}} = \frac{1}{P} \sum_{t=1}^{n} \frac{t \cdot CF_t}{(1 + y)^t}
+finance	modified_duration	D_{\text{mod}} = \frac{D_{\text{Mac}}}{1 + y/m} = -\frac{1}{P} \frac{\partial P}{\partial y}
+finance	convexity_adjustment	\frac{\Delta P}{P} \approx -D_{\text{mod}}\, \Delta y + \frac{1}{2}\, \mathcal{C}\, (\Delta y)^2
+finance	forward_rate	(1 + f_{1,2}) = \frac{(1 + s_2)^2}{1 + s_1}
+finance	discount_factor	Z(0, T) = e^{-\int_0^T f(0, u)\, du}
+finance	put_call_parity	C - P = S_0 - K e^{-rT}
+finance	black_scholes_put	P = K e^{-rT} N(-d_2) - S_0 N(-d_1)
+finance	d2	d_2 = d_1 - \sigma\sqrt{T} = \frac{\ln(S_0/K) + \left( r - \tfrac{1}{2}\sigma^2 \right) T}{\sigma\sqrt{T}}
+finance	normal_cdf	N(x) = \frac{1}{\sqrt{2\pi}} \int_{-\infty}^{x} e^{-z^2/2}\, dz
+finance	greeks_delta_gamma	\Delta = \frac{\partial C}{\partial S} = N(d_1), \qquad \Gamma = \frac{\partial^2 C}{\partial S^2} = \frac{N'(d_1)}{S \sigma \sqrt{T}}
+finance	greeks_vega	\mathcal{V} = \frac{\partial C}{\partial \sigma} = S \sqrt{T}\, N'(d_1)
+finance	black_scholes_pde	\frac{\partial V}{\partial t} + \frac{1}{2} \sigma^2 S^2 \frac{\partial^2 V}{\partial S^2} + r S \frac{\partial V}{\partial S} - rV = 0
+finance	risk_neutral_probability	p = \frac{e^{r \Delta t} - d}{u - d}, \qquad u = e^{\sigma\sqrt{\Delta t}}, \quad d = \frac{1}{u}
+finance	binomial_option_price	C_0 = e^{-rT} \sum_{j=0}^{n} \binom{n}{j} p^j (1 - p)^{n-j} \max\left( S_0 u^j d^{n-j} - K,\ 0 \right)
+finance	risk_neutral_pricing	V_t = \mathbb{E}^{\mathbb{Q}}\!\left[ e^{-\int_t^T r_s\, ds}\, V_T \,\middle|\, \mathcal{F}_t \right]
+finance	gbm_solution	S_T = S_0 \exp\!\left( \left( \mu - \frac{\sigma^2}{2} \right) T + \sigma W_T \right)
+finance	option_payoffs	\text{payoff} = \begin{cases} \max(S_T - K, 0) & \text{call} \\ \max(K - S_T, 0) & \text{put} \end{cases}
+finance	value_at_risk	\mathrm{VaR}_{\alpha}(L) = \inf \{ \ell \in \mathbb{R} : \Pr(L > \ell) \le 1 - \alpha \}
+finance	parametric_var	\mathrm{VaR}_{\alpha} = \mu_L + z_{\alpha}\, \sigma_L \sqrt{\Delta t}
+finance	expected_shortfall	\mathrm{ES}_{\alpha} = \frac{1}{1 - \alpha} \int_{\alpha}^{1} \mathrm{VaR}_{u}(L)\, du
+finance	beta_coefficient	\beta_i = \frac{\operatorname{Cov}(R_i, R_m)}{\operatorname{Var}(R_m)} = \rho_{im} \frac{\sigma_i}{\sigma_m}
+finance	portfolio_return	\mathbb{E}[R_p] = \sum_{i=1}^{n} w_i\, \mathbb{E}[R_i], \qquad \sum_{i=1}^{n} w_i = 1
+finance	two_asset_variance	\sigma_p^2 = w_A^2 \sigma_A^2 + w_B^2 \sigma_B^2 + 2 w_A w_B\, \rho_{AB}\, \sigma_A \sigma_B
+finance	min_variance_weight	w_A^{*} = \frac{\sigma_B^2 - \rho_{AB} \sigma_A \sigma_B}{\sigma_A^2 + \sigma_B^2 - 2 \rho_{AB} \sigma_A \sigma_B}
+finance	markowitz_problem	\min_{\mathbf{w}}\ \mathbf{w}^{\top} \boldsymbol{\Sigma}\, \mathbf{w} \quad \text{subject to} \quad \mathbf{w}^{\top} \boldsymbol{\mu} = \mu_p, \quad \mathbf{w}^{\top} \mathbf{1} = 1
+finance	tangency_portfolio	\mathbf{w}^{*} = \frac{\boldsymbol{\Sigma}^{-1} (\boldsymbol{\mu} - r_f \mathbf{1})}{\mathbf{1}^{\top} \boldsymbol{\Sigma}^{-1} (\boldsymbol{\mu} - r_f \mathbf{1})}
+finance	covariance_matrix	\boldsymbol{\Sigma} = \begin{pmatrix} \sigma_1^2 & \rho_{12} \sigma_1 \sigma_2 \\ \rho_{12} \sigma_1 \sigma_2 & \sigma_2^2 \end{pmatrix}
+finance	jensen_alpha	\alpha_p = \overline{R}_p - \left[ R_f + \beta_p \left( \overline{R}_m - R_f \right) \right]
+finance	treynor_ratio	T_p = \frac{\overline{R}_p - R_f}{\beta_p}
+finance	sortino_ratio	\text{Sortino} = \frac{R_p - \mathrm{MAR}}{\sqrt{ \frac{1}{N} \sum_{t=1}^{N} \min(R_t - \mathrm{MAR},\, 0)^2 }}
+finance	wacc	\mathrm{WACC} = \frac{E}{E + D}\, r_E + \frac{D}{E + D}\, r_D\, (1 - T_c)
+finance	dupont_identity	\mathrm{ROE} = \frac{\text{Net income}}{\text{Sales}} \times \frac{\text{Sales}}{\text{Total assets}} \times \frac{\text{Total assets}}{\text{Equity}}
+finance	current_ratio	\text{Current ratio} = \frac{\text{Current assets}}{\text{Current liabilities}}
+finance	quick_ratio	\text{Quick ratio} = \frac{\text{Cash} + \text{Marketable securities} + \text{Receivables}}{\text{Current liabilities}}
+finance	earnings_per_share	\mathrm{EPS} = \frac{\text{Net income} - \text{Preferred dividends}}{\text{Weighted average shares outstanding}}
+finance	gross_margin	\text{Gross margin} = \frac{\text{Revenue} - \text{COGS}}{\text{Revenue}} \times 100\%
+finance	free_cash_flow	\mathrm{FCF} = \mathrm{EBIT}(1 - T_c) + \text{Depreciation} - \Delta \mathrm{NWC} - \mathrm{CapEx}
+finance	accounting_equation	\text{Assets} = \text{Liabilities} + \text{Shareholders' equity}
+finance	straight_line_depreciation	\text{Annual depreciation} = \frac{\text{Cost} - \text{Salvage value}}{\text{Useful life}} = \frac{\$50{,}000 - \$5{,}000}{9} = \$5{,}000
+finance	break_even	Q_{\text{BE}} = \frac{\text{Fixed costs}}{P - \mathit{VC}}
+finance	cagr	\mathrm{CAGR} = \left( \frac{V_{\text{end}}}{V_{\text{begin}}} \right)^{1/n} - 1
+finance	log_return	r_t = \ln\frac{P_t}{P_{t-1}}, \qquad R_{0,T} = \sum_{t=1}^{T} r_t
+finance	price_elasticity	\varepsilon_d = \frac{\partial Q}{\partial P} \cdot \frac{P}{Q} = \frac{\%\,\Delta Q_d}{\%\,\Delta P}
+finance	cobb_douglas	Y = A K^{\alpha} L^{1 - \alpha}, \qquad 0 < \alpha < 1
+finance	utility_maximization	\begin{aligned} \max_{x_1, x_2}\ & U(x_1, x_2) = x_1^{a} x_2^{1-a} \\ \text{s.t.}\ & p_1 x_1 + p_2 x_2 \le m \end{aligned}
+finance	gdp_identity	Y = C + I + G + (X - M)
+finance	money_multiplier	m = \frac{1 + c}{c + rr}, \qquad M = m \cdot MB
+finance	taylor_rule	i_t = r^{*} + \pi_t + 0.5\,(\pi_t - \pi^{*}) + 0.5\,(y_t - \bar{y}_t)
+finance	vasicek_model	dr_t = a(b - r_t)\, dt + \sigma\, dW_t
+finance	loan_balance	B_k = P (1 + r)^k - M\, \frac{(1 + r)^k - 1}{r}

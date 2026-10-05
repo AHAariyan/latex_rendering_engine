@@ -1,0 +1,60 @@
+calculus	epsilon_delta	\forall \varepsilon > 0 \;\; \exists \delta > 0 : \quad 0 < |x - a| < \delta \implies |f(x) - L| < \varepsilon
+calculus	sinc_limit	\lim_{x \to 0} \frac{\sin x}{x} = 1
+calculus	one_sided_limit	\lim_{x \to 0^{+}} x \ln x = 0
+calculus	limsup_def	\limsup_{n \to \infty} a_n = \lim_{n \to \infty} \sup_{k \ge n} a_k = \inf_{n \ge 1} \sup_{k \ge n} a_k
+calculus	power_rule	\frac{d}{dx}\, x^n = n x^{n-1}
+calculus	quotient_rule	\left(\frac{f}{g}\right)' = \frac{f'g - fg'}{g^2}
+calculus	inverse_function_derivative	\bigl(f^{-1}\bigr)'(y) = \frac{1}{f'\bigl(f^{-1}(y)\bigr)}
+calculus	arctan_derivative	\frac{d}{dx} \arctan x = \frac{1}{1 + x^2}
+calculus	general_leibniz	(fg)^{(n)} = \sum_{k=0}^{n} \binom{n}{k} f^{(k)} g^{(n-k)}
+calculus	mean_value_theorem	f'(c) = \frac{f(b) - f(a)}{b - a} \quad \text{for some } c \in (a, b)
+calculus	harmonic_oscillator_dots	\ddot{x} + \omega^2 x = 0, \qquad x(0) = x_0, \quad \dot{x}(0) = v_0
+calculus	newton_method	x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}
+calculus	curvature	\kappa = \frac{|y''|}{\left(1 + y'^2\right)^{3/2}}
+calculus	hyperbolic_identity	\cosh^2 x - \sinh^2 x = 1, \qquad \cosh x = \frac{e^x + e^{-x}}{2}
+calculus	ftc_part_one	\frac{d}{dx} \int_a^x f(t)\,dt = f(x)
+calculus	leibniz_integral_rule	\frac{d}{dx} \int_{a(x)}^{b(x)} f(x, t)\,dt = f\bigl(x, b(x)\bigr)\,b'(x) - f\bigl(x, a(x)\bigr)\,a'(x) + \int_{a(x)}^{b(x)} \frac{\partial f}{\partial x}(x, t)\,dt
+calculus	substitution_rule	\int_a^b f\bigl(g(x)\bigr)\,g'(x)\,dx = \int_{g(a)}^{g(b)} f(u)\,du
+calculus	arcsin_integral	\int \frac{dx}{\sqrt{a^2 - x^2}} = \arcsin\frac{x}{a} + C
+calculus	log_integral	\int \frac{dx}{x} = \ln|x| + C
+calculus	bracket_evaluation	\int_0^{\pi} \sin x\,dx = \Bigl[-\cos x\Bigr]_0^{\pi} = 2
+calculus	by_parts_worked	\begin{aligned} \int x e^{x}\,dx &= x e^{x} - \int e^{x}\,dx \\ &= (x - 1)e^{x} + C \end{aligned}
+calculus	improper_p_integral	\int_1^{\infty} \frac{dx}{x^p} = \lim_{b \to \infty} \left[\frac{x^{1-p}}{1-p}\right]_1^{b} = \frac{1}{p-1}, \qquad p > 1
+calculus	gamma_function	\Gamma(z) = \int_0^{\infty} t^{z-1} e^{-t}\,dt, \qquad \Re(z) > 0
+calculus	beta_function	B(x, y) = \int_0^1 t^{x-1} (1-t)^{y-1}\,dt = \frac{\Gamma(x)\,\Gamma(y)}{\Gamma(x+y)}
+calculus	arc_length	L = \int_a^b \sqrt{1 + \left(\frac{dy}{dx}\right)^{2}}\,dx
+calculus	ball_volume_spherical	V = \int_0^{2\pi}\!\!\int_0^{\pi}\!\!\int_0^{R} \rho^2 \sin\phi \,d\rho\,d\phi\,d\theta = \frac{4}{3}\pi R^3
+calculus	simpson_rule	\int_a^b f(x)\,dx \approx \frac{b - a}{6}\left[f(a) + 4f\!\left(\frac{a+b}{2}\right) + f(b)\right]
+calculus	exp_series	e^x = \sum_{n=0}^{\infty} \frac{x^n}{n!} = 1 + x + \frac{x^2}{2!} + \frac{x^3}{3!} + \cdots
+calculus	sine_series	\sin x = \sum_{n=0}^{\infty} \frac{(-1)^n}{(2n+1)!}\,x^{2n+1}
+calculus	lagrange_remainder	R_n(x) = \frac{f^{(n+1)}(\xi)}{(n+1)!}\,(x - a)^{n+1}, \qquad \xi \in (a, x)
+calculus	ratio_test	\rho = \lim_{n \to \infty} \left|\frac{a_{n+1}}{a_n}\right| < 1 \implies \sum_{n=1}^{\infty} a_n \text{ converges absolutely}
+calculus	radius_of_convergence	\frac{1}{R} = \limsup_{n \to \infty} \sqrt[n]{|a_n|}
+calculus	stirling	n! \sim \sqrt{2\pi n}\,\left(\frac{n}{e}\right)^{n}
+calculus	euler_mascheroni	\gamma = \lim_{n \to \infty} \left(\sum_{k=1}^{n} \frac{1}{k} - \ln n\right)
+calculus	wallis_product	\frac{\pi}{2} = \prod_{n=1}^{\infty} \frac{4n^2}{4n^2 - 1}
+calculus	zeta_euler_product	\zeta(s) = \sum_{n=1}^{\infty} \frac{1}{n^s} = \prod_{p \text{ prime}} \frac{1}{1 - p^{-s}}
+calculus	sup_norm	\|f\|_{\infty} = \sup_{x \in [a, b]} |f(x)|
+calculus	total_differential	df = \frac{\partial f}{\partial x}\,dx + \frac{\partial f}{\partial y}\,dy + \frac{\partial f}{\partial z}\,dz
+calculus	multivariable_chain_rule	\frac{\partial z}{\partial s} = \frac{\partial z}{\partial x}\frac{\partial x}{\partial s} + \frac{\partial z}{\partial y}\frac{\partial y}{\partial s}
+calculus	directional_derivative	D_{\mathbf{u}} f(\mathbf{x}) = \nabla f(\mathbf{x}) \cdot \mathbf{u} = \lim_{h \to 0} \frac{f(\mathbf{x} + h\mathbf{u}) - f(\mathbf{x})}{h}
+calculus	polar_jacobian	\frac{\partial(x, y)}{\partial(r, \theta)} = \begin{vmatrix} \cos\theta & -r\sin\theta \\ \sin\theta & r\cos\theta \end{vmatrix} = r
+calculus	gaussian_polar	\iint_{\mathbb{R}^2} e^{-(x^2 + y^2)}\,dx\,dy = \int_0^{2\pi}\!\!\int_0^{\infty} e^{-r^2}\,r\,dr\,d\theta = \pi
+calculus	hessian_matrix	H_f = \begin{bmatrix} f_{xx} & f_{xy} \\ f_{yx} & f_{yy} \end{bmatrix}, \qquad D = f_{xx} f_{yy} - f_{xy}^2
+calculus	lagrange_multipliers	\nabla f(\mathbf{x}^{*}) = \lambda\, \nabla g(\mathbf{x}^{*}), \qquad g(\mathbf{x}^{*}) = 0
+calculus	curl_determinant	\nabla \times \mathbf{F} = \begin{vmatrix} \hat{\mathbf{i}} & \hat{\mathbf{j}} & \hat{\mathbf{k}} \\[2pt] \dfrac{\partial}{\partial x} & \dfrac{\partial}{\partial y} & \dfrac{\partial}{\partial z} \\[6pt] F_x & F_y & F_z \end{vmatrix}
+calculus	green_theorem	\oint_C \left(P\,dx + Q\,dy\right) = \iint_D \left(\frac{\partial Q}{\partial x} - \frac{\partial P}{\partial y}\right) dA
+calculus	scalar_line_integral	\int_C f\,ds = \int_a^b f\bigl(\mathbf{r}(t)\bigr)\,\lVert \mathbf{r}'(t) \rVert\,dt
+calculus	spherical_laplacian	\nabla^2 f = \frac{1}{r^2}\frac{\partial}{\partial r}\left(r^2 \frac{\partial f}{\partial r}\right) + \frac{1}{r^2 \sin\theta}\frac{\partial}{\partial \theta}\left(\sin\theta\,\frac{\partial f}{\partial \theta}\right) + \frac{1}{r^2 \sin^2\theta}\frac{\partial^2 f}{\partial \varphi^2}
+calculus	heat_equation	\frac{\partial u}{\partial t} = \alpha\,\Delta u, \qquad u(\mathbf{x}, 0) = u_0(\mathbf{x})
+calculus	wave_equation_subscripts	u_{tt} = c^2 u_{xx}
+calculus	fourier_series	f(x) = \frac{a_0}{2} + \sum_{n=1}^{\infty} \left(a_n \cos nx + b_n \sin nx\right)
+calculus	fourier_transform	\hat{f}(\xi) = \int_{-\infty}^{\infty} f(x)\,e^{-2\pi i x \xi}\,dx
+calculus	laplace_transform	\mathcal{L}\{f\}(s) = \int_0^{\infty} e^{-st} f(t)\,dt
+calculus	convolution	(f * g)(t) = \int_0^{t} f(\tau)\,g(t - \tau)\,d\tau
+calculus	integrating_factor	y(x) = e^{-\int p\,dx} \left(\int q(x)\,e^{\int p\,dx}\,dx + C\right)
+calculus	separable_growth	\frac{dy}{dx} = ky \quad\Longrightarrow\quad y = y_0\,e^{kx}
+calculus	euler_lagrange	\frac{\partial L}{\partial q_i} - \frac{d}{dt}\,\frac{\partial L}{\partial \dot{q}_i} = 0
+calculus	cauchy_integral_formula	f(a) = \frac{1}{2\pi i} \oint_{\gamma} \frac{f(z)}{z - a}\,dz
+calculus	residue_theorem	\oint_{\gamma} f(z)\,dz = 2\pi i \sum_{k=1}^{n} \operatorname{Res}_{z = a_k} f(z)
+calculus	dominated_convergence	\lim_{n \to \infty} \int_X f_n\,d\mu = \int_X \lim_{n \to \infty} f_n\,d\mu

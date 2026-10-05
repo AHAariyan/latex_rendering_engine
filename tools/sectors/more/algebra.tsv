@@ -1,0 +1,60 @@
+algebra	completing_square	ax^2 + bx + c = a\left(x + \frac{b}{2a}\right)^2 - \frac{b^2 - 4ac}{4a}
+algebra	discriminant	\Delta = b^2 - 4ac
+algebra	cardano	x = \sqrt[3]{-\frac{q}{2} + \sqrt{\frac{q^2}{4} + \frac{p^3}{27}}} + \sqrt[3]{-\frac{q}{2} - \sqrt{\frac{q^2}{4} + \frac{p^3}{27}}}
+algebra	sum_of_cubes	\sum_{k=1}^{n} k^3 = \left(\frac{n(n+1)}{2}\right)^{2}
+algebra	sum_of_squares	\sum_{k=1}^{n} k^2 = \frac{n(n+1)(2n+1)}{6}
+algebra	arithmetic_series	S_n = \frac{n}{2}\bigl(2a_1 + (n-1)d\bigr)
+algebra	infinite_geometric	\sum_{k=0}^{\infty} r^k = \frac{1}{1-r}, \qquad |r| < 1
+algebra	telescoping_sum	\sum_{k=1}^{n} \frac{1}{k(k+1)} = \sum_{k=1}^{n} \left(\frac{1}{k} - \frac{1}{k+1}\right) = 1 - \frac{1}{n+1}
+algebra	change_of_base	\log_a x = \frac{\ln x}{\ln a}
+algebra	binomial_coefficient	\binom{n}{k} = \frac{n!}{k!\,(n-k)!}
+algebra	pascal_rule	\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}
+algebra	vandermonde_identity	\binom{m+n}{r} = \sum_{k=0}^{r} \binom{m}{k}\binom{n}{r-k}
+algebra	multinomial_theorem	(x_1 + x_2 + \cdots + x_m)^n = \sum_{k_1 + k_2 + \cdots + k_m = n} \frac{n!}{k_1!\,k_2! \cdots k_m!} \prod_{t=1}^{m} x_t^{k_t}
+algebra	rationalize_denominator	\frac{1}{\sqrt{a} + \sqrt{b}} = \frac{\sqrt{a} - \sqrt{b}}{a - b}
+algebra	rational_exponent	a^{m/n} = \sqrt[n]{a^m} = \left(\sqrt[n]{a}\right)^{m}
+algebra	repeated_product	\underbrace{a \cdot a \cdots a}_{n \text{ times}} = a^n
+algebra	repeating_decimal	0.\overline{142857} = \frac{1}{7}
+algebra	solve_linear	\begin{aligned} 3x + 5 &= 2x - 7 \\ 3x - 2x &= -7 - 5 \\ x &= -12 \end{aligned}
+algebra	solution_set	\left\{\, x \in \mathbb{R} \;\middle|\; x^2 - 5x + 6 \le 0 \,\right\} = [2, 3]
+algebra	max_formula	\max\{a, b\} = \frac{a + b + |a - b|}{2}
+algebra	reverse_triangle	\bigl|\, |a| - |b| \,\bigr| \le |a + b| \le |a| + |b|
+algebra	conjugate_rules	\overline{zw} = \bar{z}\,\bar{w}, \qquad z\bar{z} = |z|^2
+algebra	complex_division	\frac{a + bi}{c + di} = \frac{(ac + bd) + (bc - ad)i}{c^2 + d^2}
+algebra	roots_of_unity	\omega_k = e^{2\pi i k/n} = \cos\frac{2\pi k}{n} + i \sin\frac{2\pi k}{n}, \quad k = 0, 1, \dots, n-1
+algebra	cauchy_schwarz_sums	\left(\sum_{i=1}^{n} a_i b_i\right)^{2} \le \left(\sum_{i=1}^{n} a_i^2\right)\left(\sum_{i=1}^{n} b_i^2\right)
+algebra	holder_inequality	\sum_{k=1}^{n} |a_k b_k| \le \left(\sum_{k=1}^{n} |a_k|^p\right)^{1/p} \left(\sum_{k=1}^{n} |b_k|^q\right)^{1/q}, \qquad \frac{1}{p} + \frac{1}{q} = 1
+algebra	power_mean	M_p(x_1, \dots, x_n) = \left(\frac{1}{n} \sum_{i=1}^{n} x_i^{p}\right)^{1/p}
+algebra	remainder_theorem	p(x) = (x - a)\,q(x) + p(a)
+algebra	factorization_over_c	p(z) = a_n \prod_{k=1}^{n} (z - z_k), \qquad z_k \in \mathbb{C}
+algebra	elementary_symmetric	e_k(x_1, \dots, x_n) = \sum_{1 \le i_1 < i_2 < \cdots < i_k \le n} x_{i_1} x_{i_2} \cdots x_{i_k}
+algebra	newton_identities	k\,e_k = \sum_{i=1}^{k} (-1)^{i-1} e_{k-i}\, p_i
+algebra	polynomial_discriminant	\operatorname{Disc}(p) = a_n^{2n-2} \prod_{i < j} (r_i - r_j)^2
+algebra	lagrange_interpolation	L(x) = \sum_{j=0}^{n} y_j \prod_{\substack{0 \le m \le n \\ m \ne j}} \frac{x - x_m}{x_j - x_m}
+algebra	sophie_germain	a^4 + 4b^4 = (a^2 + 2ab + 2b^2)(a^2 - 2ab + 2b^2)
+algebra	floor_ceiling	\left\lfloor \frac{n}{2} \right\rfloor + \left\lceil \frac{n}{2} \right\rceil = n
+algebra	binet_formula	F_n = \frac{\varphi^n - \psi^n}{\sqrt{5}}, \qquad \varphi = \frac{1 + \sqrt{5}}{2}, \quad \psi = \frac{1 - \sqrt{5}}{2}
+algebra	bezout_identity	\gcd(a, b) = ax + by \quad \text{for some } x, y \in \mathbb{Z}
+algebra	fermat_little	a^{p-1} \equiv 1 \pmod{p} \quad \text{if } p \nmid a
+algebra	euler_totient	\varphi(n) = n \prod_{p \mid n} \left(1 - \frac{1}{p}\right)
+algebra	chinese_remainder	\mathbb{Z}/mn\mathbb{Z} \cong \mathbb{Z}/m\mathbb{Z} \times \mathbb{Z}/n\mathbb{Z} \quad \text{whenever } \gcd(m, n) = 1
+algebra	composition_inverse	(f \circ g)^{-1} = g^{-1} \circ f^{-1}
+algebra	homomorphism	\varphi(gh) = \varphi(g)\,\varphi(h) \quad \text{for all } g, h \in G
+algebra	first_isomorphism	G / \ker\varphi \cong \operatorname{im}\varphi
+algebra	lagrange_theorem	|G| = [G : H]\,|H|
+algebra	orbit_stabilizer	\lvert G \cdot x \rvert = \frac{\lvert G \rvert}{\lvert G_x \rvert}
+algebra	class_equation	|G| = |Z(G)| + \sum_{i=1}^{r} [G : C_G(g_i)]
+algebra	burnside_lemma	|X / G| = \frac{1}{|G|} \sum_{g \in G} |X^g|
+algebra	permutation_two_line	\sigma = \begin{pmatrix} 1 & 2 & 3 & 4 \\ 2 & 3 & 1 & 4 \end{pmatrix} = (1\;2\;3)
+algebra	permutation_sign	\operatorname{sgn}(\sigma) = \prod_{1 \le i < j \le n} \frac{\sigma(j) - \sigma(i)}{j - i}
+algebra	sylow_count	n_p \equiv 1 \pmod{p}, \qquad n_p \mid m, \qquad |G| = p^k m
+algebra	dihedral_presentation	D_n = \bigl\langle r, s \bigm| r^n = s^2 = 1,\ s r s^{-1} = r^{-1} \bigr\rangle
+algebra	quaternion_relations	\mathbf{i}^2 = \mathbf{j}^2 = \mathbf{k}^2 = \mathbf{i}\mathbf{j}\mathbf{k} = -1
+algebra	quotient_ring	\mathbb{R}[x] / (x^2 + 1) \cong \mathbb{C}
+algebra	tower_law	[L : K] = [L : F]\,[F : K]
+algebra	galois_group_biquadratic	\operatorname{Gal}\bigl(\mathbb{Q}(\sqrt{2}, \sqrt{3}) / \mathbb{Q}\bigr) \cong \mathbb{Z}/2\mathbb{Z} \times \mathbb{Z}/2\mathbb{Z}
+algebra	cyclotomic_polynomial	\Phi_n(x) = \prod_{\substack{1 \le k \le n \\ \gcd(k, n) = 1}} \left(x - e^{2\pi i k/n}\right)
+algebra	finite_field_polynomial	x^{p^n} - x = \prod_{\alpha \in \mathbb{F}_{p^n}} (x - \alpha)
+algebra	short_exact_sequence	0 \longrightarrow A \xrightarrow{\;f\;} B \xrightarrow{\;g\;} C \longrightarrow 0
+algebra	tensor_hom_adjunction	\operatorname{Hom}_R(M \otimes_R N, P) \cong \operatorname{Hom}_R\bigl(M, \operatorname{Hom}_R(N, P)\bigr)
+algebra	jacobi_identity	[x, [y, z]] + [y, [z, x]] + [z, [x, y]] = 0

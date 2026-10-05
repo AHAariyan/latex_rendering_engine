@@ -1,0 +1,66 @@
+# reactions with states, catalysts, conditions
+chemistry	contact_process	\ce{2SO2(g) + O2(g) <=>[V2O5] 2SO3(g)}
+chemistry	haber_conditions	\ce{N2(g) + 3H2(g) <=>[{Fe catalyst}][{high pressure}] 2NH3(g)}
+chemistry	ethene_hydration	\ce{CH2=CH2 + H2O ->[H+] CH3CH2OH}
+chemistry	ethene_hydrogenation	\ce{CH2=CH2 + H2 ->[Ni][{heat}] CH3-CH3}
+chemistry	acetylene_preparation	\ce{CaC2 + 2H2O -> HC#CH ^ + Ca(OH)2}
+chemistry	water_formation_half	\ce{H2(g) + 1/2 O2(g) -> H2O(l)}
+chemistry	ethane_combustion	\ce{C2H6 + 7/2 O2 -> 2CO2 + 3H2O}
+chemistry	barium_sulfate	\ce{Ba^2+(aq) + SO4^2-(aq) -> BaSO4 v}
+chemistry	iron_hydroxide	\ce{Fe^3+ + 3OH- -> Fe(OH)3 v}
+chemistry	zinc_acid	\ce{Zn(s) + 2HCl(aq) -> ZnCl2(aq) + H2 ^}
+chemistry	water_autoionization	\ce{2H2O(l) <=> H3O+(aq) + OH-(aq)}
+chemistry	acetic_acid_dissociation	\ce{CH3COOH + H2O <=> CH3COO- + H3O+}
+chemistry	ammonia_base	\ce{NH3(aq) + H2O(l) <=> NH4+(aq) + OH-(aq)}
+chemistry	reverse_arrow	\ce{H2CO3 <- CO2 + H2O}
+chemistry	weak_acid_unequal	\ce{HF + H2O <<=> H3O+ + F-}
+chemistry	enolate_resonance	\ce{H2C=CH-O- <-> H2C^{-}-CH=O}
+chemistry	dichromate_half_reaction	\ce{Cr2O7^2- + 14H+ + 6e- -> 2Cr^3+ + 7H2O}
+chemistry	iron_permanganate	\ce{5Fe^2+ + MnO4- + 8H+ -> 5Fe^3+ + Mn^2+ + 4H2O}
+chemistry	copper_silver_displacement	\ce{Cu(s) + 2Ag+(aq) -> Cu^2+(aq) + 2Ag(s)}
+chemistry	chlorine_disproportionation	\ce{Cl2 + 2OH- -> Cl- + ClO- + H2O}
+chemistry	thiosulfate_titration	\ce{I2 + 2S2O3^2- -> 2I- + S4O6^2-}
+# complexes
+chemistry	potassium_ferrocyanide	\ce{K4[Fe(CN)6]}
+chemistry	diammine_silver	\ce{AgCl(s) + 2NH3(aq) -> [Ag(NH3)2]+(aq) + Cl-(aq)}
+chemistry	cobalt_chloride_equilibrium	\ce{[Co(H2O)6]^2+ + 4Cl- <=> [CoCl4]^2- + 6H2O}
+chemistry	aluminate	\ce{Al(OH)3(s) + OH-(aq) -> [Al(OH)4]-(aq)}
+chemistry	magnetite_oxidation_states	\ce{Fe^{II}Fe^{III}2O4}
+# nuclear
+chemistry	alpha_decay	\ce{^{238}_{92}U -> ^{234}_{90}Th + ^{4}_{2}He}
+chemistry	beta_decay	\ce{^{14}_{6}C -> ^{14}_{7}N + ^{0}_{-1}e + $\bar{\nu}_e$}
+chemistry	fusion_dt	\ce{^{2}_{1}H + ^{3}_{1}H -> ^{4}_{2}He + ^{1}_{0}n}
+# hydrates and thermal decomposition
+chemistry	washing_soda_dehydration	\ce{Na2CO3*10H2O ->[\Delta] Na2CO3 + 10H2O ^}
+chemistry	plaster_of_paris	\ce{CaSO4*2H2O ->[\Delta] CaSO4*1/2H2O + 3/2 H2O}
+chemistry	potash_alum	\ce{KAl(SO4)2*12H2O}
+chemistry	chlorate_decomposition	\ce{KClO3 ->[MnO2][\Delta] KCl + 3/2 O2 ^}
+chemistry	peroxide_decomposition	\ce{2H2O2(aq) ->[MnO2] 2H2O(l) + O2 ^}
+chemistry	ammonium_chloride_dissociation	\ce{NH4Cl(s) <=>[\Delta] NH3(g) + HCl(g)}
+chemistry	limewater_test	\ce{Ca(OH)2(aq) + CO2(g) -> CaCO3 v + H2O(l)}
+chemistry	phosphate_solubility	\ce{Ca3(PO4)2(s) <=> 3Ca^2+(aq) + 2PO4^3-(aq)}
+chemistry	water_electrolysis	\ce{2H2O(l) ->[{electrolysis}] 2H2(g) + O2(g)}
+# organic
+chemistry	esterification	\ce{CH3COOH + C2H5OH <=>[H2SO4][\Delta] CH3COOC2H5 + H2O}
+chemistry	propene_bromination	\ce{CH3-CH=CH2 + Br2 -> CH3-CHBr-CH2Br}
+chemistry	ethanol_oxidation	\ce{CH3CH2OH ->[K2Cr2O7][H+] CH3CHO -> CH3COOH}
+chemistry	polymerization	\ce{n CH2=CH2 -> (-CH2-CH2-)_n}
+chemistry	nitrile_hydrolysis	\ce{CH3-C#N + 2H2O ->[H+] CH3COOH + NH3}
+chemistry	fermentation	\ce{C6H12O6 ->[{yeast}] 2C2H5OH + 2CO2 ^}
+chemistry	chlorine_photolysis	\ce{Cl2 ->[$h\nu$] 2Cl^{.}}
+# ordinary math of chemistry
+chemistry	nernst_equation	E = E^\circ - \frac{RT}{nF} \ln Q
+chemistry	nernst_daniell_cell	E_{\text{cell}} = E^\circ_{\text{cell}} - \frac{0.0592\ \mathrm{V}}{n} \log_{10} \frac{[\ce{Zn^2+}]}{[\ce{Cu^2+}]}
+chemistry	arrhenius	k = A\, e^{-E_a / RT}
+chemistry	arrhenius_two_temperatures	\ln\frac{k_2}{k_1} = -\frac{E_a}{R} \left( \frac{1}{T_2} - \frac{1}{T_1} \right)
+chemistry	gibbs_free_energy	\Delta G = \Delta H - T \Delta S, \qquad \Delta G^\circ = -RT \ln K
+chemistry	henderson_hasselbalch	\mathrm{pH} = \mathrm{p}K_a + \log_{10} \frac{[\ce{A-}]}{[\ce{HA}]}
+chemistry	water_ion_product	K_w = [\ce{H3O+}][\ce{OH-}] = 1.0 \times 10^{-14} \quad \text{at } 25\,^\circ\mathrm{C}
+chemistry	acid_dissociation_constant	K_a = \frac{[\ce{H3O+}][\ce{CH3COO-}]}{[\ce{CH3COOH}]}
+chemistry	solubility_product	K_{sp} = [\ce{Ca^2+}]^3 [\ce{PO4^3-}]^2 = (3s)^3 (2s)^2 = 108 s^5
+chemistry	kp_kc_relation	K_p = \frac{p_{\ce{NH3}}^2}{p_{\ce{N2}}\, p_{\ce{H2}}^3} = K_c (RT)^{\Delta n}
+chemistry	first_order_kinetics	[\mathrm{A}]_t = [\mathrm{A}]_0\, e^{-kt}, \qquad t_{1/2} = \frac{\ln 2}{k}
+chemistry	reaction_rate_definition	-\frac{1}{2} \frac{d[\ce{N2O5}]}{dt} = \frac{1}{4} \frac{d[\ce{NO2}]}{dt} = \frac{d[\ce{O2}]}{dt}
+chemistry	dalton_partial_pressure	P_{\text{total}} = \sum_i P_i, \qquad P_i = x_i P_{\text{total}} = \frac{n_i RT}{V}
+chemistry	hess_law	\Delta H^\circ_{\text{rxn}} = \sum_{\text{products}} \nu_p\, \Delta H^\circ_f - \sum_{\text{reactants}} \nu_r\, \Delta H^\circ_f
+chemistry	methane_enthalpy	\ce{CH4(g) + 2O2(g) -> CO2(g) + 2H2O(l)} \qquad \Delta H^\circ = -890\ \mathrm{kJ\,mol^{-1}}

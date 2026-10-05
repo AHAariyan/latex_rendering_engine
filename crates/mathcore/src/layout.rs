@@ -425,7 +425,18 @@ impl<'f, 'a> Layouter<'f, 'a> {
     fn char_box(&self, ch: char, variant: Variant, sty: Sty) -> BBox {
         match self.resolve_glyph(ch, variant) {
             Some((f, g)) => {
-                let g = self.font.font_at(f).script_variant(g, Self::ssty_level(sty));
+                // The math font's script-size shapes (ssty) are for math
+                // letters. \mathrm, \mathbf and the other text alphabets are
+                // the text font, which has none, in TeX as here.
+                let text = matches!(
+                    variant,
+                    Variant::Roman | Variant::Bold | Variant::Italic | Variant::SansSerif | Variant::Monospace
+                );
+                let g = if text {
+                    g
+                } else {
+                    self.font.font_at(f).script_variant(g, Self::ssty_level(sty))
+                };
                 self.glyph_box_in(f, g, sty)
             }
             None => {
@@ -515,6 +526,15 @@ impl<'f, 'a> Layouter<'f, 'a> {
         }
         let largest = variants.last().map(|v| v.0).unwrap_or(gid);
         self.glyph_box_in(fi, largest, sty)
+    }
+
+    /// A horizontal glyph drawn to exactly `target`: the font's assembly
+    /// when it has one, else the nearest pre-drawn size.
+    fn stretch_to(&self, (fi, gid): (usize, GlyphId), target: f32, sty: Sty) -> BBox {
+        match self.font.font_at(fi).assembly(gid, false) {
+            Some(parts) => self.assemble(fi, &parts, target, sty, false),
+            None => self.extensible((fi, gid), target, sty, false),
+        }
     }
 
     fn assemble(&self, fi: usize, parts: &[crate::font::AssemblyPart], target: f32, sty: Sty, vertical: bool) -> BBox {
@@ -871,7 +891,9 @@ impl<'f, 'a> Layouter<'f, 'a> {
                     Some(s) => sty.with(*s),
                     None => sty,
                 };
-                let f = self.fraction(num, den, *rule, sty);
+                // Rule 15e: a fraction is flanked by its delimiters, and only by
+                // \nulldelimiterspace where it has none.
+                let f = self.fraction(num, den, *rule, sty, delims.is_none());
                 match delims {
                     None => f,
                     Some((l, r)) => self.frac_delims(f, *l, *r, sty),
@@ -926,6 +948,10 @@ impl<'f, 'a> Layouter<'f, 'a> {
                         b.d = 0.0;
                     }
                 }
+                // \phantom and \smash make boxes: scripts on one follow the
+                // box rule (18a), not the single-character one.
+                b.glyph = None;
+                b.italic = 0.0;
                 b
             }
             Node::OverUnder { base, over, under } => {
@@ -939,7 +965,12 @@ impl<'f, 'a> Layouter<'f, 'a> {
             Node::Boxed(inner) => self.boxed(inner, sty),
             Node::Cancel { body, kind } => self.cancel(body, *kind, sty),
             Node::HBrace { base, over } => self.hbrace(base, *over, sty),
-            Node::XArrow { ch, over, under } => self.xarrow(*ch, over.as_deref(), under.as_deref(), sty),
+            Node::XArrow {
+                ch,
+                over,
+                under,
+                chemistry,
+            } => self.xarrow(*ch, over.as_deref(), under.as_deref(), *chemistry, sty),
             Node::Rule { width, height, raise } => {
                 let em = self.em(sty);
                 let mut b = BBox::rule(width * em, height * em, 0.0);
@@ -1227,8 +1258,18 @@ impl<'f, 'a> Layouter<'f, 'a> {
                 base_box.d + c.subscript_baseline_drop_min * s,
             )
         };
-        let sup_box = sup.map(|n| self.layout_node(n, sty.sup()));
-        let sub_box = sub.map(|n| self.layout_node(n, sty.sub()));
+        // A script that is one character is boxed with its italic correction
+        // (rule 17 applies inside the script as anywhere): the V of \int_V.
+        let boxed = |n: &Node, sty: Sty| {
+            let mut b = self.layout_node(n, sty);
+            if b.glyph.is_some() {
+                b.w += b.italic;
+                b.italic = 0.0;
+            }
+            b
+        };
+        let sup_box = sup.map(|n| boxed(n, sty.sup()));
+        let sub_box = sub.map(|n| boxed(n, sty.sub()));
         let mut children = Vec::new();
         let base_w = base_box.w;
         let atom = base_box.atom.unwrap_or(AtomType::Ord);
@@ -1241,7 +1282,14 @@ impl<'f, 'a> Layouter<'f, 'a> {
         } else {
             (base_w + base_box.italic, base_w)
         };
-        let mut width = base_w;
+        // Rule 13: an operator with a subscript beside it gives up its italic
+        // correction, so the atom ends where its scripts do and what follows
+        // tucks under the integral's hook.
+        let mut width = if matches!(base, Node::BigOp { .. }) && sub_box.is_some() {
+            sub_x
+        } else {
+            base_w
+        };
         match (sup_box, sub_box) {
             (None, Some(sb)) => {
                 // Rule 18b.
@@ -1335,7 +1383,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
     }
 
     /// Rule 15: generalized fractions.
-    fn fraction(&self, num: &Node, den: &Node, rule: FracRule, sty: Sty) -> BBox {
+    fn fraction(&self, num: &Node, den: &Node, rule: FracRule, sty: Sty, padded: bool) -> BBox {
         let c = self.font.constants();
         let s = self.scale(sty);
         let n = self.layout_node(num, sty.num());
@@ -1393,7 +1441,7 @@ impl<'f, 'a> Layouter<'f, 'a> {
         let inner = BBox::list(children);
         // TeX surrounds a fraction with \nulldelimiterspace (1.2 pt, an absolute
         // dimension, so it does not shrink in script styles) on each side.
-        let pad = 0.12 * self.base_size;
+        let pad = if padded { 0.12 * self.base_size } else { 0.0 };
         let iw = inner.w;
         let mut out = BBox::list(vec![inner.at(pad, 0.0)]);
         out.w = iw + 2.0 * pad;
@@ -1683,18 +1731,33 @@ impl<'f, 'a> Layouter<'f, 'a> {
     }
 
     /// `\xrightarrow{over}[under]`: arrow stretched to the wider label plus padding.
-    fn xarrow(&self, ch: char, over: Option<&Node>, under: Option<&Node>, sty: Sty) -> BBox {
+    fn xarrow(&self, ch: char, over: Option<&Node>, under: Option<&Node>, chemistry: bool, sty: Sty) -> BBox {
         let c = self.font.constants();
         let s = self.scale(sty);
-        let up = over.map(|n| self.layout_node(n, sty.sup()));
-        let dn = under.map(|n| self.layout_node(n, sty.sub()));
+        // mhchem omits a script it has no label for; amsmath sets an empty one.
+        let up = over.map(|n| self.layout_node(n, sty.sup())).filter(|b| !chemistry || b.w > 0.0);
+        let dn = under.map(|n| self.layout_node(n, sty.sub())).filter(|b| !chemistry || b.w > 0.0);
         let label_w = up.as_ref().map_or(0.0, |b| b.w).max(dn.as_ref().map_or(0.0, |b| b.w));
         let Some(g) = self.resolve_glyph(ch, Variant::Normal) else {
             return BBox::empty();
         };
-        // amsmath pads the label by 9 mu in all (measured against LaTeX: the
-        // arrow under `d` is the label plus half an em).
-        let arrow = self.extensible(g, label_w + 0.5 * self.em(sty), sty, false);
+        let em = self.em(sty);
+        let arrow = if chemistry {
+            // mhchem.sty: the arrow fills a box as wide as its labels, each
+            // padded by 5 + 9 mu of its script size, and at least 2 em; the
+            // drawn arrow is 1.8 pt shorter, between two 0.7 pt kerns.
+            let pad = if label_w > 0.0 { 14.0 / 18.0 * self.em(sty.sup()) } else { 0.0 };
+            let width = (label_w + pad).max(2.0 * em);
+            let drawn = self.stretch_to(g, width - 0.18 * self.base_size, sty);
+            let dw = drawn.w;
+            let mut b = BBox::list(vec![drawn.at((width - 0.04 * self.base_size - dw) / 2.0, 0.0)]);
+            b.w = width - 0.04 * self.base_size;
+            b
+        } else {
+            // amsmath pads the label by 9 mu in all (measured against LaTeX: the
+            // arrow under `d` is the label plus half an em).
+            self.extensible(g, label_w + 0.5 * em, sty, false)
+        };
         let arrow = self.center_on_axis(arrow, sty);
         let mut out = self.stack_limits(arrow, up, dn, s, c);
         out.atom = Some(AtomType::Rel);
